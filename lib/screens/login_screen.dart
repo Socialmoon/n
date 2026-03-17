@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/member.dart';
 import '../services/auth_service.dart';
@@ -101,6 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _mobileController,
                           keyboardType: TextInputType.phone,
                           maxLength: 10,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: const InputDecoration(labelText: 'Mobile number'),
                         ),
                         if (_mode == LoginMode.otp) ...<Widget>[
@@ -108,6 +112,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _otpController,
                             keyboardType: TextInputType.number,
                             maxLength: 6,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             decoration: const InputDecoration(labelText: 'OTP'),
                           ),
                           const SizedBox(height: 8),
@@ -122,6 +129,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             obscureText: true,
                             keyboardType: TextInputType.number,
                             maxLength: 6,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             decoration: const InputDecoration(labelText: '6 digit M-PIN'),
                           ),
                         const SizedBox(height: 20),

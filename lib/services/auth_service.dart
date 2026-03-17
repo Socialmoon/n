@@ -50,9 +50,13 @@ class AuthService {
   }
 
   String issueOtp(String mobileNumber) {
-    final lastFour = mobileNumber.substring(mobileNumber.length - 4);
+    final normalized = _normalizeMobile(mobileNumber);
+    if (normalized.length != 10) {
+      return '';
+    }
+    final lastFour = normalized.substring(normalized.length - 4);
     final otp = '1${lastFour}9';
-    _pendingOtps[mobileNumber] = otp;
+    _pendingOtps[normalized] = otp;
     return otp;
   }
 
@@ -60,11 +64,12 @@ class AuthService {
     required String mobileNumber,
     required String otp,
   }) async {
-    final member = await _resolveMember(mobileNumber);
+    final normalized = _normalizeMobile(mobileNumber);
+    final member = await _resolveMember(normalized);
     if (member == null) {
       return const AuthResult(error: 'Member not found.');
     }
-    if (_pendingOtps[mobileNumber] != otp) {
+    if (_pendingOtps[normalized] != otp) {
       return const AuthResult(error: 'Invalid OTP.');
     }
     return _completeLogin(member);
@@ -74,7 +79,8 @@ class AuthService {
     required String mobileNumber,
     required String mpin,
   }) async {
-    final member = await _resolveMember(mobileNumber);
+    final normalized = _normalizeMobile(mobileNumber);
+    final member = await _resolveMember(normalized);
     if (member == null) {
       return const AuthResult(error: 'Member not found.');
     }

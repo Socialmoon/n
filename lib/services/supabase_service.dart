@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
@@ -70,21 +73,45 @@ class SupabaseService {
     if (!_initialized) {
       await initialize();
     }
-    if (!_initialized) {
-      return null;
+    if (_initialized) {
+      try {
+        final rows = await Supabase.instance.client
+            .from('members')
+            .select()
+            .eq('mobile_number', mobileNumber)
+            .limit(1) as List<dynamic>;
+        if (rows.isNotEmpty) {
+          return _memberFromRow(rows.first as Map<String, dynamic>);
+        }
+      } catch (error) {
+        debugPrint('Supabase SDK fetchMemberByMobile failed: $error');
+      }
     }
+
+    // SDK fallback: direct REST query with anon key so login can still resolve
+    // seeded members even when client initialization/auth has transient issues.
     try {
-      final rows = await Supabase.instance.client
-          .from('members')
-          .select()
-          .eq('mobile_number', mobileNumber)
-          .limit(1) as List<dynamic>;
+      final uri = Uri.parse(
+        '${SupabaseConfig.url}/rest/v1/members?select=*&mobile_number=eq.$mobileNumber&limit=1',
+      );
+      final response = await http.get(
+        uri,
+        headers: <String, String>{
+          'apikey': SupabaseConfig.anonKey,
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+        },
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint('Supabase REST fallback failed: HTTP ${response.statusCode}');
+        return null;
+      }
+      final rows = (response.body.isEmpty ? <dynamic>[] : (jsonDecode(response.body) as List<dynamic>));
       if (rows.isEmpty) {
         return null;
       }
       return _memberFromRow(rows.first as Map<String, dynamic>);
     } catch (error) {
-      debugPrint('Supabase fetchMemberByMobile failed: $error');
+      debugPrint('Supabase REST fallback fetchMemberByMobile failed: $error');
       return null;
     }
   }
