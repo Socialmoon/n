@@ -69,6 +69,20 @@ class MemberRepository {
     await _persist();
   }
 
+  Future<void> refreshFromCloud() async {
+    if (!_cloudService.isConfigured) {
+      return;
+    }
+    final cloudMembers = await _cloudService.fetchMembers();
+    if (cloudMembers.isEmpty) {
+      return;
+    }
+    _members
+      ..clear()
+      ..addAll(cloudMembers);
+    await _persist();
+  }
+
   Member? findByMobile(String mobileNumber) {
     for (final member in _members) {
       if (member.mobileNumber == mobileNumber) {

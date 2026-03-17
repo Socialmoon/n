@@ -60,7 +60,7 @@ class AuthService {
     required String mobileNumber,
     required String otp,
   }) async {
-    final member = _repository.findByMobile(mobileNumber);
+    final member = await _resolveMember(mobileNumber);
     if (member == null) {
       return const AuthResult(error: 'Member not found.');
     }
@@ -74,7 +74,7 @@ class AuthService {
     required String mobileNumber,
     required String mpin,
   }) async {
-    final member = _repository.findByMobile(mobileNumber);
+    final member = await _resolveMember(mobileNumber);
     if (member == null) {
       return const AuthResult(error: 'Member not found.');
     }
@@ -90,7 +90,7 @@ class AuthService {
     if (lastMobile == null) {
       return const AuthResult(error: 'No previous member available for biometric login.');
     }
-    final member = _repository.findByMobile(lastMobile);
+    final member = await _resolveMember(lastMobile);
     if (member == null) {
       return const AuthResult(error: 'Stored member session is no longer valid.');
     }
@@ -120,5 +120,17 @@ class AuthService {
     await _preferences?.setString(_activeUserKey, member.id);
     await _preferences?.setString(_lastMobileKey, member.mobileNumber);
     return AuthResult(member: member);
+  }
+
+  Future<Member?> _resolveMember(String mobileNumber) async {
+    final normalized = mobileNumber.trim();
+    final local = _repository.findByMobile(normalized);
+    if (local != null) {
+      return local;
+    }
+
+    // Pull latest directory rows before failing login when a member was seeded remotely.
+    await _repository.refreshFromCloud();
+    return _repository.findByMobile(normalized);
   }
 }
