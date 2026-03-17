@@ -1,17 +1,59 @@
-# police_network_app
+# Police Network App
 
-A new Flutter project.
+This Flutter app now supports cloud sync through Supabase with local fallback.
 
-## Getting Started
+## Supabase Setup
 
-This project is a starting point for a Flutter application.
+1. Create a Supabase project.
+2. In Supabase dashboard, copy:
+   - Project URL
+   - anon public key
+3. Run SQL files in order:
+   - [supabase/01_schema.sql](supabase/01_schema.sql)
+   - [supabase/02_rls_policies.sql](supabase/02_rls_policies.sql)
+4. Start Flutter with runtime keys (do not hardcode in source files):
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+For release APK:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+If no dart-define values are provided, the app automatically falls back to local-only mode.
+
+## Admin Access Setup
+
+The app uses Supabase anonymous auth to get an authenticated user id (`auth.uid()`) for RLS.
+
+To grant admin permissions:
+
+1. Get target user's `id` from Supabase table `auth.users`.
+2. Insert into `public.app_admins`:
+
+```sql
+insert into public.app_admins (user_id)
+values ('USER_UUID_HERE')
+on conflict (user_id) do nothing;
+```
+
+Admins can read all rows. Non-admin users can only access rows where `owner_id = auth.uid()`.
+
+## Required Supabase Tables
+
+Tables and RLS policies are provided in:
+
+- [supabase/01_schema.sql](supabase/01_schema.sql)
+- [supabase/02_rls_policies.sql](supabase/02_rls_policies.sql)
+
+## Notes
+
+- Member records and emergency alerts are synced to Supabase.
+- URL and anon key are expected to be visible in client builds. Security is enforced by RLS policies, not by hiding anon keys.

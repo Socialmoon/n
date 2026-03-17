@@ -7,6 +7,7 @@ import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/emergency_service.dart';
 import 'services/member_repository.dart';
+import 'services/supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,9 +22,12 @@ class PoliceNetworkApp extends StatefulWidget {
 }
 
 class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
-  final MemberRepository _repository = MemberRepository();
+  final SupabaseService _supabaseService = SupabaseService();
+  late final MemberRepository _repository =
+      MemberRepository(cloudService: _supabaseService);
   late final AuthService _authService = AuthService(_repository);
-  final EmergencyService _emergencyService = EmergencyService();
+  late final EmergencyService _emergencyService =
+      EmergencyService(cloudService: _supabaseService);
 
   bool _loading = true;
   Member? _currentUser;
@@ -35,6 +39,7 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
   }
 
   Future<void> _bootstrap() async {
+    await _supabaseService.initialize();
     await _repository.load();
     await _repository.seedAdminIfNeeded();
     await _authService.initialize();

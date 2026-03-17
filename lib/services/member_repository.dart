@@ -1,10 +1,15 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/member.dart';
+import 'supabase_service.dart';
 
 class MemberRepository {
+  MemberRepository({required SupabaseService cloudService})
+      : _cloudService = cloudService;
+
   static const _membersKey = 'members';
 
+  final SupabaseService _cloudService;
   SharedPreferences? _preferences;
   final List<Member> _members = [];
 
@@ -16,6 +21,23 @@ class MemberRepository {
     _members
       ..clear()
       ..addAll(items.map(Member.fromJson));
+
+    if (!_cloudService.isConfigured) {
+      return;
+    }
+
+    final cloudMembers = await _cloudService.fetchMembers();
+    if (cloudMembers.isNotEmpty) {
+      _members
+        ..clear()
+        ..addAll(cloudMembers);
+      await _persist();
+      return;
+    }
+
+    for (final member in _members) {
+      await _cloudService.upsertMember(member);
+    }
   }
 
   Future<void> saveMember(Member member) async {
@@ -26,6 +48,7 @@ class MemberRepository {
       _members[index] = member;
     }
     await _persist();
+    await _cloudService.upsertMember(member);
   }
 
   Future<void> seedAdminIfNeeded() async {
@@ -35,11 +58,11 @@ class MemberRepository {
     final admin = Member(
       id: 'seed-admin',
       name: 'Control Room Admin',
-      mobileNumber: '9000000000',
+      mobileNumber: '9193410557',
       userId: 'admin',
       passwordHash:
           '240be518fabd2724ddb6f04eeb2e1e7d3973e87d2a7f9f46f1d0993f76de7ef8',
-      mpin: '123456',
+      mpin: '180000',
       referenceMobileNumber: '',
       referenceMemberName: null,
       homeDistrict: 'Headquarters',
@@ -53,6 +76,7 @@ class MemberRepository {
     );
     _members.add(admin);
     await _persist();
+    await _cloudService.upsertMember(admin);
   }
 
   Member? findByMobile(String mobileNumber) {

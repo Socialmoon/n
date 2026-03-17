@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/member.dart';
@@ -62,20 +63,36 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: <Widget>[
+            const Text(
+              'Personal Details',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
             _buildTextField(_nameController, 'Full name'),
             _buildTextField(
               _mobileController,
               'Mobile number',
               keyboardType: TextInputType.phone,
               maxLength: 10,
+              digitsOnly: true,
             ),
             TextFormField(
               controller: _referenceController,
               keyboardType: TextInputType.phone,
               maxLength: 10,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+              ],
               decoration: const InputDecoration(
                 labelText: 'Reference member mobile number',
               ),
+              validator: (value) {
+                final reference = (value ?? '').trim();
+                if (reference.isNotEmpty && reference.length != 10) {
+                  return 'Reference number must be 10 digits';
+                }
+                return null;
+              },
               onChanged: (value) {
                 setState(() {
                   _referenceMember = widget.repository.findByMobile(value.trim());
@@ -93,6 +110,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                 ),
               ),
+            const SizedBox(height: 12),
+            const Text(
+              'Login Credentials',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
             _buildTextField(_userIdController, 'User ID'),
             _buildTextField(
               _passwordController,
@@ -104,8 +127,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               '6 digit M-PIN',
               keyboardType: TextInputType.number,
               maxLength: 6,
+              digitsOnly: true,
               obscureText: true,
             ),
+            const SizedBox(height: 12),
+            const Text(
+              'Posting Details',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
             _buildTextField(_homeDistrictController, 'Home district'),
             _buildTextField(_postingDistrictController, 'Posting district'),
             _buildTextField(_postingLocationController, 'Posting location'),
@@ -145,7 +175,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'The first install already contains a seeded admin member with mobile 9000000000 and M-PIN 123456 for bootstrap access.',
+              'The first install contains a default admin with mobile 9193410557 and M-PIN 180000.',
             ),
           ],
         ),
@@ -159,15 +189,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
+    bool digitsOnly = false,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
       maxLength: maxLength,
+      inputFormatters: digitsOnly
+          ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+          : null,
       validator: (value) {
-        if ((value ?? '').trim().isEmpty) {
+        final text = (value ?? '').trim();
+        if (text.isEmpty) {
           return 'Required';
+        }
+        if (label == 'Mobile number' && text.length != 10) {
+          return 'Mobile number must be 10 digits';
+        }
+        if (label == '6 digit M-PIN' && text.length != 6) {
+          return 'M-PIN must be 6 digits';
         }
         return null;
       },
@@ -218,6 +259,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (_referenceController.text.trim().isNotEmpty && _referenceMember == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reference member could not be verified.')),
+      );
+      return;
+    }
+    if (_mobileController.text.trim() == _referenceController.text.trim() &&
+        _referenceController.text.trim().isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reference mobile must be different from member mobile.')),
       );
       return;
     }

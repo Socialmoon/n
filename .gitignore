@@ -32,6 +32,8 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+.env
+.env.*
 
 # Symbolication related
 app.*.symbols
@@ -43,6 +45,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Local SDK and signing configuration
 /android/local.properties
