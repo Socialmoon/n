@@ -7,7 +7,7 @@ import '../models/member.dart';
 
 class SupabaseService {
   bool _initialized = false;
-  static const Duration _initTimeout = Duration(seconds: 8);
+  static const Duration _initTimeout = Duration(seconds: 20);
 
   bool get isConfigured => SupabaseConfig.isConfigured;
 
@@ -23,8 +23,13 @@ class SupabaseService {
 
       final client = Supabase.instance.client;
       if (client.auth.currentSession == null) {
-        // Use anonymous auth so RLS policies can rely on auth.uid().
-        await client.auth.signInAnonymously().timeout(_initTimeout);
+        // Best-effort anonymous auth.
+        // If it fails, keep Supabase initialized and continue with anon role access.
+        try {
+          await client.auth.signInAnonymously().timeout(_initTimeout);
+        } catch (error) {
+          debugPrint('Supabase anonymous sign-in failed, continuing as anon role: $error');
+        }
       }
 
       _initialized = true;
