@@ -28,7 +28,7 @@ flutter build apk --release \
   --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 
-If no dart-define values are provided, the app automatically falls back to local-only mode.
+If no dart-define values are provided, the app now uses the built-in default Supabase project configured in `lib/core/supabase_config.dart`.
 
 ## Admin Access Setup
 
