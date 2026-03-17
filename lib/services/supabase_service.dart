@@ -7,6 +7,7 @@ import '../models/member.dart';
 
 class SupabaseService {
   bool _initialized = false;
+  static const Duration _initTimeout = Duration(seconds: 8);
 
   bool get isConfigured => SupabaseConfig.isConfigured;
 
@@ -18,12 +19,12 @@ class SupabaseService {
       await Supabase.initialize(
         url: SupabaseConfig.url,
         anonKey: SupabaseConfig.anonKey,
-      );
+      ).timeout(_initTimeout);
 
       final client = Supabase.instance.client;
       if (client.auth.currentSession == null) {
         // Use anonymous auth so RLS policies can rely on auth.uid().
-        await client.auth.signInAnonymously();
+        await client.auth.signInAnonymously().timeout(_initTimeout);
       }
 
       _initialized = true;

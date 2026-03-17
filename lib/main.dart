@@ -22,6 +22,8 @@ class PoliceNetworkApp extends StatefulWidget {
 }
 
 class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
+  static const Duration _startupTimeout = Duration(seconds: 8);
+
   final SupabaseService _supabaseService = SupabaseService();
   late final MemberRepository _repository =
       MemberRepository(cloudService: _supabaseService);
@@ -41,19 +43,23 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
   Future<void> _bootstrap() async {
     Member? sessionUser;
     try {
-      await _supabaseService.initialize();
-      await _repository.load();
-      await _repository.seedAdminIfNeeded();
-      await _authService.initialize();
-      await _emergencyService.load();
-      sessionUser = await _authService.loadSession();
+      await _supabaseService.initialize().timeout(_startupTimeout);
+      await _repository.load().timeout(_startupTimeout);
+      await _repository.seedAdminIfNeeded().timeout(_startupTimeout);
+      await _authService.initialize().timeout(_startupTimeout);
+      await _emergencyService.load().timeout(_startupTimeout);
+      sessionUser = await _authService
+          .loadSession()
+          .timeout(_startupTimeout, onTimeout: () => null);
     } catch (error) {
       debugPrint('Bootstrap failed, continuing with safe defaults: $error');
       try {
-        await _repository.load();
-        await _repository.seedAdminIfNeeded();
-        await _authService.initialize();
-        sessionUser = await _authService.loadSession();
+        await _repository.load().timeout(_startupTimeout);
+        await _repository.seedAdminIfNeeded().timeout(_startupTimeout);
+        await _authService.initialize().timeout(_startupTimeout);
+        sessionUser = await _authService
+            .loadSession()
+            .timeout(_startupTimeout, onTimeout: () => null);
       } catch (fallbackError) {
         debugPrint('Fallback bootstrap also failed: $fallbackError');
       }
