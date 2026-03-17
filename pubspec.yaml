@@ -1,0 +1,27 @@
+name: police_network_app
+description: Secure member directory MVP for Android-first internal distribution.
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.6
+  cupertino_icons: ^1.0.8
+  image_picker: ^1.1.2
+  local_auth: ^2.3.0
+  shared_preferences: ^2.5.3
+  url_launcher: ^6.3.2
+  vibration: ^3.1.3
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

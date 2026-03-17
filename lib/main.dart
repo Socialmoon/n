@@ -1,0 +1,97 @@
+import 'package:flutter/material.dart';
+
+import 'models/member.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
+import 'services/auth_service.dart';
+import 'services/emergency_service.dart';
+import 'services/member_repository.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const PoliceNetworkApp());
+}
+
+class PoliceNetworkApp extends StatefulWidget {
+  const PoliceNetworkApp({super.key});
+
+  @override
+  State<PoliceNetworkApp> createState() => _PoliceNetworkAppState();
+}
+
+class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
+  final MemberRepository _repository = MemberRepository();
+  late final AuthService _authService = AuthService(_repository);
+  final EmergencyService _emergencyService = EmergencyService();
+
+  bool _loading = true;
+  Member? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await _repository.load();
+    await _repository.seedAdminIfNeeded();
+    await _authService.initialize();
+    await _emergencyService.load();
+    final sessionUser = await _authService.loadSession();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _currentUser = sessionUser;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Police Network',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF123C56),
+          primary: const Color(0xFF123C56),
+          secondary: const Color(0xFFE4B363),
+        ),
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF3F5F7),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
+      ),
+      home: _loading
+          ? const SplashScreen()
+          : _currentUser == null
+              ? LoginScreen(
+                  authService: _authService,
+                  repository: _repository,
+                  onLoggedIn: (member) {
+                    setState(() {
+                      _currentUser = member;
+                    });
+                  },
+                )
+              : DashboardScreen(
+                  currentUser: _currentUser!,
+                  repository: _repository,
+                  emergencyService: _emergencyService,
+                  onLogout: () async {
+                    await _authService.logout();
+                    if (!mounted) {
+                      return;
+                    }
+                    setState(() {
+                      _currentUser = null;
+                    });
+                  },
+                ),
+    );
+  }
+}
