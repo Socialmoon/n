@@ -18,6 +18,7 @@ class Member {
     required this.lastUpdated,
     required this.passwordUpdatedAt,
     this.selfiePath,
+    this.idCardPhotoPath,
     this.isAdmin = false,
   });
 
@@ -30,6 +31,7 @@ class Member {
   final String referenceMobileNumber;
   final String? referenceMemberName;
   final String? selfiePath;
+  final String? idCardPhotoPath;
   final String homeDistrict;
   final String postingDistrict;
   final String postingLocation;
@@ -56,6 +58,7 @@ class Member {
       'referenceMobileNumber': referenceMobileNumber,
       'referenceMemberName': referenceMemberName,
       'selfiePath': selfiePath,
+      'idCardPhotoPath': idCardPhotoPath,
       'homeDistrict': homeDistrict,
       'postingDistrict': postingDistrict,
       'postingLocation': postingLocation,
@@ -78,6 +81,7 @@ class Member {
       referenceMobileNumber: map['referenceMobileNumber'] as String? ?? '',
       referenceMemberName: map['referenceMemberName'] as String?,
       selfiePath: map['selfiePath'] as String?,
+      idCardPhotoPath: map['idCardPhotoPath'] as String?,
       homeDistrict: map['homeDistrict'] as String,
       postingDistrict: map['postingDistrict'] as String,
       postingLocation: map['postingLocation'] as String,

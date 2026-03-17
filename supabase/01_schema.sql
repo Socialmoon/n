@@ -13,6 +13,7 @@ create table if not exists public.members (
   reference_mobile_number text,
   reference_member_name text,
   selfie_path text,
+  id_card_photo_path text,
   home_district text not null,
   posting_district text not null,
   posting_location text not null,

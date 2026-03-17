@@ -52,31 +52,21 @@ class MemberRepository {
   }
 
   Future<void> seedAdminIfNeeded() async {
-    if (_members.isNotEmpty) {
+    if (_members.isNotEmpty || !_cloudService.isConfigured) {
       return;
     }
-    final admin = Member(
-      id: 'seed-admin',
-      name: 'Control Room Admin',
-      mobileNumber: '9193410557',
-      userId: 'admin',
-      passwordHash:
-          '240be518fabd2724ddb6f04eeb2e1e7d3973e87d2a7f9f46f1d0993f76de7ef8',
-      mpin: '180000',
-      referenceMobileNumber: '',
-      referenceMemberName: null,
-      homeDistrict: 'Headquarters',
-      postingDistrict: 'Headquarters',
-      postingLocation: 'Central Desk',
-      appointmentDate: DateTime(2020, 1, 1),
-      role: 'Administrator',
-      lastUpdated: DateTime.now(),
-      passwordUpdatedAt: DateTime.now(),
-      isAdmin: true,
-    );
-    _members.add(admin);
+
+    // No hardcoded admin credentials in app builds.
+    // Admin/member bootstrap should be done directly in Supabase.
+    final cloudMembers = await _cloudService.fetchMembers();
+    if (cloudMembers.isEmpty) {
+      return;
+    }
+
+    _members
+      ..clear()
+      ..addAll(cloudMembers);
     await _persist();
-    await _cloudService.upsertMember(admin);
   }
 
   Member? findByMobile(String mobileNumber) {

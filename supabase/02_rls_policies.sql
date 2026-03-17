@@ -10,7 +10,7 @@ create policy members_select_policy
 on public.members
 for select
 to authenticated
-using (public.is_app_admin() or owner_id = auth.uid());
+using (true);
 
 drop policy if exists members_insert_policy on public.members;
 create policy members_insert_policy
