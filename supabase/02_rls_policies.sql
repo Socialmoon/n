@@ -9,7 +9,7 @@ drop policy if exists members_select_policy on public.members;
 create policy members_select_policy
 on public.members
 for select
-to authenticated
+to anon, authenticated
 using (true);
 
 drop policy if exists members_insert_policy on public.members;

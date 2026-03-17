@@ -35,7 +35,13 @@ class SupabaseService {
   }
 
   Future<List<Member>> fetchMembers() async {
-    if (!isConfigured || !_initialized) {
+    if (!isConfigured) {
+      return <Member>[];
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
       return <Member>[];
     }
     try {
@@ -53,7 +59,13 @@ class SupabaseService {
   }
 
   Future<void> upsertMember(Member member) async {
-    if (!isConfigured || !_initialized) {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
       return;
     }
     try {
@@ -66,7 +78,13 @@ class SupabaseService {
   }
 
   Future<List<EmergencyAlert>> fetchAlerts() async {
-    if (!isConfigured || !_initialized) {
+    if (!isConfigured) {
+      return <EmergencyAlert>[];
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
       return <EmergencyAlert>[];
     }
     try {
@@ -84,7 +102,13 @@ class SupabaseService {
   }
 
   Future<void> insertAlert(EmergencyAlert alert) async {
-    if (!isConfigured || !_initialized) {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
       return;
     }
     try {
