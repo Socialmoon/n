@@ -34,10 +34,6 @@ class MemberRepository {
       await _persist();
       return;
     }
-
-    for (final member in _members) {
-      await _cloudService.upsertMember(member);
-    }
   }
 
   Future<void> saveMember(Member member) async {
@@ -83,13 +79,44 @@ class MemberRepository {
     await _persist();
   }
 
+  Future<Member?> fetchByMobileFromCloud(String mobileNumber) async {
+    final normalized = _normalizeMobile(mobileNumber);
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final member = await _cloudService.fetchMemberByMobile(normalized);
+    if (member == null) {
+      return null;
+    }
+    final index = _members.indexWhere((item) => item.id == member.id);
+    if (index == -1) {
+      _members.add(member);
+    } else {
+      _members[index] = member;
+    }
+    await _persist();
+    return member;
+  }
+
   Member? findByMobile(String mobileNumber) {
+    final normalized = _normalizeMobile(mobileNumber);
+    if (normalized.isEmpty) {
+      return null;
+    }
     for (final member in _members) {
-      if (member.mobileNumber == mobileNumber) {
+      if (_normalizeMobile(member.mobileNumber) == normalized) {
         return member;
       }
     }
     return null;
+  }
+
+  String _normalizeMobile(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 10) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
   }
 
   Member? findById(String id) {

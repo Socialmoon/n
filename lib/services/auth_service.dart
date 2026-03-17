@@ -123,7 +123,10 @@ class AuthService {
   }
 
   Future<Member?> _resolveMember(String mobileNumber) async {
-    final normalized = mobileNumber.trim();
+    final normalized = _normalizeMobile(mobileNumber);
+    if (normalized.isEmpty) {
+      return null;
+    }
     final local = _repository.findByMobile(normalized);
     if (local != null) {
       return local;
@@ -131,6 +134,18 @@ class AuthService {
 
     // Pull latest directory rows before failing login when a member was seeded remotely.
     await _repository.refreshFromCloud();
-    return _repository.findByMobile(normalized);
+    final refreshed = _repository.findByMobile(normalized);
+    if (refreshed != null) {
+      return refreshed;
+    }
+    return _repository.fetchByMobileFromCloud(normalized);
+  }
+
+  String _normalizeMobile(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 10) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
   }
 }

@@ -58,6 +58,32 @@ class SupabaseService {
     }
   }
 
+  Future<Member?> fetchMemberByMobile(String mobileNumber) async {
+    if (!isConfigured) {
+      return null;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return null;
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('members')
+          .select()
+          .eq('mobile_number', mobileNumber)
+          .limit(1) as List<dynamic>;
+      if (rows.isEmpty) {
+        return null;
+      }
+      return _memberFromRow(rows.first as Map<String, dynamic>);
+    } catch (error) {
+      debugPrint('Supabase fetchMemberByMobile failed: $error');
+      return null;
+    }
+  }
+
   Future<void> upsertMember(Member member) async {
     if (!isConfigured) {
       return;
