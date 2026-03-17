@@ -14,18 +14,23 @@ class SupabaseService {
     if (!isConfigured || _initialized) {
       return;
     }
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      anonKey: SupabaseConfig.anonKey,
-    );
+    try {
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        anonKey: SupabaseConfig.anonKey,
+      );
 
-    final client = Supabase.instance.client;
-    if (client.auth.currentSession == null) {
-      // Use anonymous auth so RLS policies can rely on auth.uid().
-      await client.auth.signInAnonymously();
+      final client = Supabase.instance.client;
+      if (client.auth.currentSession == null) {
+        // Use anonymous auth so RLS policies can rely on auth.uid().
+        await client.auth.signInAnonymously();
+      }
+
+      _initialized = true;
+    } catch (error) {
+      debugPrint('Supabase initialize failed, using local mode: $error');
+      _initialized = false;
     }
-
-    _initialized = true;
   }
 
   Future<List<Member>> fetchMembers() async {

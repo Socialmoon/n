@@ -39,12 +39,25 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
   }
 
   Future<void> _bootstrap() async {
-    await _supabaseService.initialize();
-    await _repository.load();
-    await _repository.seedAdminIfNeeded();
-    await _authService.initialize();
-    await _emergencyService.load();
-    final sessionUser = await _authService.loadSession();
+    Member? sessionUser;
+    try {
+      await _supabaseService.initialize();
+      await _repository.load();
+      await _repository.seedAdminIfNeeded();
+      await _authService.initialize();
+      await _emergencyService.load();
+      sessionUser = await _authService.loadSession();
+    } catch (error) {
+      debugPrint('Bootstrap failed, continuing with safe defaults: $error');
+      try {
+        await _repository.load();
+        await _repository.seedAdminIfNeeded();
+        await _authService.initialize();
+        sessionUser = await _authService.loadSession();
+      } catch (fallbackError) {
+        debugPrint('Fallback bootstrap also failed: $fallbackError');
+      }
+    }
     if (!mounted) {
       return;
     }
