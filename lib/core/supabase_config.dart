@@ -1,5 +1,5 @@
 class SupabaseConfig {
-  static const String _defaultUrl =
+   static const String _defaultUrl =
     'https://mpfzclgtdworikwqwzea.supabase.co';
   static const String _defaultAnonKey =
     'sb_publishable_nmR5V3k5WXT5hgI6fiCztg_8OS4i4ce';

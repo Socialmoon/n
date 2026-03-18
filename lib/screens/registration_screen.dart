@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -346,7 +346,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             icon: Icons.camera_alt_outlined,
             onTap: _pickSelfie,
           ),
-          if (_selfie != null) _buildImagePreview(File(_selfie!.path)),
+          if (_selfie != null) _buildImagePreview(_selfie!),
           const SizedBox(height: 12),
           _buildUploadTile(
             title: 'ID card photo',
@@ -354,7 +354,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             icon: Icons.badge_outlined,
             onTap: _pickIdCardPhoto,
           ),
-          if (_idCardPhoto != null) _buildImagePreview(File(_idCardPhoto!.path)),
+          if (_idCardPhoto != null) _buildImagePreview(_idCardPhoto!),
         ],
       ),
     );
@@ -473,12 +473,37 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildImagePreview(File file) {
+  Widget _buildImagePreview(XFile file) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: Image.file(file, height: 180, width: double.infinity, fit: BoxFit.cover),
+        child: FutureBuilder<Uint8List>(
+          future: file.readAsBytes(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return Image.memory(
+                snapshot.data!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              );
+            }
+            if (snapshot.hasError) {
+              return Container(
+                height: 180,
+                width: double.infinity,
+                color: const Color(0xFFF3F5F7),
+                alignment: Alignment.center,
+                child: const Text('Preview unavailable'),
+              );
+            }
+            return const SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          },
+        ),
       ),
     );
   }

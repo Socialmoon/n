@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
+import '../services/donation_service.dart';
 import '../services/emergency_service.dart';
+import '../services/help_feed_service.dart';
 import '../services/member_repository.dart';
+import 'donation_screen.dart';
+import 'help_feed_screen.dart';
 import '../widgets/member_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.currentUser,
     required this.repository,
+    required this.donationService,
     required this.emergencyService,
+    required this.helpFeedService,
     required this.onLogout,
     super.key,
   });
 
   final Member currentUser;
   final MemberRepository repository;
+  final DonationService donationService;
   final EmergencyService emergencyService;
+  final HelpFeedService helpFeedService;
   final VoidCallback onLogout;
 
   @override
@@ -115,6 +124,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: _openDonations,
+            icon: const Icon(Icons.volunteer_activism_outlined),
+            label: const Text('Open Donations Page'),
+          ),
+          const SizedBox(height: 16),
           const Text(
             'Visible member data excludes home district. Admin accounts can see it in the cards below.',
           ),
@@ -146,6 +161,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text('No emergency alerts have been triggered yet.'),
               ),
             ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _openHelpFeed,
+            icon: const Icon(Icons.forum_outlined),
+            label: const Text('Open Help Feed'),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Open the dedicated Help Feed page to post requests, comment, and coordinate support.',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -155,6 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
 
   Widget _buildAlertCard(EmergencyAlert alert) {
     return Card(
@@ -212,5 +238,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Emergency alert triggered.')),
     );
+  }
+
+  Future<void> _openHelpFeed() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => HelpFeedScreen(
+          currentUser: widget.currentUser,
+          helpFeedService: widget.helpFeedService,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _openPhone(String mobile) async {
+    final uri = Uri.parse('tel:$mobile');
+    await launchUrl(uri);
+  }
+
+  Future<void> _openWhatsApp(String mobile) async {
+    final uri = Uri.parse('https://wa.me/91$mobile');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openDonations() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => DonationScreen(
+          currentUser: widget.currentUser,
+          donationService: widget.donationService,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 }

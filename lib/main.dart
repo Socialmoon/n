@@ -5,7 +5,9 @@ import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
+import 'services/donation_service.dart';
 import 'services/emergency_service.dart';
+import 'services/help_feed_service.dart';
 import 'services/member_repository.dart';
 import 'services/supabase_service.dart';
 
@@ -28,8 +30,12 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
   late final MemberRepository _repository =
       MemberRepository(cloudService: _supabaseService);
   late final AuthService _authService = AuthService(_repository);
+  late final DonationService _donationService =
+      DonationService(cloudService: _supabaseService);
   late final EmergencyService _emergencyService =
       EmergencyService(cloudService: _supabaseService);
+  late final HelpFeedService _helpFeedService =
+      HelpFeedService(cloudService: _supabaseService);
 
   bool _loading = true;
   Member? _currentUser;
@@ -47,7 +53,9 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
       await _repository.load().timeout(_startupTimeout);
       await _repository.seedAdminIfNeeded().timeout(_startupTimeout);
       await _authService.initialize().timeout(_startupTimeout);
+      await _donationService.load().timeout(_startupTimeout);
       await _emergencyService.load().timeout(_startupTimeout);
+      await _helpFeedService.load().timeout(_startupTimeout);
       sessionUser = await _authService
           .loadSession()
           .timeout(_startupTimeout, onTimeout: () => null);
@@ -57,6 +65,8 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
         await _repository.load().timeout(_startupTimeout);
         await _repository.seedAdminIfNeeded().timeout(_startupTimeout);
         await _authService.initialize().timeout(_startupTimeout);
+        await _donationService.load().timeout(_startupTimeout);
+        await _helpFeedService.load().timeout(_startupTimeout);
         sessionUser = await _authService
             .loadSession()
             .timeout(_startupTimeout, onTimeout: () => null);
@@ -105,7 +115,9 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
               : DashboardScreen(
                   currentUser: _currentUser!,
                   repository: _repository,
+                  donationService: _donationService,
                   emergencyService: _emergencyService,
+                  helpFeedService: _helpFeedService,
                   onLogout: () async {
                     await _authService.logout();
                     if (!mounted) {

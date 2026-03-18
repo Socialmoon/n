@@ -12,6 +12,10 @@ This Flutter app now supports cloud sync through Supabase with local fallback.
    - [supabase/01_schema.sql](supabase/01_schema.sql)
    - [supabase/02_rls_policies.sql](supabase/02_rls_policies.sql)
   - [supabase/03_seed_admin.sql](supabase/03_seed_admin.sql) (after replacing placeholders)
+  - [supabase/04_seed_test_member.sql](supabase/04_seed_test_member.sql) (optional, for non-admin test login)
+  - [supabase/05_help_feed.sql](supabase/05_help_feed.sql) (optional migration for existing databases)
+  - [supabase/06_donations.sql](supabase/06_donations.sql) (optional migration for existing databases)
+  - [supabase/07_help_feed_comments.sql](supabase/07_help_feed_comments.sql) (optional migration for existing databases)
 4. Start Flutter with runtime keys (do not hardcode in source files):
 
 ```bash
@@ -76,4 +80,7 @@ Tables and RLS policies are provided in:
 ## Notes
 
 - Member records and emergency alerts are synced to Supabase.
+- Help Feed posts are synced and visible to all members for support requests.
+- Help Feed comments are synced and visible to all members.
+- Donation entries are synced with proof details for admin verification workflows.
 - URL and anon key are expected to be visible in client builds. Security is enforced by RLS policies, not by hiding anon keys.

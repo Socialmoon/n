@@ -5,7 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
+import '../models/donation_entry.dart';
 import '../models/emergency_alert.dart';
+import '../models/help_comment.dart';
+import '../models/help_post.dart';
 import '../models/member.dart';
 
 class SupabaseService {
@@ -22,6 +25,11 @@ class SupabaseService {
       await Supabase.initialize(
         url: SupabaseConfig.url,
         anonKey: SupabaseConfig.anonKey,
+        authOptions: const FlutterAuthClientOptions(
+          // This app does not use Supabase email/magic-link callback flows.
+          // Disable URI session detection to avoid web callback-code errors.
+          detectSessionInUri: false,
+        ),
       ).timeout(_initTimeout);
 
       final client = Supabase.instance.client;
@@ -178,6 +186,152 @@ class SupabaseService {
     }
   }
 
+  Future<List<HelpPost>> fetchHelpPosts() async {
+    if (!isConfigured) {
+      return <HelpPost>[];
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return <HelpPost>[];
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('help_posts')
+          .select()
+          .order('created_at', ascending: false) as List<dynamic>;
+      return rows
+          .map((row) => _helpPostFromRow(row as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      debugPrint('Supabase fetchHelpPosts failed: $error');
+      return <HelpPost>[];
+    }
+  }
+
+  Future<void> insertHelpPost(HelpPost post) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client.from('help_posts').insert(
+            _helpPostToRow(post),
+          );
+    } catch (error) {
+      debugPrint('Supabase insertHelpPost failed: $error');
+    }
+  }
+
+  Future<void> deleteHelpPost(String postId) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client.from('help_posts').delete().eq('id', postId);
+    } catch (error) {
+      debugPrint('Supabase deleteHelpPost failed: $error');
+    }
+  }
+
+  Future<List<HelpComment>> fetchHelpComments() async {
+    if (!isConfigured) {
+      return <HelpComment>[];
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return <HelpComment>[];
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('help_post_comments')
+          .select()
+          .order('created_at', ascending: false) as List<dynamic>;
+      return rows
+          .map((row) => _helpCommentFromRow(row as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      debugPrint('Supabase fetchHelpComments failed: $error');
+      return <HelpComment>[];
+    }
+  }
+
+  Future<void> insertHelpComment(HelpComment comment) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client.from('help_post_comments').insert(
+            _helpCommentToRow(comment),
+          );
+    } catch (error) {
+      debugPrint('Supabase insertHelpComment failed: $error');
+    }
+  }
+
+  Future<List<DonationEntry>> fetchDonations() async {
+    if (!isConfigured) {
+      return <DonationEntry>[];
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return <DonationEntry>[];
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('donations')
+          .select()
+          .order('created_at', ascending: false) as List<dynamic>;
+      return rows
+          .map((row) => _donationFromRow(row as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      debugPrint('Supabase fetchDonations failed: $error');
+      return <DonationEntry>[];
+    }
+  }
+
+  Future<void> insertDonation(DonationEntry entry) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client.from('donations').insert(
+            _donationToRow(entry),
+          );
+    } catch (error) {
+      debugPrint('Supabase insertDonation failed: $error');
+    }
+  }
+
   Map<String, dynamic> _memberToRow(Member member) {
     return <String, dynamic>{
       'id': member.id,
@@ -244,6 +398,88 @@ class SupabaseService {
       'timestamp': row['timestamp'] as String,
       'message': row['message'] as String,
       'location': row['location'] as String,
+    });
+  }
+
+  Map<String, dynamic> _helpPostToRow(HelpPost post) {
+    return <String, dynamic>{
+      'id': post.id,
+      'member_id': post.memberId,
+      'member_name': post.memberName,
+      'member_mobile': post.memberMobile,
+      'category': post.category,
+      'message': post.message,
+      'location': post.location,
+      'requested_amount': post.requestedAmount,
+      'created_at': post.createdAt.toIso8601String(),
+    };
+  }
+
+  HelpPost _helpPostFromRow(Map<String, dynamic> row) {
+    return HelpPost.fromMap(<String, dynamic>{
+      'id': row['id'] as String,
+      'memberId': row['member_id'] as String,
+      'memberName': row['member_name'] as String,
+      'memberMobile': row['member_mobile'] as String,
+      'category': row['category'] as String,
+      'message': row['message'] as String,
+      'location': row['location'] as String,
+      'requestedAmount': (row['requested_amount'] as num?)?.toDouble(),
+      'createdAt': row['created_at'] as String,
+    });
+  }
+
+  Map<String, dynamic> _helpCommentToRow(HelpComment comment) {
+    return <String, dynamic>{
+      'id': comment.id,
+      'post_id': comment.postId,
+      'member_id': comment.memberId,
+      'member_name': comment.memberName,
+      'message': comment.message,
+      'created_at': comment.createdAt.toIso8601String(),
+    };
+  }
+
+  HelpComment _helpCommentFromRow(Map<String, dynamic> row) {
+    return HelpComment.fromMap(<String, dynamic>{
+      'id': row['id'] as String,
+      'postId': row['post_id'] as String,
+      'memberId': row['member_id'] as String,
+      'memberName': row['member_name'] as String,
+      'message': row['message'] as String,
+      'createdAt': row['created_at'] as String,
+    });
+  }
+
+  Map<String, dynamic> _donationToRow(DonationEntry entry) {
+    return <String, dynamic>{
+      'id': entry.id,
+      'member_id': entry.memberId,
+      'member_name': entry.memberName,
+      'member_mobile': entry.memberMobile,
+      'amount': entry.amount,
+      'upi_id': entry.upiId,
+      'status': entry.status,
+      'transaction_ref': entry.transactionRef,
+      'note': entry.note,
+      'screenshot_path': entry.screenshotPath,
+      'created_at': entry.createdAt.toIso8601String(),
+    };
+  }
+
+  DonationEntry _donationFromRow(Map<String, dynamic> row) {
+    return DonationEntry.fromMap(<String, dynamic>{
+      'id': row['id'] as String,
+      'memberId': row['member_id'] as String,
+      'memberName': row['member_name'] as String,
+      'memberMobile': row['member_mobile'] as String,
+      'amount': (row['amount'] as num).toDouble(),
+      'upiId': row['upi_id'] as String,
+      'status': row['status'] as String,
+      'transactionRef': row['transaction_ref'] as String?,
+      'note': row['note'] as String?,
+      'screenshotPath': row['screenshot_path'] as String?,
+      'createdAt': row['created_at'] as String,
     });
   }
 }

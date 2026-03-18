@@ -3,6 +3,9 @@
 alter table public.members enable row level security;
 alter table public.emergency_alerts enable row level security;
 alter table public.app_admins enable row level security;
+alter table public.help_posts enable row level security;
+alter table public.donations enable row level security;
+alter table public.help_post_comments enable row level security;
 
 -- MEMBERS policies
 drop policy if exists members_select_policy on public.members;
@@ -60,6 +63,96 @@ with check (public.is_app_admin() or owner_id = auth.uid());
 drop policy if exists alerts_delete_policy on public.emergency_alerts;
 create policy alerts_delete_policy
 on public.emergency_alerts
+for delete
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid());
+
+-- HELP FEED policies
+drop policy if exists help_posts_select_policy on public.help_posts;
+create policy help_posts_select_policy
+on public.help_posts
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists help_posts_insert_policy on public.help_posts;
+create policy help_posts_insert_policy
+on public.help_posts
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists help_posts_update_policy on public.help_posts;
+create policy help_posts_update_policy
+on public.help_posts
+for update
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid())
+with check (public.is_app_admin() or owner_id = auth.uid());
+
+drop policy if exists help_posts_delete_policy on public.help_posts;
+create policy help_posts_delete_policy
+on public.help_posts
+for delete
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid());
+
+-- HELP FEED COMMENTS policies
+drop policy if exists help_post_comments_select_policy on public.help_post_comments;
+create policy help_post_comments_select_policy
+on public.help_post_comments
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists help_post_comments_insert_policy on public.help_post_comments;
+create policy help_post_comments_insert_policy
+on public.help_post_comments
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists help_post_comments_update_policy on public.help_post_comments;
+create policy help_post_comments_update_policy
+on public.help_post_comments
+for update
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid())
+with check (public.is_app_admin() or owner_id = auth.uid());
+
+drop policy if exists help_post_comments_delete_policy on public.help_post_comments;
+create policy help_post_comments_delete_policy
+on public.help_post_comments
+for delete
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid());
+
+-- DONATIONS policies
+drop policy if exists donations_select_policy on public.donations;
+create policy donations_select_policy
+on public.donations
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists donations_insert_policy on public.donations;
+create policy donations_insert_policy
+on public.donations
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists donations_update_policy on public.donations;
+create policy donations_update_policy
+on public.donations
+for update
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid())
+with check (public.is_app_admin() or owner_id = auth.uid());
+
+drop policy if exists donations_delete_policy on public.donations;
+create policy donations_delete_policy
+on public.donations
 for delete
 to authenticated
 using (public.is_app_admin() or owner_id = auth.uid());
