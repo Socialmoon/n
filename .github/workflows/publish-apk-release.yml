@@ -1,0 +1,27 @@
+name: Publish APK Release
+
+on:
+  push:
+    tags:
+      - 'apk-*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify APK artifacts exist
+        run: |
+          ls -lah releases || true
+          test -n "$(ls -1 releases/*.apk 2>/dev/null)"
+
+      - name: Create GitHub Release and upload APKs
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: releases/*.apk
