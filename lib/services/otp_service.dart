@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../core/twilio_config.dart';
+import '../core/supabase_config.dart';
 
 class OtpDispatchResult {
   const OtpDispatchResult({
@@ -29,6 +29,9 @@ class OtpVerifyResult {
 }
 
 class OtpService {
+  static const String _sendOtpFunction = 'send-otp';
+  static const String _verifyOtpFunction = 'verify-otp';
+
   final Map<String, String> _localPendingOtps = <String, String>{};
   final Random _random = Random.secure();
 
@@ -41,53 +44,45 @@ class OtpService {
       );
     }
 
-    final to = _toE164(normalized);
-    if (to == null) {
-      return const OtpDispatchResult(
-        success: false,
-        error: 'Unable to format phone number for OTP.',
-      );
-    }
-
-    if (!TwilioConfig.isConfigured) {
+    if (!SupabaseConfig.isConfigured) {
       final otp = _generateOtp();
       _localPendingOtps[normalized] = otp;
-      debugPrint('Twilio not configured. Local OTP for $normalized: $otp');
+      debugPrint('Supabase not configured. Local OTP for $normalized: $otp');
       return OtpDispatchResult(success: true, debugOtp: otp);
     }
 
-    final auth = base64Encode(
-      utf8.encode('${TwilioConfig.accountSid}:${TwilioConfig.authToken}'),
-    );
-    final uri = Uri.parse(
-      'https://verify.twilio.com/v2/Services/${TwilioConfig.verifyServiceSid}/Verifications',
-    );
+    final uri = Uri.parse('${SupabaseConfig.url}/functions/v1/$_sendOtpFunction');
 
     try {
       final response = await http.post(
         uri,
         headers: <String, String>{
-          'Authorization': 'Basic $auth',
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'apikey': SupabaseConfig.anonKey,
+          'Content-Type': 'application/json',
         },
-        body: <String, String>{
-          'To': to,
-          'Channel': 'sms',
-        },
+        body: jsonEncode(<String, String>{'mobileNumber': normalized}),
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint(
-            'Twilio send OTP failed: ${response.statusCode} ${response.body}');
-        return const OtpDispatchResult(
+            'Edge send OTP failed: ${response.statusCode} ${response.body}');
+        final message = _extractErrorMessage(response.body) ?? 'Failed to send OTP. Please try again.';
+        if (kDebugMode) {
+          final otp = _generateOtp();
+          _localPendingOtps[normalized] = otp;
+          debugPrint('Falling back to local OTP after edge failure for $normalized: $otp');
+          return OtpDispatchResult(success: true, debugOtp: otp);
+        }
+        return OtpDispatchResult(
           success: false,
-          error: 'Failed to send OTP. Please try again.',
+          error: message,
         );
       }
 
       return const OtpDispatchResult(success: true);
     } catch (error) {
-      debugPrint('Twilio send OTP exception: $error');
+      debugPrint('Edge send OTP exception: $error');
       return const OtpDispatchResult(
         success: false,
         error: 'Unable to reach OTP service. Check network and retry.',
@@ -114,7 +109,7 @@ class OtpService {
       );
     }
 
-    if (!TwilioConfig.isConfigured) {
+    if (!SupabaseConfig.isConfigured) {
       final expected = _localPendingOtps[normalized];
       if (expected == null || expected != otp) {
         return const OtpVerifyResult(success: false, error: 'Invalid OTP.');
@@ -123,52 +118,42 @@ class OtpService {
       return const OtpVerifyResult(success: true);
     }
 
-    final to = _toE164(normalized);
-    if (to == null) {
-      return const OtpVerifyResult(
-        success: false,
-        error: 'Unable to format phone number for OTP verification.',
-      );
-    }
-
-    final auth = base64Encode(
-      utf8.encode('${TwilioConfig.accountSid}:${TwilioConfig.authToken}'),
-    );
-    final uri = Uri.parse(
-      'https://verify.twilio.com/v2/Services/${TwilioConfig.verifyServiceSid}/VerificationCheck',
-    );
+    final uri = Uri.parse('${SupabaseConfig.url}/functions/v1/$_verifyOtpFunction');
 
     try {
       final response = await http.post(
         uri,
         headers: <String, String>{
-          'Authorization': 'Basic $auth',
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'apikey': SupabaseConfig.anonKey,
+          'Content-Type': 'application/json',
         },
-        body: <String, String>{
-          'To': to,
-          'Code': otp,
-        },
+        body: jsonEncode(<String, String>{
+          'mobileNumber': normalized,
+          'otp': otp,
+        }),
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint(
-            'Twilio verify OTP failed: ${response.statusCode} ${response.body}');
-        return const OtpVerifyResult(
+            'Edge verify OTP failed: ${response.statusCode} ${response.body}');
+        final message = _extractErrorMessage(response.body) ?? 'OTP verification failed. Please retry.';
+        if (kDebugMode) {
+          final expected = _localPendingOtps[normalized];
+          if (expected != null && expected == otp) {
+            _localPendingOtps.remove(normalized);
+            return const OtpVerifyResult(success: true);
+          }
+        }
+        return OtpVerifyResult(
           success: false,
-          error: 'OTP verification failed. Please retry.',
+          error: message,
         );
-      }
-
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final status = (decoded['status'] as String?)?.toLowerCase() ?? '';
-      if (status != 'approved') {
-        return const OtpVerifyResult(success: false, error: 'Invalid OTP.');
       }
 
       return const OtpVerifyResult(success: true);
     } catch (error) {
-      debugPrint('Twilio verify OTP exception: $error');
+      debugPrint('Edge verify OTP exception: $error');
       return const OtpVerifyResult(
         success: false,
         error: 'Unable to verify OTP. Check network and retry.',
@@ -184,23 +169,23 @@ class OtpService {
     return digits;
   }
 
-  String? _toE164(String value) {
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) {
-      return null;
-    }
-
-    if (digits.length == 10) {
-      return '+91$digits';
-    }
-    if (digits.length >= 11 && digits.length <= 15) {
-      return '+$digits';
-    }
-    return null;
-  }
-
   String _generateOtp() {
     final code = _random.nextInt(900000) + 100000;
     return code.toString();
+  }
+
+  String? _extractErrorMessage(String responseBody) {
+    try {
+      final decoded = jsonDecode(responseBody);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['error'];
+        if (message is String && message.isNotEmpty) {
+          return message;
+        }
+      }
+    } catch (_) {
+      // Ignore JSON parse issues and fall back to defaults.
+    }
+    return null;
   }
 }

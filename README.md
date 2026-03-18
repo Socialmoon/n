@@ -21,10 +21,7 @@ This Flutter app now supports cloud sync through Supabase with local fallback.
 ```bash
 flutter run \
   --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
-  --dart-define=TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID \
-  --dart-define=TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN \
-  --dart-define=TWILIO_VERIFY_SERVICE_SID=YOUR_VERIFY_SERVICE_SID
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 
 For release APK:
@@ -32,18 +29,46 @@ For release APK:
 ```bash
 flutter build apk --release \
   --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
-  --dart-define=TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID \
-  --dart-define=TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN \
-  --dart-define=TWILIO_VERIFY_SERVICE_SID=YOUR_VERIFY_SERVICE_SID
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 
 If no dart-define values are provided, the app now uses the built-in default Supabase project configured in `lib/core/supabase_config.dart`.
 
 ## OTP (Twilio Verify)
 
-- OTP send and verification now use Twilio Verify when all three Twilio dart-defines are provided.
-- If Twilio values are missing, the app falls back to local dev OTP mode and shows the generated OTP in app messages for testing only.
+- OTP send and verification are handled through Supabase Edge Functions.
+- Twilio secrets are stored only in Supabase Function secrets, not in the Flutter app.
+
+### OTP Function Setup (CLI)
+
+From project root:
+
+```bash
+npx supabase@latest functions new send-otp
+npx supabase@latest functions new verify-otp
+```
+
+Set secrets on Supabase (replace values):
+
+```bash
+npx supabase@latest secrets set \
+  TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID \
+  TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN \
+  TWILIO_VERIFY_SERVICE_SID=YOUR_VERIFY_SERVICE_SID \
+  --project-ref YOUR_PROJECT_REF
+```
+
+Deploy functions:
+
+```bash
+npx supabase@latest functions deploy send-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+npx supabase@latest functions deploy verify-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+```
+
+Notes:
+- Current app calls these functions using the Supabase anon key headers.
+- Add rate limiting and abuse controls on server side before production rollout.
+- In debug builds, if edge function calls fail, app falls back to local dev OTP mode for testing only.
 
 ## Admin Access Setup
 
