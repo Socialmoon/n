@@ -65,9 +65,14 @@ class SupabaseService {
           .from('members')
           .select()
           .order('name') as List<dynamic>;
-      return rows
-          .map((row) => _memberFromRow(row as Map<String, dynamic>))
-          .toList();
+      final members = <Member>[];
+      for (final row in rows) {
+        final member = _tryMemberFromRow(row as Map<String, dynamic>);
+        if (member != null) {
+          members.add(member);
+        }
+      }
+      return members;
     } catch (error) {
       debugPrint('Supabase fetchMembers failed: $error');
       return <Member>[];
@@ -81,15 +86,26 @@ class SupabaseService {
     if (!_initialized) {
       await initialize();
     }
+    final mobileCandidates = _mobileCandidates(mobileNumber);
+    if (mobileCandidates.isEmpty) {
+      return null;
+    }
+
     if (_initialized) {
       try {
-        final rows = await Supabase.instance.client
-            .from('members')
-            .select()
-            .eq('mobile_number', mobileNumber)
-            .limit(1) as List<dynamic>;
-        if (rows.isNotEmpty) {
-          return _memberFromRow(rows.first as Map<String, dynamic>);
+        for (final candidate in mobileCandidates) {
+          final rows = await Supabase.instance.client
+              .from('members')
+              .select()
+              .eq('mobile_number', candidate)
+              .limit(1) as List<dynamic>;
+          if (rows.isEmpty) {
+            continue;
+          }
+          final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
+          if (member != null) {
+            return member;
+          }
         }
       } catch (error) {
         debugPrint('Supabase SDK fetchMemberByMobile failed: $error');
@@ -99,25 +115,31 @@ class SupabaseService {
     // SDK fallback: direct REST query with anon key so login can still resolve
     // seeded members even when client initialization/auth has transient issues.
     try {
-      final uri = Uri.parse(
-        '${SupabaseConfig.url}/rest/v1/members?select=*&mobile_number=eq.$mobileNumber&limit=1',
-      );
-      final response = await http.get(
-        uri,
-        headers: <String, String>{
-          'apikey': SupabaseConfig.anonKey,
-          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
-        },
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        debugPrint('Supabase REST fallback failed: HTTP ${response.statusCode}');
-        return null;
+      for (final candidate in mobileCandidates) {
+        final uri = Uri.parse(
+          '${SupabaseConfig.url}/rest/v1/members?select=*&mobile_number=eq.$candidate&limit=1',
+        );
+        final response = await http.get(
+          uri,
+          headers: <String, String>{
+            'apikey': SupabaseConfig.anonKey,
+            'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          },
+        );
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          debugPrint('Supabase REST fallback failed for $candidate: HTTP ${response.statusCode}');
+          continue;
+        }
+        final rows = (response.body.isEmpty ? <dynamic>[] : (jsonDecode(response.body) as List<dynamic>));
+        if (rows.isEmpty) {
+          continue;
+        }
+        final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
+        if (member != null) {
+          return member;
+        }
       }
-      final rows = (response.body.isEmpty ? <dynamic>[] : (jsonDecode(response.body) as List<dynamic>));
-      if (rows.isEmpty) {
-        return null;
-      }
-      return _memberFromRow(rows.first as Map<String, dynamic>);
+      return null;
     } catch (error) {
       debugPrint('Supabase REST fallback fetchMemberByMobile failed: $error');
       return null;
@@ -377,6 +399,44 @@ class SupabaseService {
       'passwordUpdatedAt': row['password_updated_at'] as String,
       'isAdmin': row['is_admin'] as bool? ?? false,
     });
+  }
+
+  Member? _tryMemberFromRow(Map<String, dynamic> row) {
+    try {
+      return _memberFromRow(row);
+    } catch (error) {
+      final id = row['id'];
+      debugPrint('Skipping malformed member row${id != null ? ' ($id)' : ''}: $error');
+      return null;
+    }
+  }
+
+  List<String> _mobileCandidates(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return const <String>[];
+    }
+
+    final lastTen = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    final candidates = <String>[];
+
+    void add(String item) {
+      if (item.isEmpty || candidates.contains(item)) {
+        return;
+      }
+      candidates.add(item);
+    }
+
+    add(value.trim());
+    add(digits);
+    add(lastTen);
+    if (lastTen.length == 10) {
+      add('91$lastTen');
+      add('+91$lastTen');
+      add('0$lastTen');
+    }
+
+    return candidates;
   }
 
   Map<String, dynamic> _alertToRow(EmergencyAlert alert) {
