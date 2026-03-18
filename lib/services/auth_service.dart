@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/member.dart';
 import 'member_repository.dart';
+import 'otp_service.dart';
 
 class AuthResult {
   const AuthResult({this.member, this.error});
@@ -20,10 +21,11 @@ class AuthService {
   static const _activeUserKey = 'active_user_id';
   static const _lastMobileKey = 'last_mobile_number';
 
-  AuthService(this._repository);
+  AuthService(this._repository, {OtpService? otpService})
+      : _otpService = otpService ?? OtpService();
 
   final MemberRepository _repository;
-  final Map<String, String> _pendingOtps = <String, String>{};
+  final OtpService _otpService;
   final LocalAuthentication _localAuthentication = LocalAuthentication();
   SharedPreferences? _preferences;
 
@@ -49,15 +51,8 @@ class AuthService {
     return sha256.convert(utf8.encode(value)).toString();
   }
 
-  String issueOtp(String mobileNumber) {
-    final normalized = _normalizeMobile(mobileNumber);
-    if (normalized.length != 10) {
-      return '';
-    }
-    final lastFour = normalized.substring(normalized.length - 4);
-    final otp = '1${lastFour}9';
-    _pendingOtps[normalized] = otp;
-    return otp;
+  Future<OtpDispatchResult> issueOtp(String mobileNumber) {
+    return _otpService.sendOtp(mobileNumber);
   }
 
   Future<AuthResult> loginWithOtp({
@@ -69,10 +64,21 @@ class AuthService {
     if (member == null) {
       return const AuthResult(error: 'Member not found.');
     }
-    if (_pendingOtps[normalized] != otp) {
-      return const AuthResult(error: 'Invalid OTP.');
+    final otpCheck = await _otpService.verifyOtp(
+      mobileNumber: normalized,
+      otp: otp,
+    );
+    if (!otpCheck.success) {
+      return AuthResult(error: otpCheck.error ?? 'Invalid OTP.');
     }
     return _completeLogin(member);
+  }
+
+  Future<OtpVerifyResult> verifyOtp({
+    required String mobileNumber,
+    required String otp,
+  }) {
+    return _otpService.verifyOtp(mobileNumber: mobileNumber, otp: otp);
   }
 
   Future<AuthResult> loginWithMpin({
@@ -94,16 +100,19 @@ class AuthService {
     await initialize();
     final lastMobile = _preferences?.getString(_lastMobileKey);
     if (lastMobile == null) {
-      return const AuthResult(error: 'No previous member available for biometric login.');
+      return const AuthResult(
+          error: 'No previous member available for biometric login.');
     }
     final member = await _resolveMember(lastMobile);
     if (member == null) {
-      return const AuthResult(error: 'Stored member session is no longer valid.');
+      return const AuthResult(
+          error: 'Stored member session is no longer valid.');
     }
     final canCheck = await _localAuthentication.canCheckBiometrics;
     final isSupported = await _localAuthentication.isDeviceSupported();
     if (!canCheck && !isSupported) {
-      return const AuthResult(error: 'Biometric authentication is not available on this device.');
+      return const AuthResult(
+          error: 'Biometric authentication is not available on this device.');
     }
     final authenticated = await _localAuthentication.authenticate(
       localizedReason: 'Authenticate to access the member directory',

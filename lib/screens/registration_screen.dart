@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,7 +42,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   XFile? _idCardPhoto;
   Member? _referenceMember;
   int _currentStep = 0;
-  String? _issuedOtp;
+  bool _otpRequested = false;
   bool _otpVerified = false;
   bool _submitting = false;
 
@@ -109,10 +107,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: <Color>[Color(0xFF123C56), Color(0xFF2B6E78), Color(0xFFE0B36A)],
+          colors: <Color>[
+            Color(0xFF123C56),
+            Color(0xFF2B6E78),
+            Color(0xFFE0B36A)
+          ],
         ),
         boxShadow: const <BoxShadow>[
-          BoxShadow(color: Color(0x22000000), blurRadius: 24, offset: Offset(0, 10)),
+          BoxShadow(
+              color: Color(0x22000000), blurRadius: 24, offset: Offset(0, 10)),
         ],
       ),
       child: const Column(
@@ -164,7 +167,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active ? const Color(0xFF123C56) : const Color(0xFF5A6B74),
+                    color: active
+                        ? const Color(0xFF123C56)
+                        : const Color(0xFF5A6B74),
                   ),
                 ),
               ],
@@ -188,7 +193,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             keyboardType: TextInputType.phone,
             maxLength: 10,
             digitsOnly: true,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+              setState(() {
+                _otpRequested = false;
+                _otpVerified = false;
+                _otpController.clear();
+              });
+            },
           ),
           TextFormField(
             controller: _referenceController,
@@ -240,7 +251,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ],
               ),
             ),
-          if (_issuedOtp != null)
+          if (_otpRequested)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(top: 12),
@@ -249,9 +260,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 color: const Color(0xFFE8F5EE),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Text(
-                'Demo OTP generated for testing: $_issuedOtp',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              child: const Text(
+                'OTP has been requested for this mobile number.',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
         ],
@@ -262,7 +273,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildOtpStep() {
     return _buildStepPage(
       title: 'OTP verification',
-      subtitle: 'Verify the mobile number before continuing to posting details.',
+      subtitle:
+          'Verify the mobile number before continuing to posting details.',
       child: Column(
         children: <Widget>[
           Container(
@@ -314,7 +326,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildPostingStep() {
     return _buildStepPage(
       title: 'Posting details',
-      subtitle: 'Capture the service information that will appear in the directory.',
+      subtitle:
+          'Capture the service information that will appear in the directory.',
       child: Column(
         children: <Widget>[
           _buildTextField(_homeDistrictController, 'Home district'),
@@ -337,7 +350,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildDocumentsStep() {
     return _buildStepPage(
       title: 'Documents and selfie',
-      subtitle: 'Capture the required ID proof and selfie for the member profile.',
+      subtitle:
+          'Capture the required ID proof and selfie for the member profile.',
       child: Column(
         children: <Widget>[
           _buildUploadTile(
@@ -363,7 +377,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildReviewStep() {
     return _buildStepPage(
       title: 'Review and submit',
-      subtitle: 'Check the registration summary before creating the member profile.',
+      subtitle:
+          'Check the registration summary before creating the member profile.',
       child: Column(
         children: <Widget>[
           _buildSummaryRow('Full name', _nameController.text.trim()),
@@ -372,9 +387,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'Reference',
             _referenceMember?.name ?? _referenceController.text.trim(),
           ),
-          _buildSummaryRow('Home district', _homeDistrictController.text.trim()),
-          _buildSummaryRow('Posting district', _postingDistrictController.text.trim()),
-          _buildSummaryRow('Posting location', _postingLocationController.text.trim()),
+          _buildSummaryRow(
+              'Home district', _homeDistrictController.text.trim()),
+          _buildSummaryRow(
+              'Posting district', _postingDistrictController.text.trim()),
+          _buildSummaryRow(
+              'Posting location', _postingLocationController.text.trim()),
           _buildSummaryRow(
             'Appointment date',
             _appointmentDate == null
@@ -412,7 +430,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
           boxShadow: const <BoxShadow>[
-            BoxShadow(color: Color(0x14000000), blurRadius: 20, offset: Offset(0, 10)),
+            BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 20,
+                offset: Offset(0, 10)),
           ],
         ),
         child: Column(
@@ -423,7 +444,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            Text(subtitle, style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4)),
+            Text(subtitle,
+                style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4)),
             const SizedBox(height: 20),
             child,
           ],
@@ -460,9 +482,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Color(0xFF5A6B74))),
+                  Text(subtitle,
+                      style: const TextStyle(color: Color(0xFF5A6B74))),
                 ],
               ),
             ),
@@ -516,7 +540,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         children: <Widget>[
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(color: Color(0xFF5A6B74))),
+            child:
+                Text(label, style: const TextStyle(color: Color(0xFF5A6B74))),
           ),
           Expanded(
             child: Text(
@@ -595,7 +620,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _pickSelfie() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 65);
+    final file =
+        await picker.pickImage(source: ImageSource.camera, imageQuality: 65);
     if (file != null) {
       setState(() {
         _selfie = file;
@@ -605,7 +631,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _pickIdCardPhoto() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final file =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (file != null) {
       setState(() {
         _idCardPhoto = file;
@@ -618,13 +645,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!_validateIdentityStep()) {
         return;
       }
-      _issuedOtp = widget.authService.issueOtp(_mobileController.text.trim());
-      _otpVerified = false;
-      _otpController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OTP generated: $_issuedOtp')),
-        );
+      final dispatch =
+          await widget.authService.issueOtp(_mobileController.text.trim());
+      if (!mounted) {
+        return;
+      }
+      if (!dispatch.success) {
+        _showMessage(dispatch.error ?? 'Failed to send OTP.');
+        return;
+      }
+      setState(() {
+        _otpRequested = true;
+        _otpVerified = false;
+        _otpController.clear();
+      });
+      if (dispatch.debugOtp != null) {
+        _showMessage('OTP sent (dev fallback): ${dispatch.debugOtp}');
+      } else {
+        _showMessage('OTP sent successfully.');
       }
       await _goToStep(1);
       return;
@@ -632,6 +670,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (_currentStep == 1) {
       if (!_validateOtpStep()) {
+        return;
+      }
+      final otpVerified = await _verifyOtpStep();
+      if (!otpVerified) {
         return;
       }
       _otpVerified = true;
@@ -676,20 +718,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     await _goToStep(_currentStep - 1);
   }
 
-  void _resendOtp() {
-    if (_mobileController.text.trim().length != 10) {
+  Future<void> _resendOtp() async {
+    final mobile = _mobileController.text.trim();
+    if (mobile.length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid mobile number first.')),
       );
       return;
     }
-    _issuedOtp = widget.authService.issueOtp(_mobileController.text.trim());
-    _otpVerified = false;
-    _otpController.clear();
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('OTP regenerated: $_issuedOtp')),
-    );
+
+    final dispatch = await widget.authService.issueOtp(mobile);
+    if (!mounted) {
+      return;
+    }
+    if (!dispatch.success) {
+      _showMessage(dispatch.error ?? 'Failed to resend OTP.');
+      return;
+    }
+
+    setState(() {
+      _otpRequested = true;
+      _otpVerified = false;
+      _otpController.clear();
+    });
+
+    if (dispatch.debugOtp != null) {
+      _showMessage('OTP resent (dev fallback): ${dispatch.debugOtp}');
+      return;
+    }
+    _showMessage('OTP resent successfully.');
   }
 
   bool _validateIdentityStep() {
@@ -697,7 +754,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final mobile = _mobileController.text.trim();
     final reference = _referenceController.text.trim();
     if (name.isEmpty || mobile.isEmpty || reference.isEmpty) {
-      _showMessage('Enter full name, mobile number and reference mobile number.');
+      _showMessage(
+          'Enter full name, mobile number and reference mobile number.');
       return false;
     }
     if (mobile.length != 10 || reference.length != 10) {
@@ -721,16 +779,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   bool _validateOtpStep() {
     final otp = _otpController.text.trim();
-    if (_issuedOtp == null) {
-      _showMessage('Generate OTP first.');
+    if (!_otpRequested) {
+      _showMessage('Request OTP first.');
       return false;
     }
     if (otp.length != 6) {
       _showMessage('Enter the 6 digit OTP.');
       return false;
     }
-    if (otp != _issuedOtp) {
-      _showMessage('Invalid OTP.');
+    return true;
+  }
+
+  Future<bool> _verifyOtpStep() async {
+    final result = await widget.authService.verifyOtp(
+      mobileNumber: _mobileController.text.trim(),
+      otp: _otpController.text.trim(),
+    );
+    if (!mounted) {
+      return false;
+    }
+    if (!result.success) {
+      _showMessage(result.error ?? 'Invalid OTP.');
       return false;
     }
     return true;
@@ -763,11 +832,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _submit() async {
-    if (!_validateIdentityStep() || !_validateOtpStep() || !_validatePostingStep() || !_validateDocumentsStep()) {
+    if (!_validateIdentityStep() ||
+        !_validatePostingStep() ||
+        !_validateDocumentsStep()) {
+      return;
+    }
+    if (!_otpVerified) {
+      _showMessage('Complete OTP verification before submitting.');
       return;
     }
 

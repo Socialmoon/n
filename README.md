@@ -21,7 +21,10 @@ This Flutter app now supports cloud sync through Supabase with local fallback.
 ```bash
 flutter run \
   --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
+  --dart-define=TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID \
+  --dart-define=TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN \
+  --dart-define=TWILIO_VERIFY_SERVICE_SID=YOUR_VERIFY_SERVICE_SID
 ```
 
 For release APK:
@@ -29,10 +32,18 @@ For release APK:
 ```bash
 flutter build apk --release \
   --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
+  --dart-define=TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID \
+  --dart-define=TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN \
+  --dart-define=TWILIO_VERIFY_SERVICE_SID=YOUR_VERIFY_SERVICE_SID
 ```
 
 If no dart-define values are provided, the app now uses the built-in default Supabase project configured in `lib/core/supabase_config.dart`.
+
+## OTP (Twilio Verify)
+
+- OTP send and verification now use Twilio Verify when all three Twilio dart-defines are provided.
+- If Twilio values are missing, the app falls back to local dev OTP mode and shows the generated OTP in app messages for testing only.
 
 ## Admin Access Setup
 

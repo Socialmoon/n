@@ -47,7 +47,11 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: <Color>[Color(0xFF0D2438), Color(0xFF1A4A67), Color(0xFFE4B363)],
+            colors: <Color>[
+              Color(0xFF0D2438),
+              Color(0xFF1A4A67),
+              Color(0xFFE4B363)
+            ],
           ),
         ),
         child: SafeArea(
@@ -105,7 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           inputFormatters: <TextInputFormatter>[
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration: const InputDecoration(labelText: 'Mobile number'),
+                          decoration:
+                              const InputDecoration(labelText: 'Mobile number'),
                         ),
                         if (_mode == LoginMode.otp) ...<Widget>[
                           TextField(
@@ -121,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           OutlinedButton.icon(
                             onPressed: _issueOtp,
                             icon: const Icon(Icons.sms_outlined),
-                            label: const Text('Generate local OTP'),
+                            label: const Text('Send OTP'),
                           ),
                         ] else
                           TextField(
@@ -132,12 +137,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             inputFormatters: <TextInputFormatter>[
                               FilteringTextInputFormatter.digitsOnly,
                             ],
-                            decoration: const InputDecoration(labelText: '6 digit M-PIN'),
+                            decoration: const InputDecoration(
+                                labelText: '6 digit M-PIN'),
                           ),
                         const SizedBox(height: 20),
                         FilledButton(
                           onPressed: _submitting ? null : _submit,
-                          child: Text(_submitting ? 'Signing in...' : 'Sign in'),
+                          child:
+                              Text(_submitting ? 'Signing in...' : 'Sign in'),
                         ),
                         const SizedBox(height: 12),
                         TextButton.icon(
@@ -162,14 +169,25 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _issueOtp() {
+  Future<void> _issueOtp() async {
     final mobile = _mobileController.text.trim();
     if (mobile.length != 10) {
       _showMessage('Enter a valid 10 digit mobile number first.');
       return;
     }
-    final otp = widget.authService.issueOtp(mobile);
-    _showMessage('Local OTP: $otp');
+    final dispatch = await widget.authService.issueOtp(mobile);
+    if (!mounted) {
+      return;
+    }
+    if (!dispatch.success) {
+      _showMessage(dispatch.error ?? 'Failed to send OTP.');
+      return;
+    }
+    if (dispatch.debugOtp != null) {
+      _showMessage('OTP sent (dev fallback): ${dispatch.debugOtp}');
+      return;
+    }
+    _showMessage('OTP sent to $mobile.');
   }
 
   Future<void> _submit() async {
@@ -232,6 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
