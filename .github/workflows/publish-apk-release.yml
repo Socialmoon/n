@@ -4,12 +4,15 @@ on:
   push:
     tags:
       - 'apk-*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,5 +26,9 @@ jobs:
       - name: Create GitHub Release and upload APKs
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: APK ${{ github.ref_name }}
           generate_release_notes: true
+          make_latest: true
           files: releases/*.apk
