@@ -21,7 +21,8 @@ create table if not exists public.members (
   role text not null,
   last_updated timestamptz not null,
   password_updated_at timestamptz not null,
-  is_admin boolean not null default false
+  is_admin boolean not null default false,
+  is_blocked boolean not null default false
 );
 
 create table if not exists public.emergency_alerts (

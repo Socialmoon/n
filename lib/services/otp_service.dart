@@ -1,7 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/supabase_config.dart';
@@ -10,12 +8,10 @@ class OtpDispatchResult {
   const OtpDispatchResult({
     required this.success,
     this.error,
-    this.debugOtp,
   });
 
   final bool success;
   final String? error;
-  final String? debugOtp;
 }
 
 class OtpVerifyResult {
@@ -32,9 +28,6 @@ class OtpService {
   static const String _sendOtpFunction = 'send-otp';
   static const String _verifyOtpFunction = 'verify-otp';
 
-  final Map<String, String> _localPendingOtps = <String, String>{};
-  final Random _random = Random.secure();
-
   Future<OtpDispatchResult> sendOtp(String mobileNumber) async {
     final normalized = _normalizeMobile(mobileNumber);
     if (normalized.length != 10) {
@@ -45,10 +38,10 @@ class OtpService {
     }
 
     if (!SupabaseConfig.isConfigured) {
-      final otp = _generateOtp();
-      _localPendingOtps[normalized] = otp;
-      debugPrint('Supabase not configured. Local OTP for $normalized: $otp');
-      return OtpDispatchResult(success: true, debugOtp: otp);
+      return const OtpDispatchResult(
+        success: false,
+        error: 'OTP service is not configured.',
+      );
     }
 
     final uri = Uri.parse('${SupabaseConfig.url}/functions/v1/$_sendOtpFunction');
@@ -65,15 +58,7 @@ class OtpService {
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        debugPrint(
-            'Edge send OTP failed: ${response.statusCode} ${response.body}');
         final message = _extractErrorMessage(response.body) ?? 'Failed to send OTP. Please try again.';
-        if (kDebugMode) {
-          final otp = _generateOtp();
-          _localPendingOtps[normalized] = otp;
-          debugPrint('Falling back to local OTP after edge failure for $normalized: $otp');
-          return OtpDispatchResult(success: true, debugOtp: otp);
-        }
         return OtpDispatchResult(
           success: false,
           error: message,
@@ -82,7 +67,6 @@ class OtpService {
 
       return const OtpDispatchResult(success: true);
     } catch (error) {
-      debugPrint('Edge send OTP exception: $error');
       return const OtpDispatchResult(
         success: false,
         error: 'Unable to reach OTP service. Check network and retry.',
@@ -110,12 +94,10 @@ class OtpService {
     }
 
     if (!SupabaseConfig.isConfigured) {
-      final expected = _localPendingOtps[normalized];
-      if (expected == null || expected != otp) {
-        return const OtpVerifyResult(success: false, error: 'Invalid OTP.');
-      }
-      _localPendingOtps.remove(normalized);
-      return const OtpVerifyResult(success: true);
+      return const OtpVerifyResult(
+        success: false,
+        error: 'OTP service is not configured.',
+      );
     }
 
     final uri = Uri.parse('${SupabaseConfig.url}/functions/v1/$_verifyOtpFunction');
@@ -135,16 +117,7 @@ class OtpService {
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        debugPrint(
-            'Edge verify OTP failed: ${response.statusCode} ${response.body}');
         final message = _extractErrorMessage(response.body) ?? 'OTP verification failed. Please retry.';
-        if (kDebugMode) {
-          final expected = _localPendingOtps[normalized];
-          if (expected != null && expected == otp) {
-            _localPendingOtps.remove(normalized);
-            return const OtpVerifyResult(success: true);
-          }
-        }
         return OtpVerifyResult(
           success: false,
           error: message,
@@ -153,7 +126,6 @@ class OtpService {
 
       return const OtpVerifyResult(success: true);
     } catch (error) {
-      debugPrint('Edge verify OTP exception: $error');
       return const OtpVerifyResult(
         success: false,
         error: 'Unable to verify OTP. Check network and retry.',
@@ -167,11 +139,6 @@ class OtpService {
       return digits.substring(digits.length - 10);
     }
     return digits;
-  }
-
-  String _generateOtp() {
-    final code = _random.nextInt(900000) + 100000;
-    return code.toString();
   }
 
   String? _extractErrorMessage(String responseBody) {

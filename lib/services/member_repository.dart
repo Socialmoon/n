@@ -15,6 +15,15 @@ class MemberRepository {
 
   List<Member> get members => List.unmodifiable(_members);
 
+  Member? getById(String id) {
+    for (final member in _members) {
+      if (member.id == id) {
+        return member;
+      }
+    }
+    return null;
+  }
+
   Future<void> load() async {
     _preferences ??= await SharedPreferences.getInstance();
     final items = _preferences?.getStringList(_membersKey) ?? <String>[];
@@ -120,12 +129,33 @@ class MemberRepository {
   }
 
   Member? findById(String id) {
-    for (final member in _members) {
-      if (member.id == id) {
-        return member;
-      }
+    return getById(id);
+  }
+
+  Future<bool> setMemberBlocked({
+    required Member actor,
+    required String memberId,
+    required bool blocked,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
     }
-    return null;
+
+    final current = getById(memberId);
+    if (current == null) {
+      return false;
+    }
+
+    if (current.isAdmin) {
+      return false;
+    }
+
+    final updated = current.copyWith(
+      isBlocked: blocked,
+      lastUpdated: DateTime.now(),
+    );
+    await saveMember(updated);
+    return true;
   }
 
   List<Member> search({required String query, required String districtFilter}) {

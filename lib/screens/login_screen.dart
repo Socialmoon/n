@@ -30,6 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _mpinController = TextEditingController();
   LoginMode _mode = LoginMode.otp;
   bool _submitting = false;
+  bool _biometricAvailable = false;
+  bool _checkingBiometric = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBiometricAvailability();
+  }
 
   @override
   void dispose() {
@@ -148,9 +156,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 12),
                         TextButton.icon(
-                          onPressed: _loginWithBiometric,
+                          onPressed: (_checkingBiometric || !_biometricAvailable)
+                              ? null
+                              : _loginWithBiometric,
                           icon: const Icon(Icons.fingerprint),
-                          label: const Text('Use biometric login'),
+                          label: Text(_checkingBiometric
+                              ? 'Checking biometrics...'
+                              : 'Use biometric login'),
                         ),
                         const Divider(height: 32),
                         TextButton(
@@ -181,10 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     if (!dispatch.success) {
       _showMessage(dispatch.error ?? 'Failed to send OTP.');
-      return;
-    }
-    if (dispatch.debugOtp != null) {
-      _showMessage('OTP sent (dev fallback): ${dispatch.debugOtp}');
       return;
     }
     _showMessage('OTP sent to $mobile.');
@@ -247,6 +255,21 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     setState(() {});
+    await _refreshBiometricAvailability();
+  }
+
+  Future<void> _refreshBiometricAvailability() async {
+    setState(() {
+      _checkingBiometric = true;
+    });
+    final available = await widget.authService.isBiometricAvailable();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _biometricAvailable = available;
+      _checkingBiometric = false;
+    });
   }
 
   void _showMessage(String message) {

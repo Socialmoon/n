@@ -39,7 +39,8 @@ class SupabaseService {
         try {
           await client.auth.signInAnonymously().timeout(_initTimeout);
         } catch (error) {
-          debugPrint('Supabase anonymous sign-in failed, continuing as anon role: $error');
+          debugPrint(
+              'Supabase anonymous sign-in failed, continuing as anon role: $error');
         }
       }
 
@@ -127,10 +128,13 @@ class SupabaseService {
           },
         );
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          debugPrint('Supabase REST fallback failed for $candidate: HTTP ${response.statusCode}');
+          debugPrint(
+              'Supabase REST fallback failed for $candidate: HTTP ${response.statusCode}');
           continue;
         }
-        final rows = (response.body.isEmpty ? <dynamic>[] : (jsonDecode(response.body) as List<dynamic>));
+        final rows = (response.body.isEmpty
+            ? <dynamic>[]
+            : (jsonDecode(response.body) as List<dynamic>));
         if (rows.isEmpty) {
           continue;
         }
@@ -262,7 +266,10 @@ class SupabaseService {
       return;
     }
     try {
-      await Supabase.instance.client.from('help_posts').delete().eq('id', postId);
+      await Supabase.instance.client
+          .from('help_posts')
+          .delete()
+          .eq('id', postId);
     } catch (error) {
       debugPrint('Supabase deleteHelpPost failed: $error');
     }
@@ -374,6 +381,7 @@ class SupabaseService {
       'last_updated': member.lastUpdated.toIso8601String(),
       'password_updated_at': member.passwordUpdatedAt.toIso8601String(),
       'is_admin': member.isAdmin,
+      'is_blocked': member.isBlocked,
     };
   }
 
@@ -389,7 +397,7 @@ class SupabaseService {
           (row['reference_mobile_number'] as String?) ?? '',
       'referenceMemberName': row['reference_member_name'] as String?,
       'selfiePath': row['selfie_path'] as String?,
-        'idCardPhotoPath': row['id_card_photo_path'] as String?,
+      'idCardPhotoPath': row['id_card_photo_path'] as String?,
       'homeDistrict': row['home_district'] as String,
       'postingDistrict': row['posting_district'] as String,
       'postingLocation': row['posting_location'] as String,
@@ -398,6 +406,7 @@ class SupabaseService {
       'lastUpdated': row['last_updated'] as String,
       'passwordUpdatedAt': row['password_updated_at'] as String,
       'isAdmin': row['is_admin'] as bool? ?? false,
+      'isBlocked': row['is_blocked'] as bool? ?? false,
     });
   }
 
@@ -406,7 +415,8 @@ class SupabaseService {
       return _memberFromRow(row);
     } catch (error) {
       final id = row['id'];
-      debugPrint('Skipping malformed member row${id != null ? ' ($id)' : ''}: $error');
+      debugPrint(
+          'Skipping malformed member row${id != null ? ' ($id)' : ''}: $error');
       return null;
     }
   }
@@ -417,7 +427,8 @@ class SupabaseService {
       return const <String>[];
     }
 
-    final lastTen = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    final lastTen =
+        digits.length > 10 ? digits.substring(digits.length - 10) : digits;
     final candidates = <String>[];
 
     void add(String item) {

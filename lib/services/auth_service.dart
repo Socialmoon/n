@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 import '../models/member.dart';
 import 'member_repository.dart';
@@ -81,6 +82,32 @@ class AuthService {
     return _otpService.verifyOtp(mobileNumber: mobileNumber, otp: otp);
   }
 
+  Future<bool> isBiometricAvailable() async {
+    await initialize();
+    final lastMobile = _preferences?.getString(_lastMobileKey);
+    if (lastMobile == null) {
+      return false;
+    }
+    final member = await _resolveMember(lastMobile);
+    if (member == null) {
+      return false;
+    }
+
+    try {
+      final canCheck = await _localAuthentication.canCheckBiometrics;
+      final isSupported = await _localAuthentication.isDeviceSupported();
+      if (!canCheck && !isSupported) {
+        return false;
+      }
+      final available = await _localAuthentication.getAvailableBiometrics();
+      return available.isNotEmpty;
+    } on PlatformException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<AuthResult> loginWithMpin({
     required String mobileNumber,
     required String mpin,
@@ -108,24 +135,47 @@ class AuthService {
       return const AuthResult(
           error: 'Stored member session is no longer valid.');
     }
-    final canCheck = await _localAuthentication.canCheckBiometrics;
-    final isSupported = await _localAuthentication.isDeviceSupported();
-    if (!canCheck && !isSupported) {
+    try {
+      final canCheck = await _localAuthentication.canCheckBiometrics;
+      final isSupported = await _localAuthentication.isDeviceSupported();
+      if (!canCheck && !isSupported) {
+        return const AuthResult(
+            error: 'Biometric authentication is not available on this device.');
+      }
+
+      final available = await _localAuthentication.getAvailableBiometrics();
+      if (available.isEmpty) {
+        return const AuthResult(
+            error: 'No biometric credentials are enrolled on this device.');
+      }
+
+      final authenticated = await _localAuthentication.authenticate(
+        localizedReason: 'Authenticate to access the member directory',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+      if (!authenticated) {
+        return const AuthResult(
+            error: 'Biometric authentication was cancelled.');
+      }
+      return _completeLogin(member);
+    } on PlatformException {
       return const AuthResult(
-          error: 'Biometric authentication is not available on this device.');
+          error: 'Biometric authentication is unavailable on this platform.');
+    } catch (_) {
+      return const AuthResult(
+          error: 'Biometric authentication is unavailable on this platform.');
     }
-    final authenticated = await _localAuthentication.authenticate(
-      localizedReason: 'Authenticate to access the member directory',
-      options: const AuthenticationOptions(biometricOnly: true),
-    );
-    if (!authenticated) {
-      return const AuthResult(error: 'Biometric authentication was cancelled.');
-    }
-    return _completeLogin(member);
   }
 
   Future<AuthResult> _completeLogin(Member member) async {
     await initialize();
+    if (member.isBlocked) {
+      return const AuthResult(
+          error: 'Your account has been blocked. Contact an admin.');
+    }
     if (member.needsProfileRefresh) {
       return const AuthResult(error: 'Profile update required before login.');
     }

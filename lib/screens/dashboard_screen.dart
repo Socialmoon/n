@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
+import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
+import 'members_screen.dart';
 import '../widgets/member_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -36,9 +39,19 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _queryController = TextEditingController();
   final _districtController = TextEditingController();
+  final LocationSuggestionService _locationSuggestions =
+      LocationSuggestionService();
+  List<String> _districtSuggestions = <String>[];
+  List<String> _stationSuggestions = <String>[];
+  Timer? _districtDebounce;
+  Timer? _stationDebounce;
+  int _districtRequest = 0;
+  int _stationRequest = 0;
 
   @override
   void dispose() {
+    _districtDebounce?.cancel();
+    _stationDebounce?.cancel();
     _queryController.dispose();
     _districtController.dispose();
     super.dispose();
@@ -50,7 +63,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       query: _queryController.text,
       districtFilter: _districtController.text,
     );
-    final visibleMembers = members.where((member) => member.id != widget.currentUser.id).toList();
+    final visibleMembers =
+        members.where((member) => member.id != widget.currentUser.id).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -112,7 +126,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               labelText: 'Search by name, role, or posting location',
               prefixIcon: Icon(Icons.search),
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: _onSearchChanged,
+          ),
+          _buildSuggestionChips(
+            suggestions: _stationSuggestions,
+            onSelected: (station) {
+              setState(() {
+                _queryController.text = station;
+                _stationSuggestions = <String>[];
+              });
+            },
           ),
           const SizedBox(height: 12),
           TextField(
@@ -121,13 +144,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
               labelText: 'Filter by posting district',
               prefixIcon: Icon(Icons.place_outlined),
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: _onDistrictChanged,
+          ),
+          _buildSuggestionChips(
+            suggestions: _districtSuggestions,
+            onSelected: (district) {
+              setState(() {
+                _districtController.text = district;
+                _districtSuggestions = <String>[];
+              });
+            },
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: _openDonations,
             icon: const Icon(Icons.volunteer_activism_outlined),
             label: const Text('Open Donations Page'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _openMembers,
+            icon: const Icon(Icons.groups_outlined),
+            label: const Text('Open Members Page'),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -181,7 +219,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
   Widget _buildAlertCard(EmergencyAlert alert) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -195,8 +232,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildSuggestionChips({
+    required List<String> suggestions,
+    required ValueChanged<String> onSelected,
+  }) {
+    if (suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: suggestions
+              .map(
+                (item) => ActionChip(
+                  label: Text(item),
+                  onPressed: () => onSelected(item),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
   Future<void> _triggerAlert() async {
-    final controller = TextEditingController(text: 'Immediate assistance required');
+    final controller =
+        TextEditingController(text: 'Immediate assistance required');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -255,16 +321,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
-  Future<void> _openPhone(String mobile) async {
-    final uri = Uri.parse('tel:$mobile');
-    await launchUrl(uri);
-  }
-
-  Future<void> _openWhatsApp(String mobile) async {
-    final uri = Uri.parse('https://wa.me/91$mobile');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   Future<void> _openDonations() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -278,5 +334,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     setState(() {});
+  }
+
+  Future<void> _openMembers() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => MembersScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  void _onSearchChanged(String value) {
+    _stationDebounce?.cancel();
+    _stationDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadStationSuggestions(value);
+    });
+  }
+
+  void _onDistrictChanged(String value) {
+    _districtDebounce?.cancel();
+    _districtDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadDistrictSuggestions(value);
+    });
+  }
+
+  Future<void> _loadStationSuggestions(String query) async {
+    final request = ++_stationRequest;
+    final suggestions = await _locationSuggestions.suggestPoliceStations(
+      query: query,
+      district: _districtController.text,
+    );
+    if (!mounted || request != _stationRequest) {
+      return;
+    }
+    setState(() {
+      _stationSuggestions = suggestions;
+    });
+  }
+
+  Future<void> _loadDistrictSuggestions(String query) async {
+    final request = ++_districtRequest;
+    final suggestions = await _locationSuggestions.suggestDistricts(query);
+    if (!mounted || request != _districtRequest) {
+      return;
+    }
+    setState(() {
+      _districtSuggestions = suggestions;
+    });
   }
 }

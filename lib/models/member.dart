@@ -20,6 +20,7 @@ class Member {
     this.selfiePath,
     this.idCardPhotoPath,
     this.isAdmin = false,
+    this.isBlocked = false,
   });
 
   final String id;
@@ -40,6 +41,52 @@ class Member {
   final DateTime lastUpdated;
   final DateTime passwordUpdatedAt;
   final bool isAdmin;
+  final bool isBlocked;
+
+  Member copyWith({
+    String? id,
+    String? name,
+    String? mobileNumber,
+    String? userId,
+    String? passwordHash,
+    String? mpin,
+    String? referenceMobileNumber,
+    String? referenceMemberName,
+    String? selfiePath,
+    String? idCardPhotoPath,
+    String? homeDistrict,
+    String? postingDistrict,
+    String? postingLocation,
+    DateTime? appointmentDate,
+    String? role,
+    DateTime? lastUpdated,
+    DateTime? passwordUpdatedAt,
+    bool? isAdmin,
+    bool? isBlocked,
+  }) {
+    return Member(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      mobileNumber: mobileNumber ?? this.mobileNumber,
+      userId: userId ?? this.userId,
+      passwordHash: passwordHash ?? this.passwordHash,
+      mpin: mpin ?? this.mpin,
+      referenceMobileNumber:
+          referenceMobileNumber ?? this.referenceMobileNumber,
+      referenceMemberName: referenceMemberName ?? this.referenceMemberName,
+      selfiePath: selfiePath ?? this.selfiePath,
+      idCardPhotoPath: idCardPhotoPath ?? this.idCardPhotoPath,
+      homeDistrict: homeDistrict ?? this.homeDistrict,
+      postingDistrict: postingDistrict ?? this.postingDistrict,
+      postingLocation: postingLocation ?? this.postingLocation,
+      appointmentDate: appointmentDate ?? this.appointmentDate,
+      role: role ?? this.role,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      passwordUpdatedAt: passwordUpdatedAt ?? this.passwordUpdatedAt,
+      isAdmin: isAdmin ?? this.isAdmin,
+      isBlocked: isBlocked ?? this.isBlocked,
+    );
+  }
 
   bool get needsProfileRefresh =>
       DateTime.now().difference(lastUpdated).inDays >= 180;
@@ -67,6 +114,7 @@ class Member {
       'lastUpdated': lastUpdated.toIso8601String(),
       'passwordUpdatedAt': passwordUpdatedAt.toIso8601String(),
       'isAdmin': isAdmin,
+      'isBlocked': isBlocked,
     };
   }
 
@@ -90,6 +138,7 @@ class Member {
       lastUpdated: DateTime.parse(map['lastUpdated'] as String),
       passwordUpdatedAt: DateTime.parse(map['passwordUpdatedAt'] as String),
       isAdmin: map['isAdmin'] as bool? ?? false,
+      isBlocked: map['isBlocked'] as bool? ?? false,
     );
   }
 

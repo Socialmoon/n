@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/member.dart';
 import '../services/auth_service.dart';
+import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -45,9 +48,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _otpRequested = false;
   bool _otpVerified = false;
   bool _submitting = false;
+  final LocationSuggestionService _locationSuggestions =
+      LocationSuggestionService();
+  List<String> _homeDistrictSuggestions = <String>[];
+  List<String> _postingDistrictSuggestions = <String>[];
+  List<String> _postingStationSuggestions = <String>[];
+  Timer? _homeDistrictDebounce;
+  Timer? _postingDistrictDebounce;
+  Timer? _postingStationDebounce;
+  int _homeDistrictRequest = 0;
+  int _postingDistrictRequest = 0;
+  int _postingStationRequest = 0;
 
   @override
   void dispose() {
+    _homeDistrictDebounce?.cancel();
+    _postingDistrictDebounce?.cancel();
+    _postingStationDebounce?.cancel();
     _pageController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
@@ -330,9 +347,49 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'Capture the service information that will appear in the directory.',
       child: Column(
         children: <Widget>[
-          _buildTextField(_homeDistrictController, 'Home district'),
-          _buildTextField(_postingDistrictController, 'Posting district'),
-          _buildTextField(_postingLocationController, 'Posting location'),
+          _buildTextField(
+            _homeDistrictController,
+            'Home district',
+            onChanged: _onHomeDistrictChanged,
+          ),
+          _buildSuggestionChips(
+            suggestions: _homeDistrictSuggestions,
+            onSelected: (district) {
+              setState(() {
+                _homeDistrictController.text = district;
+                _homeDistrictSuggestions = <String>[];
+              });
+            },
+          ),
+          _buildTextField(
+            _postingDistrictController,
+            'Posting district',
+            onChanged: _onPostingDistrictChanged,
+          ),
+          _buildSuggestionChips(
+            suggestions: _postingDistrictSuggestions,
+            onSelected: (district) {
+              setState(() {
+                _postingDistrictController.text = district;
+                _postingDistrictSuggestions = <String>[];
+              });
+              _onPostingLocationChanged(_postingLocationController.text);
+            },
+          ),
+          _buildTextField(
+            _postingLocationController,
+            'Posting location / Police station',
+            onChanged: _onPostingLocationChanged,
+          ),
+          _buildSuggestionChips(
+            suggestions: _postingStationSuggestions,
+            onSelected: (station) {
+              setState(() {
+                _postingLocationController.text = station;
+                _postingStationSuggestions = <String>[];
+              });
+            },
+          ),
           OutlinedButton.icon(
             onPressed: _pickAppointmentDate,
             icon: const Icon(Icons.event_outlined),
@@ -554,6 +611,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  Widget _buildSuggestionChips({
+    required List<String> suggestions,
+    required ValueChanged<String> onSelected,
+  }) {
+    if (suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: suggestions
+              .map(
+                (item) => ActionChip(
+                  label: Text(item),
+                  onPressed: () => onSelected(item),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -659,11 +744,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _otpVerified = false;
         _otpController.clear();
       });
-      if (dispatch.debugOtp != null) {
-        _showMessage('OTP sent (dev fallback): ${dispatch.debugOtp}');
-      } else {
-        _showMessage('OTP sent successfully.');
-      }
+      _showMessage('OTP sent successfully.');
       await _goToStep(1);
       return;
     }
@@ -741,11 +822,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _otpVerified = false;
       _otpController.clear();
     });
-
-    if (dispatch.debugOtp != null) {
-      _showMessage('OTP resent (dev fallback): ${dispatch.debugOtp}');
-      return;
-    }
     _showMessage('OTP resent successfully.');
   }
 
@@ -881,5 +957,63 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _submitting = false;
     });
     Navigator.of(context).pop(member);
+  }
+
+  void _onHomeDistrictChanged(String value) {
+    _homeDistrictDebounce?.cancel();
+    _homeDistrictDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadHomeDistrictSuggestions(value);
+    });
+  }
+
+  void _onPostingDistrictChanged(String value) {
+    _postingDistrictDebounce?.cancel();
+    _postingDistrictDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadPostingDistrictSuggestions(value);
+    });
+    _onPostingLocationChanged(_postingLocationController.text);
+  }
+
+  void _onPostingLocationChanged(String value) {
+    _postingStationDebounce?.cancel();
+    _postingStationDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadPostingStationSuggestions(value);
+    });
+  }
+
+  Future<void> _loadHomeDistrictSuggestions(String query) async {
+    final request = ++_homeDistrictRequest;
+    final suggestions = await _locationSuggestions.suggestDistricts(query);
+    if (!mounted || request != _homeDistrictRequest) {
+      return;
+    }
+    setState(() {
+      _homeDistrictSuggestions = suggestions;
+    });
+  }
+
+  Future<void> _loadPostingDistrictSuggestions(String query) async {
+    final request = ++_postingDistrictRequest;
+    final suggestions = await _locationSuggestions.suggestDistricts(query);
+    if (!mounted || request != _postingDistrictRequest) {
+      return;
+    }
+    setState(() {
+      _postingDistrictSuggestions = suggestions;
+    });
+  }
+
+  Future<void> _loadPostingStationSuggestions(String query) async {
+    final request = ++_postingStationRequest;
+    final suggestions = await _locationSuggestions.suggestPoliceStations(
+      query: query,
+      district: _postingDistrictController.text,
+    );
+    if (!mounted || request != _postingStationRequest) {
+      return;
+    }
+    setState(() {
+      _postingStationSuggestions = suggestions;
+    });
   }
 }

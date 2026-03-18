@@ -16,6 +16,7 @@ This Flutter app now supports cloud sync through Supabase with local fallback.
   - [supabase/05_help_feed.sql](supabase/05_help_feed.sql) (optional migration for existing databases)
   - [supabase/06_donations.sql](supabase/06_donations.sql) (optional migration for existing databases)
   - [supabase/07_help_feed_comments.sql](supabase/07_help_feed_comments.sql) (optional migration for existing databases)
+  - [supabase/08_member_blocking.sql](supabase/08_member_blocking.sql) (optional migration for existing databases)
 4. Start Flutter with runtime keys (do not hardcode in source files):
 
 ```bash
@@ -68,7 +69,7 @@ npx supabase@latest functions deploy verify-otp --project-ref YOUR_PROJECT_REF -
 Notes:
 - Current app calls these functions using the Supabase anon key headers.
 - Add rate limiting and abuse controls on server side before production rollout.
-- In debug builds, if edge function calls fail, app falls back to local dev OTP mode for testing only.
+- There is no local OTP fallback; OTP works only through the deployed Supabase Edge Functions and Twilio Verify.
 
 ## Admin Access Setup
 
