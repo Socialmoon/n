@@ -13,6 +13,9 @@ class DonationEntry {
     this.transactionRef,
     this.note,
     this.screenshotPath,
+    this.reviewedAt,
+    this.reviewedBy,
+    this.rejectionReason,
   });
 
   final String id;
@@ -26,6 +29,47 @@ class DonationEntry {
   final String? transactionRef;
   final String? note;
   final String? screenshotPath;
+  final DateTime? reviewedAt;
+  final String? reviewedBy;
+  final String? rejectionReason;
+
+  bool get isVerified => status.toLowerCase() == 'verified';
+  bool get isRejected => status.toLowerCase() == 'rejected';
+  bool get isPending => !isVerified && !isRejected;
+
+  DonationEntry copyWith({
+    String? id,
+    String? memberId,
+    String? memberName,
+    String? memberMobile,
+    double? amount,
+    String? upiId,
+    String? status,
+    DateTime? createdAt,
+    String? transactionRef,
+    String? note,
+    String? screenshotPath,
+    DateTime? reviewedAt,
+    String? reviewedBy,
+    String? rejectionReason,
+  }) {
+    return DonationEntry(
+      id: id ?? this.id,
+      memberId: memberId ?? this.memberId,
+      memberName: memberName ?? this.memberName,
+      memberMobile: memberMobile ?? this.memberMobile,
+      amount: amount ?? this.amount,
+      upiId: upiId ?? this.upiId,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      transactionRef: transactionRef ?? this.transactionRef,
+      note: note ?? this.note,
+      screenshotPath: screenshotPath ?? this.screenshotPath,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
@@ -40,6 +84,9 @@ class DonationEntry {
       'transactionRef': transactionRef,
       'note': note,
       'screenshotPath': screenshotPath,
+      'reviewedAt': reviewedAt?.toIso8601String(),
+      'reviewedBy': reviewedBy,
+      'rejectionReason': rejectionReason,
     };
   }
 
@@ -56,6 +103,11 @@ class DonationEntry {
       transactionRef: map['transactionRef'] as String?,
       note: map['note'] as String?,
       screenshotPath: map['screenshotPath'] as String?,
+      reviewedAt: map['reviewedAt'] == null
+          ? null
+          : DateTime.parse(map['reviewedAt'] as String),
+      reviewedBy: map['reviewedBy'] as String?,
+      rejectionReason: map['rejectionReason'] as String?,
     );
   }
 

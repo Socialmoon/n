@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/member_repository.dart';
@@ -75,16 +76,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const Text(
-                          'Police Network',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        const Row(
+                          children: <Widget>[
+                            BrandLogo(size: 48, withBackdrop: false),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                AppBrand.appName,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Secure access to the member directory with local MVP authentication.',
+                          'Secure access to your trusted member network with fast, private sign in.',
                         ),
                         const SizedBox(height: 24),
                         SegmentedButton<LoginMode>(

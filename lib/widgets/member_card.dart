@@ -27,15 +27,23 @@ class MemberCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: const Color(0xFF123C56),
-                  child: Text(
-                    member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[Color(0xFF0F3A4A), Color(0xFF2E7D83)],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -52,8 +60,14 @@ class MemberCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(member.role),
-                      Text('${member.postingLocation} • ${member.postingDistrict}'),
+                      Text(
+                        member.role,
+                        style: const TextStyle(color: Color(0xFF586E79)),
+                      ),
+                      Text(
+                        '${member.postingLocation} • ${member.postingDistrict}',
+                        style: const TextStyle(color: Color(0xFF586E79)),
+                      ),
                     ],
                   ),
                 ),

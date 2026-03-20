@@ -1,4 +1,4 @@
--- Core schema for Police Network app sync.
+-- Core schema for Apne Saathi app sync.
 
 create extension if not exists pgcrypto;
 
@@ -76,8 +76,22 @@ create table if not exists public.donations (
   transaction_ref text,
   note text,
   screenshot_path text,
+  reviewed_at timestamptz,
+  reviewed_by text,
+  rejection_reason text,
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.app_settings (
+  key text primary key,
+  owner_id uuid default auth.uid(),
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+
+insert into storage.buckets (id, name, public)
+values ('app-media', 'app-media', true)
+on conflict (id) do nothing;
 
 create index if not exists idx_members_owner_id on public.members(owner_id);
 create index if not exists idx_alerts_owner_id on public.emergency_alerts(owner_id);
@@ -85,6 +99,7 @@ create index if not exists idx_alerts_timestamp on public.emergency_alerts(times
 create index if not exists idx_help_posts_created_at on public.help_posts(created_at desc);
 create index if not exists idx_help_post_comments_post_id on public.help_post_comments(post_id);
 create index if not exists idx_donations_created_at on public.donations(created_at desc);
+create index if not exists idx_app_settings_owner_id on public.app_settings(owner_id);
 
 -- Helper used by RLS policies.
 create or replace function public.is_app_admin()

@@ -4,19 +4,28 @@ import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
+import '../services/donation_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
+import 'admin_approvals_screen.dart';
+import 'admin_donation_leaderboard_screen.dart';
+import 'admin_payment_reviews_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.currentUser,
     required this.repository,
+    required this.donationService,
+    this.onOpenSettings,
     super.key,
   });
 
   final Member currentUser;
   final MemberRepository repository;
+  final DonationService donationService;
+  final Future<void> Function()? onOpenSettings;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -57,11 +66,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = widget.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: const BrandedScreenTitle('My Profile'),
+        actions: <Widget>[
+          if (widget.onOpenSettings != null)
+            IconButton(
+              onPressed: _openSettingsShortcut,
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Open settings',
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.verified_user_outlined, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      user.isBlocked
+                          ? 'Your profile is currently blocked. Contact admin support.'
+                          : 'Profile active. Keep details updated for faster coordination.',
+                    ),
+                  ),
+                  if (widget.onOpenSettings != null)
+                    TextButton(
+                      onPressed: _openSettingsShortcut,
+                      child: const Text('Settings'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -192,6 +233,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          if (user.isAdmin) ...<Widget>[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Admin Pages',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.rule_folder_outlined),
+                      title: const Text('Request Approvals'),
+                      subtitle: const Text('Approve pending member registrations.'),
+                      onTap: _openRequestApprovals,
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.leaderboard_outlined),
+                      title: const Text('Donations Leaderboard'),
+                      subtitle: const Text('View all member donation rankings.'),
+                      onTap: _openAdminLeaderboard,
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.fact_check_outlined),
+                      title: const Text('Payment Verification'),
+                      subtitle: const Text(
+                        'Review screenshots and verify or reject submissions.',
+                      ),
+                      onTap: _openPaymentVerification,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -248,6 +331,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _openSettingsShortcut() async {
+    final openSettings = widget.onOpenSettings;
+    if (openSettings == null) {
+      return;
+    }
+    await openSettings();
+  }
+
+  Future<void> _openRequestApprovals() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminApprovalsScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _openAdminLeaderboard() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminDonationLeaderboardScreen(
+          currentUser: widget.currentUser,
+          donationService: widget.donationService,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPaymentVerification() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminPaymentReviewsScreen(
+          currentUser: widget.currentUser,
+          donationService: widget.donationService,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final postingLocation = _postingLocationController.text.trim();
@@ -275,15 +407,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _saving = true;
     });
 
+    String? selfiePath = _selfiePath;
+    final shouldUploadSelfie =
+        selfiePath != null && _selfiePreviewBytes != null && !selfiePath.startsWith('http');
+    if (shouldUploadSelfie) {
+      final uploaded = await widget.repository.cloudService.uploadImageBytes(
+        bytes: _selfiePreviewBytes!,
+        folder: 'member-docs',
+        fileName: 'profile_${widget.currentUser.id}_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      if (uploaded == null) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _saving = false;
+        });
+        _showMessage('Unable to upload profile photo to cloud. Please retry.');
+        return;
+      }
+      selfiePath = uploaded;
+    }
+
     final updated = widget.currentUser.copyWith(
       name: name,
       postingLocation: postingLocation,
-      selfiePath: _selfiePath,
+      selfiePath: selfiePath,
       lastUpdated: DateTime.now(),
     );
-    await widget.repository.saveMember(updated);
+    final saved = await widget.repository.saveMember(updated);
 
     if (!mounted) {
+      return;
+    }
+
+    if (!saved) {
+      setState(() {
+        _saving = false;
+      });
+      _showMessage('Unable to save profile to cloud. Please retry.');
       return;
     }
 

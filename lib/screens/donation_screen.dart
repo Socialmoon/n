@@ -5,9 +5,17 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/brand.dart';
 import '../models/donation_entry.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
+
+enum DonationTab {
+  donate,
+  history,
+  leaderboard,
+  paymentSettings,
+}
 
 class DonationScreen extends StatefulWidget {
   const DonationScreen({
@@ -24,17 +32,56 @@ class DonationScreen extends StatefulWidget {
 }
 
 class _DonationScreenState extends State<DonationScreen> {
-  static const String _upiId = 'policenetworksupport@oksbi';
-  static const String _adminMobile = '9193410557';
-
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _transactionRefController = TextEditingController();
   final TextEditingController _memberSearchController = TextEditingController();
+  final TextEditingController _upiIdController = TextEditingController();
+  final TextEditingController _upiNameController = TextEditingController();
+  final TextEditingController _adminMobileController = TextEditingController();
 
   XFile? _proofScreenshot;
-  int _tabIndex = 0;
+  XFile? _customQrImage;
+  DonationTab _selectedTab = DonationTab.donate;
   String? _selectedMemberMobile;
+  bool _savingPaymentSettings = false;
+
+  bool get _isAdmin => widget.currentUser.isAdmin;
+
+  String get _activeUpiId {
+    if (_upiIdController.text.trim().isNotEmpty) {
+      return _upiIdController.text.trim();
+    }
+    return widget.donationService.upiId;
+  }
+
+  String get _activeUpiName {
+    if (_upiNameController.text.trim().isNotEmpty) {
+      return _upiNameController.text.trim();
+    }
+    return widget.donationService.upiName;
+  }
+
+  String get _activeAdminMobile {
+    if (_adminMobileController.text.trim().isNotEmpty) {
+      return _adminMobileController.text.trim();
+    }
+    return widget.donationService.adminMobile;
+  }
+
+  String get _upiUri {
+    final amount = _amountController.text.trim();
+    final amountPart = amount.isEmpty ? '' : '&am=$amount';
+    return 'upi://pay?pa=$_activeUpiId&pn=${Uri.encodeComponent(_activeUpiName)}$amountPart&cu=INR';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _upiIdController.text = widget.donationService.upiId;
+    _upiNameController.text = widget.donationService.upiName;
+    _adminMobileController.text = widget.donationService.adminMobile;
+  }
 
   @override
   void dispose() {
@@ -42,52 +89,87 @@ class _DonationScreenState extends State<DonationScreen> {
     _noteController.dispose();
     _transactionRefController.dispose();
     _memberSearchController.dispose();
+    _upiIdController.dispose();
+    _upiNameController.dispose();
+    _adminMobileController.dispose();
     super.dispose();
-  }
-
-  String get _upiUri {
-    final amount = _amountController.text.trim();
-    final amountPart = amount.isEmpty ? '' : '&am=$amount';
-    return 'upi://pay?pa=$_upiId&pn=Police%20Network%20Support$amountPart&cu=INR';
   }
 
   @override
   Widget build(BuildContext context) {
+    final tabs = <DonationTab>[DonationTab.donate, DonationTab.history];
+    if (_isAdmin) {
+      tabs.addAll(<DonationTab>[
+        DonationTab.leaderboard,
+        DonationTab.paymentSettings,
+      ]);
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Member Donations'),
+        title: const BrandedScreenTitle('Member Donations'),
       ),
       body: Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: SegmentedButton<int>(
-              segments: const <ButtonSegment<int>>[
-                ButtonSegment<int>(value: 0, label: Text('Donate')),
-                ButtonSegment<int>(value: 1, label: Text('Member History')),
-                ButtonSegment<int>(value: 2, label: Text('Leaderboard')),
-              ],
-              selected: <int>{_tabIndex},
+            child: SegmentedButton<DonationTab>(
+              segments: tabs
+                  .map(
+                    (tab) => ButtonSegment<DonationTab>(
+                      value: tab,
+                      label: Text(_tabLabel(tab)),
+                    ),
+                  )
+                  .toList(),
+              selected: <DonationTab>{_selectedTab},
               onSelectionChanged: (selection) {
                 setState(() {
-                  _tabIndex = selection.first;
+                  _selectedTab = selection.first;
                 });
               },
             ),
           ),
-          Expanded(
-            child: _tabIndex == 0
-                ? _buildDonateTab()
-                : _tabIndex == 1
-                    ? _buildMemberHistoryTab()
-                    : _buildLeaderboardTab(),
-          ),
+          Expanded(child: _buildCurrentTab()),
         ],
       ),
     );
   }
 
+  String _tabLabel(DonationTab tab) {
+    switch (tab) {
+      case DonationTab.donate:
+        return 'Donate';
+      case DonationTab.history:
+        return 'Member History';
+      case DonationTab.leaderboard:
+        return 'Leaderboard';
+      case DonationTab.paymentSettings:
+        return 'UPI / QR Settings';
+    }
+  }
+
+  Widget _buildCurrentTab() {
+    switch (_selectedTab) {
+      case DonationTab.donate:
+        return _buildDonateTab();
+      case DonationTab.history:
+        return _buildMemberHistoryTab();
+      case DonationTab.leaderboard:
+        return _isAdmin
+            ? _buildLeaderboardTab()
+            : const SizedBox.shrink();
+      case DonationTab.paymentSettings:
+        return _isAdmin
+            ? _buildPaymentSettingsTab()
+            : const SizedBox.shrink();
+    }
+  }
+
   Widget _buildDonateTab() {
+    final customQrUrl = widget.donationService.customQrImageUrl;
+    final hasCustomQr = customQrUrl != null && customQrUrl.trim().isNotEmpty;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
@@ -97,20 +179,20 @@ class _DonationScreenState extends State<DonationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Text(
-                  'Police Network Support Fund',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                Text(
+                  '${AppBrand.appName} Support Fund',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Donate via UPI or scan QR, then share payment screenshot with admin for verification.',
+                  'Donate via UPI or scan QR, then upload payment screenshot for admin verification.',
                 ),
                 const SizedBox(height: 14),
                 Row(
                   children: <Widget>[
                     Expanded(
                       child: SelectableText(
-                        _upiId,
+                        _activeUpiId,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -121,6 +203,11 @@ class _DonationScreenState extends State<DonationScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  _activeUpiName,
+                  style: const TextStyle(color: Color(0xFF5A6B74)),
+                ),
                 const SizedBox(height: 16),
                 Center(
                   child: Container(
@@ -130,12 +217,34 @@ class _DonationScreenState extends State<DonationScreen> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: const Color(0xFFD0DBE2)),
                     ),
-                    child: QrImageView(
-                      data: _upiUri,
-                      size: 210,
-                      backgroundColor: Colors.white,
-                    ),
+                    child: hasCustomQr
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              customQrUrl,
+                              width: 210,
+                              height: 210,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => QrImageView(
+                                data: _upiUri,
+                                size: 210,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                          )
+                        : QrImageView(
+                            data: _upiUri,
+                            size: 210,
+                            backgroundColor: Colors.white,
+                          ),
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  hasCustomQr
+                      ? 'Using admin-uploaded QR image.'
+                      : 'Using auto-generated QR from UPI ID.',
+                  style: const TextStyle(color: Color(0xFF5A6B74)),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -174,7 +283,7 @@ class _DonationScreenState extends State<DonationScreen> {
           maxLines: 3,
           decoration: const InputDecoration(
             labelText: 'Note (optional)',
-            hintText: 'Example: Donation for emergency medical support drive',
+            hintText: 'Example: Donation for emergency support drive',
             prefixIcon: Icon(Icons.edit_note_outlined),
           ),
         ),
@@ -217,12 +326,16 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Widget _buildMemberHistoryTab() {
-    final donations = widget.donationService.donations;
+    final donations = _historyDonations();
     if (donations.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text('No donations submitted yet.'),
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            _isAdmin
+                ? 'No donation entries available yet.'
+                : 'No verified donations yet. Entries appear after admin verification.',
+          ),
         ),
       );
     }
@@ -234,7 +347,8 @@ class _DonationScreenState extends State<DonationScreen> {
 
     final search = _memberSearchController.text.trim().toLowerCase();
     final filtered = donations.where((entry) {
-      final memberMatch = _selectedMemberMobile == null ||
+      final memberMatch = !_isAdmin ||
+          _selectedMemberMobile == null ||
           entry.memberMobile == _selectedMemberMobile;
       final queryMatch = search.isEmpty ||
           entry.memberName.toLowerCase().contains(search) ||
@@ -246,35 +360,36 @@ class _DonationScreenState extends State<DonationScreen> {
       padding: const EdgeInsets.all(16),
       children: <Widget>[
         const Text(
-          'Donation history by member',
+          'Donation history',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String?>(
-          value: _selectedMemberMobile,
-          decoration: const InputDecoration(
-            labelText: 'Select member',
-            prefixIcon: Icon(Icons.person_search_outlined),
-          ),
-          items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('All members'),
+        if (_isAdmin)
+          DropdownButtonFormField<String?>(
+            value: _selectedMemberMobile,
+            decoration: const InputDecoration(
+              labelText: 'Select member',
+              prefixIcon: Icon(Icons.person_search_outlined),
             ),
-            ...members.entries.map(
-              (entry) => DropdownMenuItem<String?>(
-                value: entry.key,
-                child: Text('${entry.value} • ${entry.key}'),
+            items: <DropdownMenuItem<String?>>[
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('All members'),
               ),
-            ),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedMemberMobile = value;
-            });
-          },
-        ),
-        const SizedBox(height: 10),
+              ...members.entries.map(
+                (entry) => DropdownMenuItem<String?>(
+                  value: entry.key,
+                  child: Text('${entry.value} • ${entry.key}'),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedMemberMobile = value;
+              });
+            },
+          ),
+        if (_isAdmin) const SizedBox(height: 10),
         TextField(
           controller: _memberSearchController,
           decoration: const InputDecoration(
@@ -288,12 +403,22 @@ class _DonationScreenState extends State<DonationScreen> {
           const Card(
             child: Padding(
               padding: EdgeInsets.all(20),
-              child: Text('No donations found for the selected person/filter.'),
+              child: Text('No donations found for the selected filter.'),
             ),
           ),
         ...filtered.map(_buildDonationCard),
       ],
     );
+  }
+
+  List<DonationEntry> _historyDonations() {
+    final donations = widget.donationService.donations;
+    if (_isAdmin) {
+      return donations;
+    }
+    return donations
+        .where((entry) => entry.memberId == widget.currentUser.id && entry.isVerified)
+        .toList();
   }
 
   Widget _buildLeaderboardTab() {
@@ -329,35 +454,20 @@ class _DonationScreenState extends State<DonationScreen> {
     final leaderboard = stats.values.toList()
       ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
 
-    final totalAmount = leaderboard.fold<double>(
-      0,
-      (sum, item) => sum + item.totalAmount,
-    );
-    final totalDonations = donations.length;
+    final totalAmount = leaderboard.fold<double>(0, (sum, item) => sum + item.totalAmount);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _buildSummaryCard(
-                title: 'Total Donations',
-                value: '$totalDonations',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildSummaryCard(
-                title: 'Total Amount',
-                value: 'Rs ${totalAmount.toStringAsFixed(0)}',
-              ),
-            ),
-          ],
+        _buildSummaryCard(title: 'All Donation Entries', value: '${donations.length}'),
+        const SizedBox(height: 10),
+        _buildSummaryCard(
+          title: 'Total Amount',
+          value: 'Rs ${totalAmount.toStringAsFixed(0)}',
         ),
         const SizedBox(height: 14),
         const Text(
-          'Donations Leaderboard',
+          'Admin Leaderboard',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
@@ -368,16 +478,13 @@ class _DonationScreenState extends State<DonationScreen> {
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: rank == 1
-                    ? const Color(0xFFE0B36A)
-                    : const Color(0xFF123C56),
+                backgroundColor:
+                    rank == 1 ? const Color(0xFFE0B36A) : const Color(0xFF123C56),
                 foregroundColor: Colors.white,
                 child: Text('$rank'),
               ),
               title: Text(item.memberName),
-              subtitle: Text(
-                '${item.memberMobile} • ${item.donationCount} donations',
-              ),
+              subtitle: Text('${item.memberMobile} • ${item.donationCount} entries'),
               trailing: Text(
                 'Rs ${item.totalAmount.toStringAsFixed(0)}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
@@ -385,6 +492,120 @@ class _DonationScreenState extends State<DonationScreen> {
             ),
           );
         }),
+      ],
+    );
+  }
+
+  Widget _buildPaymentSettingsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Admin Payment Settings',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Update UPI details. QR code in donation page refreshes automatically from these values.',
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _upiIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'UPI ID',
+                    prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _upiNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Beneficiary Name',
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _adminMobileController,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Admin Mobile (digits only)',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _savingPaymentSettings ? null : _savePaymentSettings,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_savingPaymentSettings ? 'Saving...' : 'Save UPI Settings'),
+                ),
+                const SizedBox(height: 14),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text(
+                  'Custom QR Image (Optional)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                if (widget.donationService.customQrImageUrl != null &&
+                    widget.donationService.customQrImageUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.donationService.customQrImageUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox(
+                          height: 60,
+                          child: Center(child: Text('Current QR preview unavailable.')),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_customQrImage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Selected file: ${_customQrImage!.name}'),
+                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    OutlinedButton.icon(
+                      onPressed: _pickCustomQr,
+                      icon: const Icon(Icons.qr_code_2_outlined),
+                      label: const Text('Choose QR Image'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: _customQrImage == null ? null : _uploadCustomQr,
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: const Text('Upload QR'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _removeCustomQr,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove Uploaded QR'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -400,10 +621,7 @@ class _DonationScreenState extends State<DonationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(color: Color(0xFF5A6B74)),
-          ),
+          Text(title, style: const TextStyle(color: Color(0xFF5A6B74))),
           const SizedBox(height: 6),
           Text(
             value,
@@ -429,7 +647,7 @@ class _DonationScreenState extends State<DonationScreen> {
         ),
         title: Text('${entry.memberName} donated Rs ${entry.amount.toStringAsFixed(0)}'),
         subtitle: Text(
-          '${entry.status} • $stamp\nRef: ${entry.transactionRef?.isNotEmpty == true ? entry.transactionRef : 'N/A'}',
+          '${entry.status} • $stamp\nRef: ${entry.transactionRef?.isNotEmpty == true ? entry.transactionRef : 'N/A'}${entry.rejectionReason?.isNotEmpty == true ? '\nRejection: ${entry.rejectionReason}' : ''}',
         ),
         isThreeLine: true,
       ),
@@ -437,7 +655,7 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _copyUpiId() async {
-    await Clipboard.setData(const ClipboardData(text: _upiId));
+    await Clipboard.setData(ClipboardData(text: _activeUpiId));
     if (!mounted) {
       return;
     }
@@ -476,16 +694,16 @@ class _DonationScreenState extends State<DonationScreen> {
     await Share.shareXFiles(
       <XFile>[_proofScreenshot!],
       text:
-          'Donation proof for verification\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nAdmin: +91$_adminMobile',
+          'Donation proof for verification\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nAdmin: +91$_activeAdminMobile',
       subject: 'Donation proof',
     );
   }
 
   Future<void> _openAdminChat() async {
     final message = Uri.encodeComponent(
-      'Hello Admin, I have made a donation and will share payment screenshot for verification.',
+      'Hello Admin, I have made a donation and uploaded payment proof for verification.',
     );
-    final uri = Uri.parse('https://wa.me/91$_adminMobile?text=$message');
+    final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -501,15 +719,31 @@ class _DonationScreenState extends State<DonationScreen> {
       return;
     }
 
+    String? screenshotUrl;
+    if (_proofScreenshot != null) {
+      screenshotUrl = await widget.donationService.uploadProofScreenshot(_proofScreenshot!);
+      if (screenshotUrl == null) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to upload screenshot to cloud. Please retry.'),
+          ),
+        );
+        return;
+      }
+    }
+
     await widget.donationService.createDonation(
       member: widget.currentUser,
       amount: amount,
-      upiId: _upiId,
+      upiId: _activeUpiId,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       transactionRef: _transactionRefController.text.trim().isEmpty
           ? null
           : _transactionRefController.text.trim(),
-      screenshotPath: _proofScreenshot?.path,
+      screenshotPath: screenshotUrl,
     );
 
     if (!mounted) {
@@ -521,11 +755,104 @@ class _DonationScreenState extends State<DonationScreen> {
       _noteController.clear();
       _transactionRefController.clear();
       _proofScreenshot = null;
-      _tabIndex = 1;
+      _selectedTab = DonationTab.history;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Donation submitted and marked pending verification.')),
+      const SnackBar(content: Text('Donation submitted and pending admin verification.')),
+    );
+  }
+
+  Future<void> _savePaymentSettings() async {
+    final upi = _upiIdController.text.trim();
+    final name = _upiNameController.text.trim();
+    final mobile = _adminMobileController.text.trim();
+
+    if (upi.isEmpty || name.isEmpty || mobile.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('UPI ID, beneficiary name, and admin mobile are required.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _savingPaymentSettings = true;
+    });
+
+    await widget.donationService.updatePaymentSettings(
+      actor: widget.currentUser,
+      upiId: upi,
+      upiName: name,
+      adminMobile: mobile,
+      customQrImageUrl: widget.donationService.customQrImageUrl,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _savingPaymentSettings = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment settings updated successfully.')),
+    );
+  }
+
+  Future<void> _pickCustomQr() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (picked == null) {
+      return;
+    }
+    setState(() {
+      _customQrImage = picked;
+    });
+  }
+
+  Future<void> _uploadCustomQr() async {
+    final image = _customQrImage;
+    if (image == null) {
+      return;
+    }
+    final uploaded = await widget.donationService.uploadCustomQrImage(image);
+    if (!mounted) {
+      return;
+    }
+    if (uploaded == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to upload custom QR. Please retry.')),
+      );
+      return;
+    }
+    setState(() {
+      _customQrImage = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Custom QR uploaded successfully.')),
+    );
+  }
+
+  Future<void> _removeCustomQr() async {
+    await widget.donationService.updatePaymentSettings(
+      actor: widget.currentUser,
+      upiId: _activeUpiId,
+      upiName: _activeUpiName,
+      adminMobile: _activeAdminMobile,
+      customQrImageUrl: '',
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _customQrImage = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploaded custom QR removed.')),
     );
   }
 }

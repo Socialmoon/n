@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/brand.dart';
 import '../models/help_comment.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
@@ -42,23 +43,86 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final posts = widget.helpFeedService.posts;
+    final emergencyCount = posts.where((post) => post.category == 'Emergency').length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help Feed'),
+        title: const BrandedScreenTitle('Help Feed'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: <Widget>[
-          const Text(
-            'Community Support Feed',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Members can post urgent needs here. Others can call, WhatsApp, and comment to coordinate help.',
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFF103A4A), Color(0xFF2C6E7E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x290A2A38),
+                  blurRadius: 16,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Community Support Feed',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Real-time requests, comments, and direct contact in one place.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildMetricTile(
+                        icon: Icons.forum_outlined,
+                        label: 'Total posts',
+                        value: '${posts.length}',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildMetricTile(
+                        icon: Icons.warning_amber_outlined,
+                        label: 'Emergency',
+                        value: '$emergencyCount',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _helpCategories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final category = _helpCategories[index];
+                final count = posts.where((post) => post.category == category).length;
+                return Chip(label: Text('$category ($count)'));
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: _createHelpPost,
             icon: const Icon(Icons.add_comment_outlined),
@@ -69,10 +133,47 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text('No feed posts yet. Be the first to request support.'),
+                child: Text(
+                  'No requests yet. Share the first update so nearby members can respond quickly.',
+                ),
               ),
             ),
           ...posts.map(_buildHelpPostCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0x2EFFFFFF),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 18, color: const Color(0xFF0F3A4A)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(label, style: const TextStyle(fontSize: 12)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -85,9 +186,9 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
         '${post.createdAt.day}/${post.createdAt.month}/${post.createdAt.year} ${post.createdAt.hour.toString().padLeft(2, '0')}:${post.createdAt.minute.toString().padLeft(2, '0')}';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         onTap: () => _openPostDetail(post),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -96,35 +197,58 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Chip(label: Text(post.category)),
-                  const Spacer(),
-                  Text(
-                    timestamp,
-                    style: const TextStyle(color: Color(0xFF5A6B74)),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFFE8F0F5),
+                    child: Text(
+                      post.memberName.isEmpty ? '?' : post.memberName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          post.memberName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          post.location,
+                          style: const TextStyle(color: Color(0xFF5A6B74)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Chip(label: Text(post.category)),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 post.message,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              Text('${post.memberName} • ${post.location}'),
+              Text(
+                timestamp,
+                style: const TextStyle(color: Color(0xFF5A6B74)),
+              ),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: <Widget>[
                   Chip(
                     avatar: const Icon(Icons.mode_comment_outlined, size: 16),
-                    label: Text('Comments: $commentCount'),
+                    label: Text('$commentCount comments'),
                   ),
-                  OutlinedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: () => _openPhone(post.memberMobile),
                     icon: const Icon(Icons.call_outlined),
                     label: const Text('Call'),
                   ),
-                  OutlinedButton.icon(
+                  FilledButton.tonalIcon(
                     onPressed: () => _openWhatsApp(post.memberMobile),
                     icon: const Icon(Icons.chat_outlined),
                     label: const Text('WhatsApp'),
@@ -132,7 +256,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                   OutlinedButton.icon(
                     onPressed: () => _openPostDetail(post),
                     icon: const Icon(Icons.forum_outlined),
-                    label: const Text('Open'),
+                    label: const Text('Discuss'),
                   ),
                   if (widget.currentUser.isAdmin ||
                       widget.currentUser.id == post.memberId)
@@ -431,7 +555,7 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help Post Details'),
+        title: const BrandedScreenTitle('Help Post Details'),
         actions: <Widget>[
           if (canDelete)
             IconButton(

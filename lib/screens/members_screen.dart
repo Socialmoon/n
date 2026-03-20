@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
@@ -32,6 +33,13 @@ class _MembersScreenState extends State<MembersScreen> {
   Timer? _stationDebounce;
   int _districtRequest = 0;
   int _stationRequest = 0;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshMembers();
+  }
 
   @override
   void dispose() {
@@ -49,17 +57,28 @@ class _MembersScreenState extends State<MembersScreen> {
           query: _queryController.text,
           districtFilter: _districtController.text,
         )
-        .where((member) => member.id != widget.currentUser.id)
-        .where((member) => widget.currentUser.isAdmin || !member.isBlocked)
+        .where((member) => widget.currentUser.isAdmin || member.isApproved)
         .toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('All Members'),
+        title: const BrandedScreenTitle('All Members'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: _refreshing ? null : _refreshMembers,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh members',
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          if (_refreshing)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: LinearProgressIndicator(),
+            ),
           TextField(
             controller: _queryController,
             onChanged: _onSearchChanged,
@@ -114,6 +133,9 @@ class _MembersScreenState extends State<MembersScreen> {
 
   Widget _buildMemberCard(Member member) {
     final blocked = member.isBlocked;
+    final isCurrentUser = member.id == widget.currentUser.id;
+    final appointment =
+        '${member.appointmentDate.day}/${member.appointmentDate.month}/${member.appointmentDate.year}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -133,6 +155,16 @@ class _MembersScreenState extends State<MembersScreen> {
                     ),
                   ),
                 ),
+                if (isCurrentUser)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Chip(label: Text('You')),
+                  ),
+                if (!member.isApproved)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Chip(label: Text('Pending Approval')),
+                  ),
                 if (blocked)
                   const Chip(
                     label: Text('Blocked'),
@@ -147,20 +179,26 @@ class _MembersScreenState extends State<MembersScreen> {
             const SizedBox(height: 4),
             Text(
                 'Posting: ${member.postingLocation}, ${member.postingDistrict}'),
+            const SizedBox(height: 4),
+            Text('Home district: ${member.homeDistrict}'),
+            const SizedBox(height: 4),
+            Text('Appointment date: $appointment'),
+            if (member.referenceMemberName != null) ...<Widget>[
+              const SizedBox(height: 4),
+              Text('Reference: ${member.referenceMemberName}'),
+            ],
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
                 OutlinedButton.icon(
-                  onPressed:
-                      blocked ? null : () => _openPhone(member.mobileNumber),
+                  onPressed: blocked ? null : () => _openPhone(member.mobileNumber),
                   icon: const Icon(Icons.call_outlined),
                   label: const Text('Call'),
                 ),
                 OutlinedButton.icon(
-                  onPressed:
-                      blocked ? null : () => _openWhatsApp(member.mobileNumber),
+                  onPressed: blocked ? null : () => _openWhatsApp(member.mobileNumber),
                   icon: const Icon(Icons.chat_outlined),
                   label: const Text('WhatsApp'),
                 ),
@@ -310,6 +348,22 @@ class _MembersScreenState extends State<MembersScreen> {
     }
     setState(() {
       _districtSuggestions = suggestions;
+    });
+  }
+
+  Future<void> _refreshMembers() async {
+    setState(() {
+      _refreshing = true;
+    });
+
+    await widget.repository.refreshFromCloud();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _refreshing = false;
     });
   }
 }

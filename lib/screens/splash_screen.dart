@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/brand.dart';
+
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -18,10 +20,10 @@ class SplashScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.shield_outlined, color: Colors.white, size: 72),
+              BrandLogo(size: 74),
               SizedBox(height: 16),
               Text(
-                'Police Network',
+                AppBrand.appName,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -31,7 +33,7 @@ class SplashScreen extends StatelessWidget {
               ),
               SizedBox(height: 8),
               Text(
-                'Secure member access',
+                AppBrand.tagline,
                 style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
               SizedBox(height: 24),

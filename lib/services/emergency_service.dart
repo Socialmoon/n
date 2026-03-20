@@ -1,4 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibration/vibration.dart';
 
 import '../models/emergency_alert.dart';
@@ -10,22 +9,13 @@ class EmergencyService {
   EmergencyService({required SupabaseService cloudService})
       : _cloudService = cloudService;
 
-  static const _alertsKey = 'emergency_alerts';
-
   final SupabaseService _cloudService;
   final AppSettingsService _settingsService = AppSettingsService();
-  SharedPreferences? _preferences;
   final List<EmergencyAlert> _alerts = [];
 
   List<EmergencyAlert> get alerts => List.unmodifiable(_alerts.reversed);
 
   Future<void> load() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    final rawAlerts = _preferences?.getStringList(_alertsKey) ?? <String>[];
-    _alerts
-      ..clear()
-      ..addAll(rawAlerts.map(EmergencyAlert.fromJson));
-
     if (!_cloudService.isConfigured) {
       return;
     }
@@ -41,7 +31,6 @@ class EmergencyService {
     _alerts
       ..clear()
       ..addAll(cloudAlerts.reversed);
-    await _persist();
   }
 
   Future<void> triggerAlert({
@@ -57,8 +46,6 @@ class EmergencyService {
       location: member.postingLocation,
     );
     _alerts.add(alert);
-    _preferences ??= await SharedPreferences.getInstance();
-    await _persist();
     await _cloudService.insertAlert(alert);
     final vibrationEnabled = await _settingsService.getVibrationEnabled();
     if (vibrationEnabled && await Vibration.hasVibrator()) {
@@ -66,11 +53,4 @@ class EmergencyService {
     }
   }
 
-  Future<void> _persist() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    await _preferences!.setStringList(
-      _alertsKey,
-      _alerts.map((entry) => entry.toJson()).toList(),
-    );
-  }
 }

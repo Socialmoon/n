@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
 import '../models/member.dart';
@@ -19,31 +18,24 @@ class AuthResult {
 }
 
 class AuthService {
-  static const _activeUserKey = 'active_user_id';
-  static const _lastMobileKey = 'last_mobile_number';
-
   AuthService(this._repository, {OtpService? otpService});
 
   final MemberRepository _repository;
   final LocalAuthentication _localAuthentication = LocalAuthentication();
-  SharedPreferences? _preferences;
+  String? _activeUserId;
+  String? _lastMobile;
 
-  Future<void> initialize() async {
-    _preferences ??= await SharedPreferences.getInstance();
-  }
+  Future<void> initialize() async {}
 
   Future<Member?> loadSession() async {
-    await initialize();
-    final userId = _preferences?.getString(_activeUserKey);
-    if (userId == null) {
+    if (_activeUserId == null) {
       return null;
     }
-    return _repository.findById(userId);
+    return _repository.findById(_activeUserId!);
   }
 
   Future<void> logout() async {
-    await initialize();
-    await _preferences?.remove(_activeUserKey);
+    _activeUserId = null;
   }
 
   String hashPassword(String value) {
@@ -82,12 +74,10 @@ class AuthService {
   }
 
   Future<bool> isBiometricAvailable() async {
-    await initialize();
-    final lastMobile = _preferences?.getString(_lastMobileKey);
-    if (lastMobile == null) {
+    if (_lastMobile == null) {
       return false;
     }
-    final member = await _resolveMember(lastMobile);
+    final member = await _resolveMember(_lastMobile!);
     if (member == null) {
       return false;
     }
@@ -123,13 +113,11 @@ class AuthService {
   }
 
   Future<AuthResult> loginWithBiometric() async {
-    await initialize();
-    final lastMobile = _preferences?.getString(_lastMobileKey);
-    if (lastMobile == null) {
+    if (_lastMobile == null) {
       return const AuthResult(
           error: 'No previous member available for biometric login.');
     }
-    final member = await _resolveMember(lastMobile);
+    final member = await _resolveMember(_lastMobile!);
     if (member == null) {
       return const AuthResult(
           error: 'Stored member session is no longer valid.');
@@ -170,7 +158,6 @@ class AuthService {
   }
 
   Future<AuthResult> _completeLogin(Member member) async {
-    await initialize();
     if (member.isBlocked) {
       return const AuthResult(
           error: 'Your account has been blocked. Contact an admin.');
@@ -181,8 +168,8 @@ class AuthService {
     if (member.needsPasswordRefresh) {
       return const AuthResult(error: 'Password renewal required before login.');
     }
-    await _preferences?.setString(_activeUserKey, member.id);
-    await _preferences?.setString(_lastMobileKey, member.mobileNumber);
+    _activeUserId = member.id;
+    _lastMobile = member.mobileNumber;
     return AuthResult(member: member);
   }
 

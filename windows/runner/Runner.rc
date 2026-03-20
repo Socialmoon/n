@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.police.network" "\0"
-            VALUE "FileDescription", "police_network_app" "\0"
+            VALUE "FileDescription", "Apne Saathi" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "police_network_app" "\0"
+            VALUE "InternalName", "ApneSaathi" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.police.network. All rights reserved." "\0"
-            VALUE "OriginalFilename", "police_network_app.exe" "\0"
-            VALUE "ProductName", "police_network_app" "\0"
+            VALUE "OriginalFilename", "ApneSaathi.exe" "\0"
+            VALUE "ProductName", "Apne Saathi" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

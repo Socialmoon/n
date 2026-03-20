@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import 'core/brand.dart';
 import 'models/member.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/main_shell_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/donation_service.dart';
@@ -15,17 +17,17 @@ import 'services/supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const PoliceNetworkApp());
+  runApp(const ApneSaathiApp());
 }
 
-class PoliceNetworkApp extends StatefulWidget {
-  const PoliceNetworkApp({super.key});
+class ApneSaathiApp extends StatefulWidget {
+  const ApneSaathiApp({super.key});
 
   @override
-  State<PoliceNetworkApp> createState() => _PoliceNetworkAppState();
+  State<ApneSaathiApp> createState() => _ApneSaathiAppState();
 }
 
-class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
+class _ApneSaathiAppState extends State<ApneSaathiApp> {
   static const Duration _startupTimeout = Duration(seconds: 8);
   static const Duration _autoLogoutAfter = Duration(minutes: 15);
 
@@ -98,20 +100,99 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF0F3A4A),
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: const Color(0xFF0F3A4A),
+      secondary: const Color(0xFFC18B3A),
+      tertiary: const Color(0xFF2E7D83),
+      surface: const Color(0xFFF8FAFB),
+    );
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Police Network',
+      title: AppBrand.appName,
       scaffoldMessengerKey: _messengerKey,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF123C56),
-          primary: const Color(0xFF123C56),
-          secondary: const Color(0xFFE4B363),
-        ),
+        colorScheme: colorScheme,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF3F5F7),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
+        textTheme: GoogleFonts.manropeTextTheme(),
+        scaffoldBackgroundColor: const Color(0xFFF1F5F8),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFE2E9EE)),
+          ),
+        ),
+        appBarTheme: AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: const Color(0xFFF1F5F8),
+          foregroundColor: const Color(0xFF0D2D39),
+          titleTextStyle: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF0D2D39),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 78,
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0x220F3A4A),
+          elevation: 14,
+          shadowColor: const Color(0x220D2D39),
+          surfaceTintColor: Colors.white,
+          labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
+            (states) {
+              final selected = states.contains(WidgetState.selected);
+              return GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected
+                    ? const Color(0xFF0F3A4A)
+                    : const Color(0xFF5C727D),
+              );
+            },
+          ),
+        ),
+        chipTheme: const ChipThemeData(
+          side: BorderSide(color: Color(0xFFD7E2E9)),
+          shape: StadiumBorder(),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFD5E0E8)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFF0F3A4A), width: 1.5),
+          ),
         ),
       ),
       home: _loading
@@ -127,7 +208,7 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
                     _startInactivityTimer();
                   },
                 )
-              : DashboardScreen(
+              : MainShellScreen(
                   currentUser: _currentUser!,
                   repository: _repository,
                   donationService: _donationService,

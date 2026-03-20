@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,7 @@ import '../models/member.dart';
 class SupabaseService {
   bool _initialized = false;
   static const Duration _initTimeout = Duration(seconds: 20);
+  static const String _mediaBucket = 'app-media';
 
   bool get isConfigured => SupabaseConfig.isConfigured;
 
@@ -150,22 +152,24 @@ class SupabaseService {
     }
   }
 
-  Future<void> upsertMember(Member member) async {
+  Future<bool> upsertMember(Member member) async {
     if (!isConfigured) {
-      return;
+      return false;
     }
     if (!_initialized) {
       await initialize();
     }
     if (!_initialized) {
-      return;
+      return false;
     }
     try {
       await Supabase.instance.client
           .from('members')
           .upsert(_memberToRow(member), onConflict: 'id');
+      return true;
     } catch (error) {
       debugPrint('Supabase upsertMember failed: $error');
+      return false;
     }
   }
 
@@ -361,6 +365,107 @@ class SupabaseService {
     }
   }
 
+  Future<void> upsertDonation(DonationEntry entry) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client
+          .from('donations')
+          .upsert(_donationToRow(entry), onConflict: 'id');
+    } catch (error) {
+      debugPrint('Supabase upsertDonation failed: $error');
+    }
+  }
+
+  Future<String?> fetchAppSetting({required String key}) async {
+    if (!isConfigured) {
+      return null;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return null;
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('app_settings')
+          .select('value')
+          .eq('key', key)
+          .limit(1) as List<dynamic>;
+      if (rows.isEmpty) {
+        return null;
+      }
+      return rows.first['value'] as String?;
+    } catch (error) {
+      debugPrint('Supabase fetchAppSetting failed: $error');
+      return null;
+    }
+  }
+
+  Future<void> upsertAppSetting({
+    required String key,
+    required String value,
+  }) async {
+    if (!isConfigured) {
+      return;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await Supabase.instance.client
+          .from('app_settings')
+          .upsert(<String, dynamic>{'key': key, 'value': value}, onConflict: 'key');
+    } catch (error) {
+      debugPrint('Supabase upsertAppSetting failed: $error');
+    }
+  }
+
+  Future<String?> uploadImageBytes({
+    required Uint8List bytes,
+    required String folder,
+    required String fileName,
+  }) async {
+    if (!isConfigured) {
+      return null;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) {
+      return null;
+    }
+    final path = '$folder/$fileName';
+    try {
+      await Supabase.instance.client.storage
+          .from(_mediaBucket)
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(
+              cacheControl: '3600',
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+      return Supabase.instance.client.storage.from(_mediaBucket).getPublicUrl(path);
+    } catch (error) {
+      debugPrint('Supabase uploadImageBytes failed: $error');
+      return null;
+    }
+  }
+
   Map<String, dynamic> _memberToRow(Member member) {
     return <String, dynamic>{
       'id': member.id,
@@ -536,6 +641,9 @@ class SupabaseService {
       'transaction_ref': entry.transactionRef,
       'note': entry.note,
       'screenshot_path': entry.screenshotPath,
+      'reviewed_at': entry.reviewedAt?.toIso8601String(),
+      'reviewed_by': entry.reviewedBy,
+      'rejection_reason': entry.rejectionReason,
       'created_at': entry.createdAt.toIso8601String(),
     };
   }
@@ -552,6 +660,9 @@ class SupabaseService {
       'transactionRef': row['transaction_ref'] as String?,
       'note': row['note'] as String?,
       'screenshotPath': row['screenshot_path'] as String?,
+      'reviewedAt': row['reviewed_at'] as String?,
+      'reviewedBy': row['reviewed_by'] as String?,
+      'rejectionReason': row['rejection_reason'] as String?,
       'createdAt': row['created_at'] as String,
     });
   }

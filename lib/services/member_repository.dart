@@ -1,5 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/member.dart';
 import 'supabase_service.dart';
 
@@ -7,10 +5,7 @@ class MemberRepository {
   MemberRepository({required SupabaseService cloudService})
       : _cloudService = cloudService;
 
-  static const _membersKey = 'members';
-
   final SupabaseService _cloudService;
-  SharedPreferences? _preferences;
   final List<Member> _members = [];
 
   List<Member> get members => List.unmodifiable(_members);
@@ -30,12 +25,6 @@ class MemberRepository {
   }
 
   Future<void> load() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    final items = _preferences?.getStringList(_membersKey) ?? <String>[];
-    _members
-      ..clear()
-      ..addAll(items.map(Member.fromJson));
-
     if (!_cloudService.isConfigured) {
       return;
     }
@@ -45,20 +34,31 @@ class MemberRepository {
       _members
         ..clear()
         ..addAll(cloudMembers);
-      await _persist();
       return;
     }
   }
 
-  Future<void> saveMember(Member member) async {
+  Future<bool> saveMember(Member member) async {
+    if (!_cloudService.isConfigured) {
+      return false;
+    }
     final index = _members.indexWhere((item) => item.id == member.id);
+    Member? previous;
     if (index == -1) {
       _members.add(member);
     } else {
+      previous = _members[index];
       _members[index] = member;
     }
-    await _persist();
-    await _cloudService.upsertMember(member);
+    final success = await _cloudService.upsertMember(member);
+    if (!success) {
+      if (index == -1) {
+        _members.removeWhere((item) => item.id == member.id);
+      } else if (previous != null) {
+        _members[index] = previous;
+      }
+    }
+    return success;
   }
 
   Future<void> seedAdminIfNeeded() async {
@@ -76,7 +76,6 @@ class MemberRepository {
     _members
       ..clear()
       ..addAll(cloudMembers);
-    await _persist();
   }
 
   Future<void> refreshFromCloud() async {
@@ -90,7 +89,6 @@ class MemberRepository {
     _members
       ..clear()
       ..addAll(cloudMembers);
-    await _persist();
   }
 
   Future<Member?> fetchByMobileFromCloud(String mobileNumber) async {
@@ -108,7 +106,6 @@ class MemberRepository {
     } else {
       _members[index] = member;
     }
-    await _persist();
     return member;
   }
 
@@ -159,8 +156,7 @@ class MemberRepository {
       isBlocked: blocked,
       lastUpdated: DateTime.now(),
     );
-    await saveMember(updated);
-    return true;
+    return saveMember(updated);
   }
 
   Future<bool> setMemberApproved({
@@ -181,8 +177,7 @@ class MemberRepository {
       isApproved: approved,
       lastUpdated: DateTime.now(),
     );
-    await saveMember(updated);
-    return true;
+    return saveMember(updated);
   }
 
   List<Member> search({required String query, required String districtFilter}) {
@@ -201,11 +196,5 @@ class MemberRepository {
       ..sort((left, right) => left.name.compareTo(right.name));
   }
 
-  Future<void> _persist() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    await _preferences!.setStringList(
-      _membersKey,
-      _members.map((member) => member.toJson()).toList(),
-    );
-  }
+  SupabaseService get cloudService => _cloudService;
 }

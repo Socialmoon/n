@@ -1,5 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/help_comment.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
@@ -9,11 +7,7 @@ class HelpFeedService {
   HelpFeedService({required SupabaseService cloudService})
       : _cloudService = cloudService;
 
-  static const _postsKey = 'help_feed_posts';
-  static const _commentsKey = 'help_feed_comments';
-
   final SupabaseService _cloudService;
-  SharedPreferences? _preferences;
   final List<HelpPost> _posts = <HelpPost>[];
   final List<HelpComment> _comments = <HelpComment>[];
 
@@ -26,16 +20,6 @@ class HelpFeedService {
   }
 
   Future<void> load() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    final rawPosts = _preferences?.getStringList(_postsKey) ?? <String>[];
-    final rawComments = _preferences?.getStringList(_commentsKey) ?? <String>[];
-    _posts
-      ..clear()
-      ..addAll(rawPosts.map(HelpPost.fromJson));
-    _comments
-      ..clear()
-      ..addAll(rawComments.map(HelpComment.fromJson));
-
     if (!_cloudService.isConfigured) {
       return;
     }
@@ -52,7 +36,6 @@ class HelpFeedService {
     _comments
       ..clear()
       ..addAll(cloudComments.reversed);
-    await _persist();
   }
 
   Future<void> createPost({
@@ -72,7 +55,6 @@ class HelpFeedService {
     );
 
     _posts.add(post);
-    await _persist();
     await _cloudService.insertHelpPost(post);
   }
 
@@ -91,26 +73,12 @@ class HelpFeedService {
     );
 
     _comments.add(comment);
-    await _persist();
     await _cloudService.insertHelpComment(comment);
   }
 
   Future<void> deletePost(String postId) async {
     _posts.removeWhere((post) => post.id == postId);
     _comments.removeWhere((comment) => comment.postId == postId);
-    await _persist();
     await _cloudService.deleteHelpPost(postId);
-  }
-
-  Future<void> _persist() async {
-    _preferences ??= await SharedPreferences.getInstance();
-    await _preferences!.setStringList(
-      _postsKey,
-      _posts.map((entry) => entry.toJson()).toList(),
-    );
-    await _preferences!.setStringList(
-      _commentsKey,
-      _comments.map((entry) => entry.toJson()).toList(),
-    );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/location_suggestion_service.dart';
@@ -134,6 +135,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          BrandLogo(size: 44),
+          SizedBox(height: 12),
           Text(
             'New Member Registration',
             style: TextStyle(
@@ -144,7 +147,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Complete the registration in guided phases with posting details and document capture.',
+            '${AppBrand.appName} guided onboarding with posting details and document capture.',
             style: TextStyle(color: Colors.white70, height: 1.4),
           ),
         ],
@@ -624,11 +627,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _pickAppointmentDate() async {
+    final today = DateTime.now();
+    final minDate = DateTime(today.year, today.month, today.day);
     final selected = await showDatePicker(
       context: context,
-      firstDate: DateTime(1980),
-      lastDate: DateTime.now(),
-      initialDate: _appointmentDate ?? DateTime.now(),
+      firstDate: minDate,
+      lastDate: DateTime(today.year + 20, 12, 31),
+      initialDate: _appointmentDate != null && _appointmentDate!.isBefore(minDate)
+          ? minDate
+          : (_appointmentDate ?? minDate),
     );
     if (selected != null) {
       setState(() {
@@ -778,6 +785,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showMessage('Select the appointment date.');
       return false;
     }
+    final appointment = DateTime(
+      _appointmentDate!.year,
+      _appointmentDate!.month,
+      _appointmentDate!.day,
+    );
+    final today = DateTime.now();
+    final current = DateTime(today.year, today.month, today.day);
+    if (appointment.isBefore(current)) {
+      _showMessage('Appointment date cannot be in the past.');
+      return false;
+    }
     return true;
   }
 
@@ -808,7 +826,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _submitting = true;
     });
 
+    final selfieBytes = await _selfie!.readAsBytes();
+    final idCardBytes = await _idCardPhoto!.readAsBytes();
+    final mediaService = widget.repository.cloudService;
     final now = DateTime.now();
+    final baseName = now.microsecondsSinceEpoch;
+    final selfieUrl = await mediaService.uploadImageBytes(
+      bytes: selfieBytes,
+      folder: 'member-docs',
+      fileName: 'selfie_$baseName.jpg',
+    );
+    final idCardUrl = await mediaService.uploadImageBytes(
+      bytes: idCardBytes,
+      folder: 'member-docs',
+      fileName: 'id_card_$baseName.jpg',
+    );
+
+    if (selfieUrl == null || idCardUrl == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitting = false;
+      });
+      _showMessage('Unable to upload documents to cloud. Please retry.');
+      return;
+    }
+
     final mobile = _mobileController.text.trim();
     final member = Member(
       id: now.microsecondsSinceEpoch.toString(),
@@ -819,8 +863,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       mpin: _mpinController.text.trim(),
       referenceMobileNumber: _referenceController.text.trim(),
       referenceMemberName: _referenceMember?.name,
-      selfiePath: _selfie?.path,
-      idCardPhotoPath: _idCardPhoto?.path,
+      selfiePath: selfieUrl,
+      idCardPhotoPath: idCardUrl,
       homeDistrict: _homeDistrictController.text.trim(),
       postingDistrict: _postingDistrictController.text.trim(),
       postingLocation: _postingLocationController.text.trim(),
@@ -830,7 +874,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       passwordUpdatedAt: now,
       isApproved: false,
     );
-    await widget.repository.saveMember(member);
+    final saved = await widget.repository.saveMember(member);
+
+    if (!saved) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitting = false;
+      });
+      _showMessage('Unable to create registration in cloud. Please retry.');
+      return;
+    }
 
     if (!mounted) {
       return;

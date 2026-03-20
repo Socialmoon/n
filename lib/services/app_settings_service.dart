@@ -1,26 +1,20 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 class AppSettingsService {
-  static const String notificationsEnabledKey = 'settings_notifications_enabled';
-  static const String vibrationEnabledKey = 'settings_vibration_enabled';
+  static bool _notificationsEnabled = true;
+  static bool _vibrationEnabled = true;
 
   Future<bool> getNotificationsEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(notificationsEnabledKey) ?? true;
+    return _notificationsEnabled;
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(notificationsEnabledKey, enabled);
+    _notificationsEnabled = enabled;
   }
 
   Future<bool> getVibrationEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(vibrationEnabledKey) ?? true;
+    return _vibrationEnabled;
   }
 
   Future<void> setVibrationEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(vibrationEnabledKey, enabled);
+    _vibrationEnabled = enabled;
   }
 }

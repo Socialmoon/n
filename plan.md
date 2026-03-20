@@ -1,6 +1,6 @@
 # PROJECT_PLAN.md
 
-## Police Network Secure Member App
+## Apne Saathi Secure Member App
 
 This document explains the **complete project requirements, architecture, and implementation plan** so an AI coding agent (Claude) can understand the entire project and build it step-by-step without additional explanation.
 

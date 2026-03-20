@@ -1,4 +1,4 @@
-# Police Network App
+# Apne Saathi App
 
 This Flutter app now supports cloud sync through Supabase with local fallback.
 

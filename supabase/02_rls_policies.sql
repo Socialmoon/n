@@ -6,6 +6,7 @@ alter table public.app_admins enable row level security;
 alter table public.help_posts enable row level security;
 alter table public.donations enable row level security;
 alter table public.help_post_comments enable row level security;
+alter table public.app_settings enable row level security;
 
 -- MEMBERS policies
 drop policy if exists members_select_policy on public.members;
@@ -157,6 +158,36 @@ for delete
 to authenticated
 using (public.is_app_admin() or owner_id = auth.uid());
 
+-- APP SETTINGS policies
+drop policy if exists app_settings_select_policy on public.app_settings;
+create policy app_settings_select_policy
+on public.app_settings
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists app_settings_insert_policy on public.app_settings;
+create policy app_settings_insert_policy
+on public.app_settings
+for insert
+to authenticated
+with check (public.is_app_admin() or owner_id = auth.uid());
+
+drop policy if exists app_settings_update_policy on public.app_settings;
+create policy app_settings_update_policy
+on public.app_settings
+for update
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid())
+with check (public.is_app_admin() or owner_id = auth.uid());
+
+drop policy if exists app_settings_delete_policy on public.app_settings;
+create policy app_settings_delete_policy
+on public.app_settings
+for delete
+to authenticated
+using (public.is_app_admin() or owner_id = auth.uid());
+
 -- APP ADMINS policies (only admins can see/edit this list)
 drop policy if exists app_admins_select_policy on public.app_admins;
 create policy app_admins_select_policy
@@ -178,3 +209,33 @@ on public.app_admins
 for delete
 to authenticated
 using (public.is_app_admin());
+
+-- STORAGE policies (app-media bucket)
+drop policy if exists app_media_public_read on storage.objects;
+create policy app_media_public_read
+on storage.objects
+for select
+to anon, authenticated
+using (bucket_id = 'app-media');
+
+drop policy if exists app_media_upload_policy on storage.objects;
+create policy app_media_upload_policy
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'app-media');
+
+drop policy if exists app_media_update_policy on storage.objects;
+create policy app_media_update_policy
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'app-media' and (public.is_app_admin() or owner = auth.uid()))
+with check (bucket_id = 'app-media' and (public.is_app_admin() or owner = auth.uid()));
+
+drop policy if exists app_media_delete_policy on storage.objects;
+create policy app_media_delete_policy
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'app-media' and (public.is_app_admin() or owner = auth.uid()));

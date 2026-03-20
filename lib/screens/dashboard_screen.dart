@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/brand.dart';
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
@@ -18,6 +19,11 @@ import 'profile_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/member_card.dart';
 
+const int _membersTabIndex = 1;
+const int _helpTabIndex = 2;
+const int _donationsTabIndex = 3;
+const int _accountTabIndex = 4;
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.currentUser,
@@ -27,6 +33,7 @@ class DashboardScreen extends StatefulWidget {
     required this.helpFeedService,
     required this.onCurrentUserUpdated,
     required this.onLogout,
+    this.onNavigateToTab,
     super.key,
   });
 
@@ -37,6 +44,7 @@ class DashboardScreen extends StatefulWidget {
   final HelpFeedService helpFeedService;
   final ValueChanged<Member> onCurrentUserUpdated;
   final VoidCallback onLogout;
+  final ValueChanged<int>? onNavigateToTab;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -122,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Member Directory'),
+        title: const BrandedScreenTitle('Dashboard'),
         actions: <Widget>[
           IconButton(
             onPressed: _triggerAlert,
@@ -146,10 +154,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               gradient: const LinearGradient(
                 colors: <Color>[Color(0xFF123C56), Color(0xFF266D7A)],
               ),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x2A0F3A4A),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                const BrandLogo(size: 42),
+                const SizedBox(height: 12),
                 Text(
                   'Welcome, ${widget.currentUser.name}',
                   style: const TextStyle(
@@ -173,6 +190,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          const Text(
+            'Quick links',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActions(),
           const SizedBox(height: 20),
           TextField(
             controller: _queryController,
@@ -213,39 +237,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: widget.currentUser.isAdmin ? _openApprovals : null,
-            icon: const Icon(Icons.verified_user_outlined),
-            label: const Text('Open New Approvals'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _openProfile,
-            icon: const Icon(Icons.person_outline),
-            label: const Text('Open My Profile'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _openSettings,
-            icon: const Icon(Icons.settings_outlined),
-            label: const Text('Open Settings'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _openDonations,
-            icon: const Icon(Icons.volunteer_activism_outlined),
-            label: const Text('Open Donations Page'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _openMembers,
-            icon: const Icon(Icons.groups_outlined),
-            label: const Text('Open Members Page'),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Visible member data excludes home district. Admin accounts can see it in the cards below.',
-          ),
+          const Text('Visible member data excludes home district.'),
+          const Text('Admin accounts can see it in the cards below.'),
           const SizedBox(height: 12),
           if (visibleMembers.isEmpty)
             const Card(
@@ -276,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: _openHelpFeed,
+            onPressed: () => _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
             icon: const Icon(Icons.forum_outlined),
             label: const Text('Open Help Feed'),
           ),
@@ -286,6 +279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _triggerAlert,
         icon: const Icon(Icons.sos_outlined),
@@ -293,6 +287,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildQuickActions() {
+    return GridView.count(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.6,
+      children: <Widget>[
+        _buildQuickActionTile(
+          icon: Icons.groups_outlined,
+          title: 'Members',
+          subtitle: 'Search and connect',
+          onTap: () => _goToTabOrOpen(_membersTabIndex, _openMembers),
+        ),
+        _buildQuickActionTile(
+          icon: Icons.forum_outlined,
+          title: 'Help Feed',
+          subtitle: 'Requests and support',
+          onTap: () => _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
+        ),
+        _buildQuickActionTile(
+          icon: Icons.volunteer_activism_outlined,
+          title: 'Donations',
+          subtitle: 'Fund and history',
+          onTap: () => _goToTabOrOpen(_donationsTabIndex, _openDonations),
+        ),
+        _buildQuickActionTile(
+          icon: Icons.person_outline,
+          title: 'Account',
+          subtitle: 'Profile and settings',
+          onTap: () => _goToTabOrOpen(_accountTabIndex, _openAccountHub),
+        ),
+        if (widget.currentUser.isAdmin)
+          _buildQuickActionTile(
+            icon: Icons.verified_user_outlined,
+            title: 'Approvals',
+            subtitle: 'Review new members',
+            onTap: _openApprovals,
+          )
+        else
+          _buildQuickActionTile(
+            icon: Icons.health_and_safety_outlined,
+            title: 'Safety',
+            subtitle: 'Emergency response',
+            onTap: _triggerAlert,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE1E8EE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(icon, color: const Color(0xFF0F3A4A)),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Color(0xFF61747E), fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildAlertCard(EmergencyAlert alert) {
     return Card(
@@ -421,6 +505,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) => ProfileScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
+          donationService: widget.donationService,
+          onOpenSettings: () => _openSettings(),
         ),
       ),
     );
@@ -431,6 +517,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
       widget.onCurrentUserUpdated(updated);
     }
     setState(() {});
+  }
+
+  Future<void> _openAccountHub() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('My Profile'),
+                subtitle: const Text('Edit your basic details'),
+                onTap: () => Navigator.of(context).pop('profile'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Settings'),
+                subtitle:
+                    const Text('Security, notifications, and account controls'),
+                onTap: () => Navigator.of(context).pop('settings'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (action == 'settings') {
+      await _openSettings();
+      return;
+    }
+    if (action == 'profile') {
+      await _openProfile();
+    }
   }
 
   Future<void> _openSettings() async {
@@ -465,6 +588,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     setState(() {});
+  }
+
+  void _goToTabOrOpen(int tabIndex, Future<void> Function() fallback) {
+    if (widget.onNavigateToTab != null) {
+      widget.onNavigateToTab!(tabIndex);
+      return;
+    }
+    fallback();
   }
 
   Future<void> _openApprovals() async {

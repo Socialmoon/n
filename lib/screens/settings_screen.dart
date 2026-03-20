@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/app_settings_service.dart';
 import '../services/member_repository.dart';
@@ -48,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const BrandedScreenTitle('Settings'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -255,7 +256,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       passwordUpdatedAt: DateTime.now(),
       lastUpdated: DateTime.now(),
     );
-    await widget.repository.saveMember(updated);
+    final saved = await widget.repository.saveMember(updated);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!saved) {
+      setState(() {
+        _saving = false;
+      });
+      _showMessage('Unable to update M-PIN in cloud. Please retry.');
+      return;
+    }
 
     if (!mounted) {
       return;

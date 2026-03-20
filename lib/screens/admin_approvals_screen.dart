@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 
+import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 
@@ -26,7 +27,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
   Widget build(BuildContext context) {
     if (!widget.currentUser.isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('New Member Approvals')),
+        appBar: AppBar(title: const BrandedScreenTitle('New Member Approvals')),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(20),
@@ -40,7 +41,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Member Approvals'),
+        title: const BrandedScreenTitle('New Member Approvals'),
         actions: <Widget>[
           IconButton(
             onPressed: _refreshing ? null : _refresh,
