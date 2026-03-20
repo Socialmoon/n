@@ -2,8 +2,13 @@ name: Publish APK Release
 
 on:
   push:
-    tags:
-      - 'apk-*'
+    branches:
+      - master
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
   workflow_dispatch:
 
 permissions:
@@ -18,17 +23,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify APK artifacts exist
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+
+      - name: Build APK
         run: |
-          ls -lah releases || true
-          test -n "$(ls -1 releases/*.apk 2>/dev/null)"
+          flutter pub get
+          flutter build apk --release
+
+      - name: Prepare release metadata
+        id: meta
+        run: |
+          TAG="apk-$(date +%Y%m%d-%H%M%S)"
+          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          RELEASE_APK="app-release-${TAG}.apk"
+
+          test -f "$APK_PATH"
+          cp "$APK_PATH" "$RELEASE_APK"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "asset=$RELEASE_APK" >> "$GITHUB_OUTPUT"
+
+      - name: Verify APK artifact exists
+        run: |
+          ls -lah
+          test -f "${{ steps.meta.outputs.asset }}"
 
       - name: Create GitHub Release and upload APKs
-        uses: softprops/action-gh-release@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ github.ref_name }}
-          name: APK ${{ github.ref_name }}
-          generate_release_notes: true
-          make_latest: true
-          files: releases/*.apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" "${{ steps.meta.outputs.asset }}" \
+            --title "APK ${{ steps.meta.outputs.tag }}" \
+            --generate-notes \
+            --latest

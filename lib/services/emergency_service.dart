@@ -3,6 +3,7 @@ import 'package:vibration/vibration.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
+import 'app_settings_service.dart';
 import 'supabase_service.dart';
 
 class EmergencyService {
@@ -12,6 +13,7 @@ class EmergencyService {
   static const _alertsKey = 'emergency_alerts';
 
   final SupabaseService _cloudService;
+  final AppSettingsService _settingsService = AppSettingsService();
   SharedPreferences? _preferences;
   final List<EmergencyAlert> _alerts = [];
 
@@ -58,7 +60,8 @@ class EmergencyService {
     _preferences ??= await SharedPreferences.getInstance();
     await _persist();
     await _cloudService.insertAlert(alert);
-    if (await Vibration.hasVibrator() ?? false) {
+    final vibrationEnabled = await _settingsService.getVibrationEnabled();
+    if (vibrationEnabled && await Vibration.hasVibrator()) {
       await Vibration.vibrate(pattern: <int>[0, 300, 200, 300]);
     }
   }

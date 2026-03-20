@@ -9,6 +9,7 @@ import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
+import '../services/app_settings_service.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
@@ -44,6 +45,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _queryController = TextEditingController();
   final _districtController = TextEditingController();
+  final AppSettingsService _settingsService = AppSettingsService();
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
   List<String> _districtSuggestions = <String>[];
@@ -374,9 +376,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Emergency alert triggered.')),
-    );
+    final notificationsEnabled =
+        await _settingsService.getNotificationsEnabled();
+    if (!mounted || !notificationsEnabled) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Emergency alert triggered.')));
   }
 
   Future<void> _openHelpFeed() async {
@@ -433,6 +439,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) => SettingsScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
+          onLogout: widget.onLogout,
         ),
       ),
     );

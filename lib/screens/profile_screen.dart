@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:image_picker/image_picker.dart';
 
 import '../models/member.dart';
 import '../services/location_suggestion_service.dart';
@@ -22,11 +25,14 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _postingLocationController;
+  final ImagePicker _imagePicker = ImagePicker();
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
   List<String> _stationSuggestions = <String>[];
   Timer? _stationDebounce;
   int _stationRequest = 0;
+  String? _selfiePath;
+  Uint8List? _selfiePreviewBytes;
   bool _saving = false;
 
   @override
@@ -35,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: widget.currentUser.name);
     _postingLocationController =
         TextEditingController(text: widget.currentUser.postingLocation);
+    _selfiePath = widget.currentUser.selfiePath;
   }
 
   @override
@@ -64,6 +71,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Text(
                     'Editable Basic Info',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      CircleAvatar(
+                        radius: 34,
+                        backgroundColor: const Color(0xFFE6ECF1),
+                        backgroundImage: _selfiePreviewBytes == null
+                            ? null
+                            : MemoryImage(_selfiePreviewBytes!),
+                        child: _selfiePreviewBytes == null
+                            ? const Icon(Icons.person, size: 36)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Profile Photo',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _selfiePath == null
+                                  ? 'No photo selected.'
+                                  : 'Photo selected and ready to save.',
+                              style: const TextStyle(color: Color(0xFF5A6B74)),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: <Widget>[
+                                OutlinedButton.icon(
+                                  onPressed: _pickProfilePhoto,
+                                  icon: const Icon(Icons.photo_library_outlined),
+                                  label: const Text('Choose Photo'),
+                                ),
+                                if (_selfiePath != null)
+                                  TextButton.icon(
+                                    onPressed: _removeProfilePhoto,
+                                    icon: const Icon(Icons.delete_outline),
+                                    label: const Text('Remove'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -220,6 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final updated = widget.currentUser.copyWith(
       name: name,
       postingLocation: postingLocation,
+      selfiePath: _selfiePath,
       lastUpdated: DateTime.now(),
     );
     await widget.repository.saveMember(updated);
@@ -258,6 +317,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     setState(() {
       _stationSuggestions = suggestions;
+    });
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (picked == null) {
+      return;
+    }
+    final bytes = await picked.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selfiePath = picked.path;
+      _selfiePreviewBytes = bytes;
+    });
+  }
+
+  void _removeProfilePhoto() {
+    setState(() {
+      _selfiePath = null;
+      _selfiePreviewBytes = null;
     });
   }
 }
