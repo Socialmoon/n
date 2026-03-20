@@ -22,11 +22,9 @@ class AuthService {
   static const _activeUserKey = 'active_user_id';
   static const _lastMobileKey = 'last_mobile_number';
 
-  AuthService(this._repository, {OtpService? otpService})
-      : _otpService = otpService ?? OtpService();
+  AuthService(this._repository, {OtpService? otpService});
 
   final MemberRepository _repository;
-  final OtpService _otpService;
   final LocalAuthentication _localAuthentication = LocalAuthentication();
   SharedPreferences? _preferences;
 
@@ -53,33 +51,34 @@ class AuthService {
   }
 
   Future<OtpDispatchResult> issueOtp(String mobileNumber) {
-    return _otpService.sendOtp(mobileNumber);
+    // OTP is temporarily disabled across the app.
+    return Future<OtpDispatchResult>.value(
+      const OtpDispatchResult(
+        success: false,
+        error: 'OTP login is currently disabled.',
+      ),
+    );
   }
 
   Future<AuthResult> loginWithOtp({
     required String mobileNumber,
     required String otp,
   }) async {
-    final normalized = _normalizeMobile(mobileNumber);
-    final member = await _resolveMember(normalized);
-    if (member == null) {
-      return const AuthResult(error: 'Member not found.');
-    }
-    final otpCheck = await _otpService.verifyOtp(
-      mobileNumber: normalized,
-      otp: otp,
-    );
-    if (!otpCheck.success) {
-      return AuthResult(error: otpCheck.error ?? 'Invalid OTP.');
-    }
-    return _completeLogin(member);
+    // OTP is temporarily disabled across the app.
+    return const AuthResult(error: 'OTP login is currently disabled.');
   }
 
   Future<OtpVerifyResult> verifyOtp({
     required String mobileNumber,
     required String otp,
   }) {
-    return _otpService.verifyOtp(mobileNumber: mobileNumber, otp: otp);
+    // OTP is temporarily disabled across the app.
+    return Future<OtpVerifyResult>.value(
+      const OtpVerifyResult(
+        success: false,
+        error: 'OTP verification is currently disabled.',
+      ),
+    );
   }
 
   Future<bool> isBiometricAvailable() async {

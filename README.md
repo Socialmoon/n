@@ -66,6 +66,31 @@ npx supabase@latest functions deploy send-otp --project-ref YOUR_PROJECT_REF --n
 npx supabase@latest functions deploy verify-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
 ```
 
+### Rotate Revoked Twilio Credentials (Windows PowerShell)
+
+If previous Twilio credentials were revoked, set new values and redeploy:
+
+```powershell
+$env:TWILIO_ACCOUNT_SID="YOUR_NEW_ACCOUNT_SID"
+$env:TWILIO_AUTH_TOKEN="YOUR_NEW_AUTH_TOKEN"
+$env:TWILIO_VERIFY_SERVICE_SID="YOUR_NEW_VERIFY_SERVICE_SID"
+
+npx supabase@latest secrets set `
+  TWILIO_ACCOUNT_SID=$env:TWILIO_ACCOUNT_SID `
+  TWILIO_AUTH_TOKEN=$env:TWILIO_AUTH_TOKEN `
+  TWILIO_VERIFY_SERVICE_SID=$env:TWILIO_VERIFY_SERVICE_SID `
+  --project-ref YOUR_PROJECT_REF
+
+npx supabase@latest functions deploy send-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+npx supabase@latest functions deploy verify-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+```
+
+How to get new Twilio values:
+- `TWILIO_ACCOUNT_SID`: Twilio Console Home -> Account Info -> Account SID.
+- `TWILIO_AUTH_TOKEN`: Twilio Console Home -> Account Info -> Auth Token -> reveal/regenerate.
+- `TWILIO_VERIFY_SERVICE_SID`: Twilio Console -> Verify -> Services -> open your service (or create one) -> Service SID.
+- If you regenerate the Auth Token, immediately update Supabase secrets and redeploy both OTP functions.
+
 Notes:
 - Current app calls these functions using the Supabase anon key headers.
 - Add rate limiting and abuse controls on server side before production rollout.

@@ -15,6 +15,11 @@ class MemberRepository {
 
   List<Member> get members => List.unmodifiable(_members);
 
+  List<Member> get pendingApprovals => _members
+      .where((member) => !member.isApproved && !member.isAdmin)
+      .toList()
+    ..sort((left, right) => left.name.compareTo(right.name));
+
   Member? getById(String id) {
     for (final member in _members) {
       if (member.id == id) {
@@ -152,6 +157,28 @@ class MemberRepository {
 
     final updated = current.copyWith(
       isBlocked: blocked,
+      lastUpdated: DateTime.now(),
+    );
+    await saveMember(updated);
+    return true;
+  }
+
+  Future<bool> setMemberApproved({
+    required Member actor,
+    required String memberId,
+    required bool approved,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
+    }
+
+    final current = getById(memberId);
+    if (current == null) {
+      return false;
+    }
+
+    final updated = current.copyWith(
+      isApproved: approved,
       lastUpdated: DateTime.now(),
     );
     await saveMember(updated);

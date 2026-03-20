@@ -22,7 +22,8 @@ create table if not exists public.members (
   last_updated timestamptz not null,
   password_updated_at timestamptz not null,
   is_admin boolean not null default false,
-  is_blocked boolean not null default false
+  is_blocked boolean not null default false,
+  is_approved boolean not null default true
 );
 
 create table if not exists public.emergency_alerts (

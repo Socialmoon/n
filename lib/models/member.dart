@@ -21,6 +21,7 @@ class Member {
     this.idCardPhotoPath,
     this.isAdmin = false,
     this.isBlocked = false,
+    this.isApproved = true,
   });
 
   final String id;
@@ -42,6 +43,7 @@ class Member {
   final DateTime passwordUpdatedAt;
   final bool isAdmin;
   final bool isBlocked;
+  final bool isApproved;
 
   Member copyWith({
     String? id,
@@ -63,6 +65,7 @@ class Member {
     DateTime? passwordUpdatedAt,
     bool? isAdmin,
     bool? isBlocked,
+    bool? isApproved,
   }) {
     return Member(
       id: id ?? this.id,
@@ -85,6 +88,7 @@ class Member {
       passwordUpdatedAt: passwordUpdatedAt ?? this.passwordUpdatedAt,
       isAdmin: isAdmin ?? this.isAdmin,
       isBlocked: isBlocked ?? this.isBlocked,
+      isApproved: isApproved ?? this.isApproved,
     );
   }
 
@@ -115,6 +119,7 @@ class Member {
       'passwordUpdatedAt': passwordUpdatedAt.toIso8601String(),
       'isAdmin': isAdmin,
       'isBlocked': isBlocked,
+      'isApproved': isApproved,
     };
   }
 
@@ -139,6 +144,7 @@ class Member {
       passwordUpdatedAt: DateTime.parse(map['passwordUpdatedAt'] as String),
       isAdmin: map['isAdmin'] as bool? ?? false,
       isBlocked: map['isBlocked'] as bool? ?? false,
+      isApproved: map['isApproved'] as bool? ?? true,
     );
   }
 

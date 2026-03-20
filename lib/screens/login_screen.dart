@@ -6,7 +6,7 @@ import '../services/auth_service.dart';
 import '../services/member_repository.dart';
 import 'registration_screen.dart';
 
-enum LoginMode { otp, mpin }
+enum LoginMode { mpin }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -26,9 +26,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _mobileController = TextEditingController();
-  final _otpController = TextEditingController();
   final _mpinController = TextEditingController();
-  LoginMode _mode = LoginMode.otp;
+  LoginMode _mode = LoginMode.mpin;
   bool _submitting = false;
   bool _biometricAvailable = false;
   bool _checkingBiometric = true;
@@ -42,7 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _mobileController.dispose();
-    _otpController.dispose();
     _mpinController.dispose();
     super.dispose();
   }
@@ -92,11 +90,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         SegmentedButton<LoginMode>(
                           segments: const <ButtonSegment<LoginMode>>[
                             ButtonSegment<LoginMode>(
-                              value: LoginMode.otp,
-                              label: Text('OTP'),
-                              icon: Icon(Icons.sms_outlined),
-                            ),
-                            ButtonSegment<LoginMode>(
                               value: LoginMode.mpin,
                               label: Text('M-PIN'),
                               icon: Icon(Icons.lock_outline),
@@ -120,34 +113,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration:
                               const InputDecoration(labelText: 'Mobile number'),
                         ),
-                        if (_mode == LoginMode.otp) ...<Widget>[
-                          TextField(
-                            controller: _otpController,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: const InputDecoration(labelText: 'OTP'),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: _issueOtp,
-                            icon: const Icon(Icons.sms_outlined),
-                            label: const Text('Send OTP'),
-                          ),
-                        ] else
-                          TextField(
-                            controller: _mpinController,
-                            obscureText: true,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: const InputDecoration(
-                                labelText: '6 digit M-PIN'),
-                          ),
+                        TextField(
+                          controller: _mpinController,
+                          obscureText: true,
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration:
+                              const InputDecoration(labelText: '6 digit M-PIN'),
+                        ),
                         const SizedBox(height: 20),
                         FilledButton(
                           onPressed: _submitting ? null : _submit,
@@ -181,23 +157,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _issueOtp() async {
-    final mobile = _mobileController.text.trim();
-    if (mobile.length != 10) {
-      _showMessage('Enter a valid 10 digit mobile number first.');
-      return;
-    }
-    final dispatch = await widget.authService.issueOtp(mobile);
-    if (!mounted) {
-      return;
-    }
-    if (!dispatch.success) {
-      _showMessage(dispatch.error ?? 'Failed to send OTP.');
-      return;
-    }
-    _showMessage('OTP sent to $mobile.');
-  }
-
   Future<void> _submit() async {
     final mobile = _mobileController.text.trim();
     if (mobile.length != 10) {
@@ -208,15 +167,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _submitting = true;
     });
 
-    final result = _mode == LoginMode.otp
-        ? await widget.authService.loginWithOtp(
-            mobileNumber: mobile,
-            otp: _otpController.text.trim(),
-          )
-        : await widget.authService.loginWithMpin(
-            mobileNumber: mobile,
-            mpin: _mpinController.text.trim(),
-          );
+    final result = await widget.authService.loginWithMpin(
+      mobileNumber: mobile,
+      mpin: _mpinController.text.trim(),
+    );
     if (!mounted) {
       return;
     }

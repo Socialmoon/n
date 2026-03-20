@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'models/member.dart';
@@ -25,6 +27,7 @@ class PoliceNetworkApp extends StatefulWidget {
 
 class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
   static const Duration _startupTimeout = Duration(seconds: 8);
+  static const Duration _autoLogoutAfter = Duration(minutes: 15);
 
   final SupabaseService _supabaseService = SupabaseService();
   late final MemberRepository _repository =
@@ -39,11 +42,20 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
 
   bool _loading = true;
   Member? _currentUser;
+  Timer? _inactivityTimer;
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
     super.initState();
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _stopInactivityTimer();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -81,6 +93,7 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
       _currentUser = sessionUser;
       _loading = false;
     });
+    _startInactivityTimer();
   }
 
   @override
@@ -88,6 +101,7 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Police Network',
+      scaffoldMessengerKey: _messengerKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF123C56),
@@ -110,6 +124,7 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
                     setState(() {
                       _currentUser = member;
                     });
+                    _startInactivityTimer();
                   },
                 )
               : DashboardScreen(
@@ -118,6 +133,12 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
                   donationService: _donationService,
                   emergencyService: _emergencyService,
                   helpFeedService: _helpFeedService,
+                  onCurrentUserUpdated: (member) {
+                    setState(() {
+                      _currentUser = member;
+                    });
+                    _startInactivityTimer();
+                  },
                   onLogout: () async {
                     await _authService.logout();
                     if (!mounted) {
@@ -126,8 +147,56 @@ class _PoliceNetworkAppState extends State<PoliceNetworkApp> {
                     setState(() {
                       _currentUser = null;
                     });
+                    _stopInactivityTimer();
                   },
                 ),
+      builder: (context, child) {
+        return Listener(
+          onPointerDown: (_) => _handleUserActivity(),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+  }
+
+  void _handleUserActivity() {
+    if (_currentUser == null) {
+      return;
+    }
+    _startInactivityTimer();
+  }
+
+  void _startInactivityTimer() {
+    _inactivityTimer?.cancel();
+    if (_currentUser == null) {
+      return;
+    }
+    _inactivityTimer = Timer(_autoLogoutAfter, _performAutoLogout);
+  }
+
+  void _stopInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = null;
+  }
+
+  Future<void> _performAutoLogout() async {
+    if (!mounted || _currentUser == null) {
+      return;
+    }
+
+    await _authService.logout();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _currentUser = null;
+    });
+    _stopInactivityTimer();
+    _messengerKey.currentState?.showSnackBar(
+      const SnackBar(
+        content: Text('You were logged out due to inactivity.'),
+      ),
     );
   }
 }

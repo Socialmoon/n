@@ -26,7 +26,6 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   static const List<String> _steps = <String>[
     'Identity',
-    'Verify',
     'Posting',
     'Documents',
     'Review',
@@ -35,8 +34,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final PageController _pageController = PageController();
   final _nameController = TextEditingController();
   final _mobileController = TextEditingController();
+  final _mpinController = TextEditingController();
   final _referenceController = TextEditingController();
-  final _otpController = TextEditingController();
   final _homeDistrictController = TextEditingController();
   final _postingDistrictController = TextEditingController();
   final _postingLocationController = TextEditingController();
@@ -45,8 +44,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   XFile? _idCardPhoto;
   Member? _referenceMember;
   int _currentStep = 0;
-  bool _otpRequested = false;
-  bool _otpVerified = false;
   bool _submitting = false;
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
@@ -68,8 +65,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _pageController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
+    _mpinController.dispose();
     _referenceController.dispose();
-    _otpController.dispose();
     _homeDistrictController.dispose();
     _postingDistrictController.dispose();
     _postingLocationController.dispose();
@@ -101,7 +98,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   children: <Widget>[
                     _buildIdentityStep(),
-                    _buildOtpStep(),
                     _buildPostingStep(),
                     _buildDocumentsStep(),
                     _buildReviewStep(),
@@ -148,7 +144,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Complete the registration in guided phases with OTP verification, posting details and document capture.',
+            'Complete the registration in guided phases with posting details and document capture.',
             style: TextStyle(color: Colors.white70, height: 1.4),
           ),
         ],
@@ -210,13 +206,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             keyboardType: TextInputType.phone,
             maxLength: 10,
             digitsOnly: true,
-            onChanged: (_) {
-              setState(() {
-                _otpRequested = false;
-                _otpVerified = false;
-                _otpController.clear();
-              });
-            },
+          ),
+          _buildTextField(
+            _mpinController,
+            'Create 6 digit M-PIN',
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            digitsOnly: true,
           ),
           TextFormField(
             controller: _referenceController,
@@ -268,73 +264,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ],
               ),
             ),
-          if (_otpRequested)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5EE),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Text(
-                'OTP has been requested for this mobile number.',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtpStep() {
-    return _buildStepPage(
-      title: 'OTP verification',
-      subtitle:
-          'Verify the mobile number before continuing to posting details.',
-      child: Column(
-        children: <Widget>[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF4F7),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'OTP sent to ${_mobileController.text.trim()}. Enter the code to continue.',
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            _otpController,
-            'Enter OTP',
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            digitsOnly: true,
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _resendOtp,
-              icon: const Icon(Icons.sms_outlined),
-              label: const Text('Resend OTP'),
-            ),
-          ),
-          if (_otpVerified)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5EE),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Text(
-                'Mobile verification complete.',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
         ],
       ),
     );
@@ -351,6 +280,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _homeDistrictController,
             'Home district',
             onChanged: _onHomeDistrictChanged,
+            onTap: () => _loadHomeDistrictSuggestions(_homeDistrictController.text),
           ),
           _buildSuggestionChips(
             suggestions: _homeDistrictSuggestions,
@@ -365,6 +295,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _postingDistrictController,
             'Posting district',
             onChanged: _onPostingDistrictChanged,
+            onTap: () => _loadPostingDistrictSuggestions(_postingDistrictController.text),
           ),
           _buildSuggestionChips(
             suggestions: _postingDistrictSuggestions,
@@ -380,6 +311,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _postingLocationController,
             'Posting location / Police station',
             onChanged: _onPostingLocationChanged,
+            onTap: () => _loadPostingStationSuggestions(_postingLocationController.text),
           ),
           _buildSuggestionChips(
             suggestions: _postingStationSuggestions,
@@ -465,7 +397,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              'After approval, the member should set an M-PIN and biometric lock in a future security settings flow.',
+              'Registration remains pending until admin approval. Once approved, sign in with the M-PIN set above.',
               style: TextStyle(height: 1.4),
             ),
           ),
@@ -676,6 +608,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     int? maxLength,
     bool digitsOnly = false,
     ValueChanged<String>? onChanged,
+    VoidCallback? onTap,
   }) {
     return TextFormField(
       controller: controller,
@@ -685,6 +618,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       onChanged: onChanged,
+      onTap: onTap,
       decoration: InputDecoration(labelText: label),
     );
   }
@@ -730,51 +664,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!_validateIdentityStep()) {
         return;
       }
-      final dispatch =
-          await widget.authService.issueOtp(_mobileController.text.trim());
-      if (!mounted) {
-        return;
-      }
-      if (!dispatch.success) {
-        _showMessage(dispatch.error ?? 'Failed to send OTP.');
-        return;
-      }
-      setState(() {
-        _otpRequested = true;
-        _otpVerified = false;
-        _otpController.clear();
-      });
-      _showMessage('OTP sent successfully.');
+      // OTP flow disabled: proceed directly to posting details.
       await _goToStep(1);
       return;
     }
 
     if (_currentStep == 1) {
-      if (!_validateOtpStep()) {
+      if (!await _validatePostingStep()) {
         return;
       }
-      final otpVerified = await _verifyOtpStep();
-      if (!otpVerified) {
-        return;
-      }
-      _otpVerified = true;
       await _goToStep(2);
       return;
     }
 
     if (_currentStep == 2) {
-      if (!_validatePostingStep()) {
-        return;
-      }
-      await _goToStep(3);
-      return;
-    }
-
-    if (_currentStep == 3) {
       if (!_validateDocumentsStep()) {
         return;
       }
-      await _goToStep(4);
+      await _goToStep(3);
       return;
     }
 
@@ -799,43 +706,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     await _goToStep(_currentStep - 1);
   }
 
-  Future<void> _resendOtp() async {
-    final mobile = _mobileController.text.trim();
-    if (mobile.length != 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid mobile number first.')),
-      );
-      return;
-    }
-
-    final dispatch = await widget.authService.issueOtp(mobile);
-    if (!mounted) {
-      return;
-    }
-    if (!dispatch.success) {
-      _showMessage(dispatch.error ?? 'Failed to resend OTP.');
-      return;
-    }
-
-    setState(() {
-      _otpRequested = true;
-      _otpVerified = false;
-      _otpController.clear();
-    });
-    _showMessage('OTP resent successfully.');
-  }
-
   bool _validateIdentityStep() {
     final name = _nameController.text.trim();
     final mobile = _mobileController.text.trim();
+    final mpin = _mpinController.text.trim();
     final reference = _referenceController.text.trim();
-    if (name.isEmpty || mobile.isEmpty || reference.isEmpty) {
+    if (name.isEmpty || mobile.isEmpty || reference.isEmpty || mpin.isEmpty) {
       _showMessage(
-          'Enter full name, mobile number and reference mobile number.');
+          'Enter full name, mobile number, M-PIN and reference mobile number.');
       return false;
     }
     if (mobile.length != 10 || reference.length != 10) {
       _showMessage('Mobile numbers must be 10 digits.');
+      return false;
+    }
+    if (mpin.length != 6) {
+      _showMessage('M-PIN must be exactly 6 digits.');
       return false;
     }
     if (mobile == reference) {
@@ -853,41 +739,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return true;
   }
 
-  bool _validateOtpStep() {
-    final otp = _otpController.text.trim();
-    if (!_otpRequested) {
-      _showMessage('Request OTP first.');
-      return false;
-    }
-    if (otp.length != 6) {
-      _showMessage('Enter the 6 digit OTP.');
-      return false;
-    }
-    return true;
-  }
+  Future<bool> _validatePostingStep() async {
+    final homeDistrict = _homeDistrictController.text.trim();
+    final postingDistrict = _postingDistrictController.text.trim();
+    final postingStation = _postingLocationController.text.trim();
 
-  Future<bool> _verifyOtpStep() async {
-    final result = await widget.authService.verifyOtp(
-      mobileNumber: _mobileController.text.trim(),
-      otp: _otpController.text.trim(),
-    );
-    if (!mounted) {
-      return false;
-    }
-    if (!result.success) {
-      _showMessage(result.error ?? 'Invalid OTP.');
-      return false;
-    }
-    return true;
-  }
-
-  bool _validatePostingStep() {
     if (_homeDistrictController.text.trim().isEmpty ||
         _postingDistrictController.text.trim().isEmpty ||
         _postingLocationController.text.trim().isEmpty) {
       _showMessage('Complete all posting details.');
       return false;
     }
+
+    final homeDistrictValid =
+        await _locationSuggestions.isKnownDistrict(homeDistrict);
+    if (!homeDistrictValid) {
+      _showMessage('Choose a valid UP home district from suggestions.');
+      return false;
+    }
+
+    final postingDistrictValid =
+        await _locationSuggestions.isKnownDistrict(postingDistrict);
+    if (!postingDistrictValid) {
+      _showMessage('Choose a valid UP posting district from suggestions.');
+      return false;
+    }
+
+    final stationValid = await _locationSuggestions.isKnownStation(
+      station: postingStation,
+      district: postingDistrict,
+    );
+    if (!stationValid) {
+      _showMessage('Choose a valid police station from suggestions.');
+      return false;
+    }
+
     if (_appointmentDate == null) {
       _showMessage('Select the appointment date.');
       return false;
@@ -913,13 +799,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_validateIdentityStep() ||
-        !_validatePostingStep() ||
-        !_validateDocumentsStep()) {
-      return;
-    }
-    if (!_otpVerified) {
-      _showMessage('Complete OTP verification before submitting.');
+    final postingValid = await _validatePostingStep();
+    if (!_validateIdentityStep() || !postingValid || !_validateDocumentsStep()) {
       return;
     }
 
@@ -935,7 +816,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       mobileNumber: mobile,
       userId: 'u_$mobile',
       passwordHash: widget.authService.hashPassword(mobile),
-      mpin: '',
+      mpin: _mpinController.text.trim(),
       referenceMobileNumber: _referenceController.text.trim(),
       referenceMemberName: _referenceMember?.name,
       selfiePath: _selfie?.path,
@@ -947,6 +828,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       role: 'Member',
       lastUpdated: now,
       passwordUpdatedAt: now,
+      isApproved: false,
     );
     await widget.repository.saveMember(member);
 

@@ -63,6 +63,7 @@ class _MembersScreenState extends State<MembersScreen> {
           TextField(
             controller: _queryController,
             onChanged: _onSearchChanged,
+            onTap: () => _loadStationSuggestions(_queryController.text),
             decoration: const InputDecoration(
               labelText: 'Search by name, role, location',
               prefixIcon: Icon(Icons.search),
@@ -81,6 +82,7 @@ class _MembersScreenState extends State<MembersScreen> {
           TextField(
             controller: _districtController,
             onChanged: _onDistrictChanged,
+            onTap: () => _loadDistrictSuggestions(_districtController.text),
             decoration: const InputDecoration(
               labelText: 'Filter by posting district',
               prefixIcon: Icon(Icons.place_outlined),
@@ -93,6 +95,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 _districtController.text = district;
                 _districtSuggestions = <String>[];
               });
+              _onSearchChanged(_queryController.text);
             },
           ),
           const SizedBox(height: 16),
@@ -282,6 +285,7 @@ class _MembersScreenState extends State<MembersScreen> {
     _districtDebounce = Timer(const Duration(milliseconds: 350), () {
       _loadDistrictSuggestions(value);
     });
+    _onSearchChanged(_queryController.text);
   }
 
   Future<void> _loadStationSuggestions(String query) async {

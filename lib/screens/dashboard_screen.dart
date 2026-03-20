@@ -12,6 +12,9 @@ import '../services/member_repository.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
+import 'admin_approvals_screen.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/member_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -21,6 +24,7 @@ class DashboardScreen extends StatefulWidget {
     required this.donationService,
     required this.emergencyService,
     required this.helpFeedService,
+    required this.onCurrentUserUpdated,
     required this.onLogout,
     super.key,
   });
@@ -30,6 +34,7 @@ class DashboardScreen extends StatefulWidget {
   final DonationService donationService;
   final EmergencyService emergencyService;
   final HelpFeedService helpFeedService;
+  final ValueChanged<Member> onCurrentUserUpdated;
   final VoidCallback onLogout;
 
   @override
@@ -59,6 +64,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.currentUser.isApproved) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Approval Pending'),
+          actions: <Widget>[
+            IconButton(
+              onPressed: widget.onLogout,
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+            ),
+          ],
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Card(
+              margin: const EdgeInsets.all(20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Your account is pending admin approval.',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'You can access the full app immediately after admin approval.',
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _refreshApprovalStatus,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Check Approval Status'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final members = widget.repository.search(
       query: _queryController.text,
       districtFilter: _districtController.text,
@@ -127,6 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               prefixIcon: Icon(Icons.search),
             ),
             onChanged: _onSearchChanged,
+            onTap: () => _loadStationSuggestions(_queryController.text),
           ),
           _buildSuggestionChips(
             suggestions: _stationSuggestions,
@@ -145,6 +198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               prefixIcon: Icon(Icons.place_outlined),
             ),
             onChanged: _onDistrictChanged,
+            onTap: () => _loadDistrictSuggestions(_districtController.text),
           ),
           _buildSuggestionChips(
             suggestions: _districtSuggestions,
@@ -153,9 +207,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _districtController.text = district;
                 _districtSuggestions = <String>[];
               });
+              _onSearchChanged(_queryController.text);
             },
           ),
           const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: widget.currentUser.isAdmin ? _openApprovals : null,
+            icon: const Icon(Icons.verified_user_outlined),
+            label: const Text('Open New Approvals'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _openProfile,
+            icon: const Icon(Icons.person_outline),
+            label: const Text('Open My Profile'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined),
+            label: const Text('Open Settings'),
+          ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: _openDonations,
             icon: const Icon(Icons.volunteer_activism_outlined),
@@ -336,6 +409,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  Future<void> _openProfile() async {
+    final updated = await Navigator.of(context).push<Member>(
+      MaterialPageRoute<Member>(
+        builder: (context) => ProfileScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (updated != null) {
+      widget.onCurrentUserUpdated(updated);
+    }
+    setState(() {});
+  }
+
+  Future<void> _openSettings() async {
+    final updated = await Navigator.of(context).push<Member>(
+      MaterialPageRoute<Member>(
+        builder: (context) => SettingsScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (updated != null) {
+      widget.onCurrentUserUpdated(updated);
+    }
+    setState(() {});
+  }
+
   Future<void> _openMembers() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -351,6 +460,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  Future<void> _openApprovals() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminApprovalsScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _refreshApprovalStatus() async {
+    await widget.repository.refreshFromCloud();
+    final updated = widget.repository.findById(widget.currentUser.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (updated == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to refresh approval status.')),
+      );
+      return;
+    }
+
+    widget.onCurrentUserUpdated(updated);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          updated.isApproved
+              ? 'Approved. You now have full access.'
+              : 'Still pending admin approval.',
+        ),
+      ),
+    );
+  }
+
   void _onSearchChanged(String value) {
     _stationDebounce?.cancel();
     _stationDebounce = Timer(const Duration(milliseconds: 350), () {
@@ -363,6 +514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _districtDebounce = Timer(const Duration(milliseconds: 350), () {
       _loadDistrictSuggestions(value);
     });
+    _onSearchChanged(_queryController.text);
   }
 
   Future<void> _loadStationSuggestions(String query) async {

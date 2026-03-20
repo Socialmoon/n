@@ -382,6 +382,7 @@ class SupabaseService {
       'password_updated_at': member.passwordUpdatedAt.toIso8601String(),
       'is_admin': member.isAdmin,
       'is_blocked': member.isBlocked,
+      'is_approved': member.isApproved,
     };
   }
 
@@ -407,6 +408,7 @@ class SupabaseService {
       'passwordUpdatedAt': row['password_updated_at'] as String,
       'isAdmin': row['is_admin'] as bool? ?? false,
       'isBlocked': row['is_blocked'] as bool? ?? false,
+      'isApproved': row['is_approved'] as bool? ?? true,
     });
   }
 
