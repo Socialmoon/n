@@ -7,7 +7,8 @@ on:
     paths:
       - 'lib/**'
       - 'pubspec.yaml'
-      - 'releases/index.html'
+      - 'releases/**'
+      - '.github/workflows/deploy-apk-github-pages.yml'
   workflow_dispatch:
 
 permissions:
