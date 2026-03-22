@@ -31,19 +31,39 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     'Other',
   ];
 
+  final TextEditingController _feedSearchController = TextEditingController();
   final TextEditingController _helpMessageController = TextEditingController();
   String _selectedHelpCategory = _helpCategories.first;
+  String _activeCategory = 'All';
 
   @override
   void dispose() {
+    _feedSearchController.dispose();
     _helpMessageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final posts = widget.helpFeedService.posts;
-    final emergencyCount = posts.where((post) => post.category == 'Emergency').length;
+    final allPosts = widget.helpFeedService.posts;
+    final emergencyCount =
+        allPosts.where((post) => post.category == 'Emergency').length;
+    final query = _feedSearchController.text.trim().toLowerCase();
+
+    final posts = allPosts.where((post) {
+      final matchesCategory =
+          _activeCategory == 'All' || post.category == _activeCategory;
+      if (!matchesCategory) {
+        return false;
+      }
+      if (query.isEmpty) {
+        return true;
+      }
+      return post.memberName.toLowerCase().contains(query) ||
+          post.location.toLowerCase().contains(query) ||
+          post.category.toLowerCase().contains(query) ||
+          post.message.toLowerCase().contains(query);
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -109,16 +129,45 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
             ),
           ),
           const SizedBox(height: 14),
+          TextField(
+            controller: _feedSearchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Search posts by name, category, place, or message',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _feedSearchController.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _feedSearchController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Clear search',
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
           SizedBox(
             height: 36,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _helpCategories.length,
+              itemCount: _helpCategories.length + 1,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final category = _helpCategories[index];
-                final count = posts.where((post) => post.category == category).length;
-                return Chip(label: Text('$category ($count)'));
+                final category = index == 0 ? 'All' : _helpCategories[index - 1];
+                final count = category == 'All'
+                    ? allPosts.length
+                    : allPosts.where((post) => post.category == category).length;
+                return FilterChip(
+                  selected: category == _activeCategory,
+                  onSelected: (_) {
+                    setState(() {
+                      _activeCategory = category;
+                    });
+                  },
+                  label: Text('$category ($count)'),
+                );
               },
             ),
           ),
@@ -130,11 +179,13 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
           ),
           const SizedBox(height: 14),
           if (posts.isEmpty)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
-                  'No requests yet. Share the first update so nearby members can respond quickly.',
+                  (query.isNotEmpty || _activeCategory != 'All')
+                      ? 'No requests match the current search/filter.'
+                      : 'No requests yet. Share the first update so nearby members can respond quickly.',
                 ),
               ),
             ),
@@ -329,7 +380,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _selectedHelpCategory,
+                      initialValue: _selectedHelpCategory,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: _helpCategories
                           .map(

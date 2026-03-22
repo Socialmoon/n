@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../core/brand.dart';
 import '../models/member.dart';
@@ -70,10 +71,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   int _homeDistrictRequest = 0;
   int _postingDistrictRequest = 0;
   int _postingStationRequest = 0;
+  final LocalAuthentication _localAuthentication = LocalAuthentication();
+  bool _biometricSupported = false;
+  bool _biometricVerified = false;
+  bool _checkingBiometric = false;
 
   static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
   static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
   static final RegExp _yearPattern = RegExp(r'^[0-9]{4}$');
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometricSupport();
+  }
 
   @override
   void dispose() {
@@ -107,6 +118,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: DecoratedBox(
@@ -120,7 +133,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         child: SafeArea(
           child: Column(
             children: <Widget>[
-              _buildHeroHeader(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: keyboardOpen
+                    ? const SizedBox.shrink()
+                    : _buildHeroHeader(),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildStepStrip(),
@@ -147,6 +167,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildHeroHeader() {
     return Container(
+      key: const ValueKey<String>('registration-hero-header'),
       width: double.infinity,
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(22),
@@ -249,6 +270,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             maxLength: 6,
             digitsOnly: true,
           ),
+          const SizedBox(height: 4),
+          _buildFingerprintOption(),
           TextFormField(
             controller: _referenceController,
             keyboardType: TextInputType.phone,
@@ -454,6 +477,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           _buildSummaryRow('Full name', _nameController.text.trim()),
           _buildSummaryRow('Mobile', _mobileController.text.trim()),
           _buildSummaryRow(
+            'Fingerprint setup',
+            _biometricVerified ? 'Verified on this device' : 'Not verified',
+          ),
+          _buildSummaryRow(
             'Reference',
             _referenceMember?.name ?? _referenceController.text.trim(),
           ),
@@ -643,19 +670,47 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: suggestions
-              .map(
-                (item) => ActionChip(
-                  label: Text(item),
-                  onPressed: () => onSelected(item),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxHeight: 190),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD5DEE3)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ListView.separated(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          itemCount: suggestions.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = suggestions[index];
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onSelected(item),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.place_outlined,
+                          size: 18, color: Color(0xFF5A6B74)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(item)),
+                    ],
+                  ),
                 ),
-              )
-              .toList(),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -697,6 +752,68 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  Widget _buildFingerprintOption() {
+    if (!_biometricSupported) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F8FA),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFD8E1E7)),
+        ),
+        child: const Row(
+          children: <Widget>[
+            Icon(Icons.fingerprint_outlined, color: Color(0xFF5A6B74)),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Fingerprint option is not available on this device.',
+                style: TextStyle(color: Color(0xFF5A6B74)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _biometricVerified ? const Color(0xFFE8F5ED) : const Color(0xFFF4EBD8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _biometricVerified ? const Color(0xFF9CCDB0) : const Color(0xFFE0D0AE),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            _biometricVerified ? Icons.verified_outlined : Icons.fingerprint,
+            color: const Color(0xFF123C56),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _biometricVerified
+                  ? 'Fingerprint verified. You can use biometric login after registration.'
+                  : 'Optional: verify fingerprint while setting your M-PIN.',
+              style: const TextStyle(color: Color(0xFF123C56)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          TextButton(
+            onPressed: _checkingBiometric ? null : _verifyFingerprint,
+            child: Text(_checkingBiometric ? 'Checking...' : (_biometricVerified ? 'Re-check' : 'Verify')),
+          ),
+        ],
+      ),
+    );
+  }
+
   TextFormField _buildTextField(
     TextEditingController controller,
     String label, {
@@ -727,6 +844,82 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       setState(() {
         _selfie = file;
       });
+    }
+  }
+
+  Future<void> _checkBiometricSupport() async {
+    try {
+      final canCheck = await _localAuthentication.canCheckBiometrics;
+      final isSupported = await _localAuthentication.isDeviceSupported();
+      final available = await _localAuthentication.getAvailableBiometrics();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _biometricSupported = (canCheck || isSupported) && available.isNotEmpty;
+      });
+    } on PlatformException {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _biometricSupported = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _biometricSupported = false;
+      });
+    }
+  }
+
+  Future<void> _verifyFingerprint() async {
+    if (!_biometricSupported) {
+      _showMessage('Fingerprint is not available on this device.');
+      return;
+    }
+
+    setState(() {
+      _checkingBiometric = true;
+    });
+
+    try {
+      final authenticated = await _localAuthentication.authenticate(
+        localizedReason: 'Verify fingerprint for quick login after registration',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _biometricVerified = authenticated;
+      });
+      _showMessage(
+        authenticated
+            ? 'Fingerprint verified successfully.'
+            : 'Fingerprint verification was cancelled.',
+      );
+    } on PlatformException {
+      if (!mounted) {
+        return;
+      }
+      _showMessage('Fingerprint verification is unavailable on this device.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _showMessage('Unable to verify fingerprint right now.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _checkingBiometric = false;
+        });
+      }
     }
   }
 

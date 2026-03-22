@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../core/brand.dart';
@@ -8,12 +6,12 @@ import '../models/member.dart';
 import '../services/donation_service.dart';
 import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
-import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 import '../services/app_settings_service.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
+import 'member_details_screen.dart';
 import 'admin_approvals_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
@@ -51,24 +49,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _queryController = TextEditingController();
-  final _districtController = TextEditingController();
   final AppSettingsService _settingsService = AppSettingsService();
-  final LocationSuggestionService _locationSuggestions =
-      LocationSuggestionService();
-  List<String> _districtSuggestions = <String>[];
-  List<String> _stationSuggestions = <String>[];
-  Timer? _districtDebounce;
-  Timer? _stationDebounce;
-  int _districtRequest = 0;
-  int _stationRequest = 0;
 
   @override
   void dispose() {
-    _districtDebounce?.cancel();
-    _stationDebounce?.cancel();
-    _queryController.dispose();
-    _districtController.dispose();
     super.dispose();
   }
 
@@ -121,10 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final members = widget.repository.search(
-      query: _queryController.text,
-      districtFilter: _districtController.text,
-    );
+    final members = widget.repository.members;
     final visibleMembers =
         members.where((member) => member.id != widget.currentUser.id).toList();
 
@@ -132,6 +113,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const BrandedScreenTitle('Dashboard'),
         actions: <Widget>[
+          IconButton(
+            onPressed: _openMembersSearch,
+            icon: const Icon(Icons.search),
+            tooltip: 'Search members',
+          ),
           IconButton(
             onPressed: _triggerAlert,
             icon: const Icon(Icons.warning_amber_outlined),
@@ -198,45 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildQuickActions(),
           const SizedBox(height: 20),
-          TextField(
-            controller: _queryController,
-            decoration: const InputDecoration(
-              labelText: 'Search by name, role, or posting location',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: _onSearchChanged,
-            onTap: () => _loadStationSuggestions(_queryController.text),
-          ),
-          _buildSuggestionChips(
-            suggestions: _stationSuggestions,
-            onSelected: (station) {
-              setState(() {
-                _queryController.text = station;
-                _stationSuggestions = <String>[];
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _districtController,
-            decoration: const InputDecoration(
-              labelText: 'Filter by posting district',
-              prefixIcon: Icon(Icons.place_outlined),
-            ),
-            onChanged: _onDistrictChanged,
-            onTap: () => _loadDistrictSuggestions(_districtController.text),
-          ),
-          _buildSuggestionChips(
-            suggestions: _districtSuggestions,
-            onSelected: (district) {
-              setState(() {
-                _districtController.text = district;
-                _districtSuggestions = <String>[];
-              });
-              _onSearchChanged(_queryController.text);
-            },
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
           const Text('Visible member data excludes home district.'),
           const Text('Admin accounts can see it in the cards below.'),
           const SizedBox(height: 12),
@@ -244,7 +192,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text('No members match the current filters.'),
+                child: Text('No members available right now.'),
               ),
             ),
           ...visibleMembers.map(
@@ -390,35 +338,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  Widget _buildSuggestionChips({
-    required List<String> suggestions,
-    required ValueChanged<String> onSelected,
-  }) {
-    if (suggestions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: suggestions
-              .map(
-                (item) => ActionChip(
-                  label: Text(item),
-                  onPressed: () => onSelected(item),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-
   Future<void> _triggerAlert() async {
     final controller =
         TextEditingController(text: 'Immediate assistance required');
@@ -590,6 +509,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  Future<void> _openMembersSearch() async {
+    final selected = await showSearch<Member?>(
+      context: context,
+      delegate: MemberSearchDelegate(
+        currentUser: widget.currentUser,
+        repository: widget.repository,
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => MemberDetailsScreen(
+          currentUser: widget.currentUser,
+          member: selected,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   void _goToTabOrOpen(int tabIndex, Future<void> Function() fallback) {
     if (widget.onNavigateToTab != null) {
       widget.onNavigateToTab!(tabIndex);
@@ -640,43 +586,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _onSearchChanged(String value) {
-    _stationDebounce?.cancel();
-    _stationDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadStationSuggestions(value);
-    });
-  }
-
-  void _onDistrictChanged(String value) {
-    _districtDebounce?.cancel();
-    _districtDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadDistrictSuggestions(value);
-    });
-    _onSearchChanged(_queryController.text);
-  }
-
-  Future<void> _loadStationSuggestions(String query) async {
-    final request = ++_stationRequest;
-    final suggestions = await _locationSuggestions.suggestPoliceStations(
-      query: query,
-      district: _districtController.text,
-    );
-    if (!mounted || request != _stationRequest) {
-      return;
-    }
-    setState(() {
-      _stationSuggestions = suggestions;
-    });
-  }
-
-  Future<void> _loadDistrictSuggestions(String query) async {
-    final request = ++_districtRequest;
-    final suggestions = await _locationSuggestions.suggestDistricts(query);
-    if (!mounted || request != _districtRequest) {
-      return;
-    }
-    setState(() {
-      _districtSuggestions = suggestions;
-    });
-  }
 }

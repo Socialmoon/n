@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/brand.dart';
 import '../models/member.dart';
 import 'member_details_screen.dart';
-import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 
 class MembersScreen extends StatefulWidget {
@@ -25,16 +22,6 @@ class MembersScreen extends StatefulWidget {
 }
 
 class _MembersScreenState extends State<MembersScreen> {
-  final TextEditingController _queryController = TextEditingController();
-  final TextEditingController _districtController = TextEditingController();
-  final LocationSuggestionService _locationSuggestions =
-      LocationSuggestionService();
-  List<String> _districtSuggestions = <String>[];
-  List<String> _stationSuggestions = <String>[];
-  Timer? _districtDebounce;
-  Timer? _stationDebounce;
-  int _districtRequest = 0;
-  int _stationRequest = 0;
   bool _refreshing = false;
   bool _updatingLiveLocation = false;
 
@@ -46,10 +33,6 @@ class _MembersScreenState extends State<MembersScreen> {
 
   @override
   void dispose() {
-    _districtDebounce?.cancel();
-    _stationDebounce?.cancel();
-    _queryController.dispose();
-    _districtController.dispose();
     super.dispose();
   }
 
@@ -57,8 +40,8 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget build(BuildContext context) {
     final members = widget.repository
         .search(
-          query: _queryController.text,
-          districtFilter: _districtController.text,
+          query: '',
+          districtFilter: '',
         )
         .where((member) => widget.currentUser.isAdmin || member.isApproved)
         .toList();
@@ -67,6 +50,11 @@ class _MembersScreenState extends State<MembersScreen> {
       appBar: AppBar(
         title: const BrandedScreenTitle('All Members'),
         actions: <Widget>[
+          IconButton(
+            onPressed: _openSearchPage,
+            icon: const Icon(Icons.search),
+            tooltip: 'Search members',
+          ),
           IconButton(
             onPressed: _updatingLiveLocation ? null : _shareMyLiveLocation,
             icon: const Icon(Icons.my_location_outlined),
@@ -87,44 +75,6 @@ class _MembersScreenState extends State<MembersScreen> {
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(),
             ),
-          TextField(
-            controller: _queryController,
-            onChanged: _onSearchChanged,
-            onTap: () => _loadStationSuggestions(_queryController.text),
-            decoration: const InputDecoration(
-              labelText: 'Search by name, role, location',
-              prefixIcon: Icon(Icons.search),
-            ),
-          ),
-          _buildSuggestionChips(
-            suggestions: _stationSuggestions,
-            onSelected: (station) {
-              setState(() {
-                _queryController.text = station;
-                _stationSuggestions = <String>[];
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _districtController,
-            onChanged: _onDistrictChanged,
-            onTap: () => _loadDistrictSuggestions(_districtController.text),
-            decoration: const InputDecoration(
-              labelText: 'Filter by posting district',
-              prefixIcon: Icon(Icons.place_outlined),
-            ),
-          ),
-          _buildSuggestionChips(
-            suggestions: _districtSuggestions,
-            onSelected: (district) {
-              setState(() {
-                _districtController.text = district;
-                _districtSuggestions = <String>[];
-              });
-              _onSearchChanged(_queryController.text);
-            },
-          ),
           const SizedBox(height: 16),
           if (members.isEmpty)
             const Card(
@@ -242,34 +192,6 @@ class _MembersScreenState extends State<MembersScreen> {
     );
   }
 
-  Widget _buildSuggestionChips({
-    required List<String> suggestions,
-    required ValueChanged<String> onSelected,
-  }) {
-    if (suggestions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: suggestions
-              .map(
-                (item) => ActionChip(
-                  label: Text(item),
-                  onPressed: () => onSelected(item),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-
   Future<void> _toggleBlock(Member member) async {
     final targetBlockState = !member.isBlocked;
     final confirmed = await showDialog<bool>(
@@ -352,6 +274,20 @@ class _MembersScreenState extends State<MembersScreen> {
     );
   }
 
+  Future<void> _openSearchPage() async {
+    final selected = await showSearch<Member?>(
+      context: context,
+      delegate: MemberSearchDelegate(
+        currentUser: widget.currentUser,
+        repository: widget.repository,
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    await _openMemberDetails(selected);
+  }
+
   Future<void> _shareMyLiveLocation() async {
     setState(() {
       _updatingLiveLocation = true;
@@ -414,46 +350,6 @@ class _MembersScreenState extends State<MembersScreen> {
     }
   }
 
-  void _onSearchChanged(String value) {
-    _stationDebounce?.cancel();
-    _stationDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadStationSuggestions(value);
-    });
-  }
-
-  void _onDistrictChanged(String value) {
-    _districtDebounce?.cancel();
-    _districtDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadDistrictSuggestions(value);
-    });
-    _onSearchChanged(_queryController.text);
-  }
-
-  Future<void> _loadStationSuggestions(String query) async {
-    final request = ++_stationRequest;
-    final suggestions = await _locationSuggestions.suggestPoliceStations(
-      query: query,
-      district: _districtController.text,
-    );
-    if (!mounted || request != _stationRequest) {
-      return;
-    }
-    setState(() {
-      _stationSuggestions = suggestions;
-    });
-  }
-
-  Future<void> _loadDistrictSuggestions(String query) async {
-    final request = ++_districtRequest;
-    final suggestions = await _locationSuggestions.suggestDistricts(query);
-    if (!mounted || request != _districtRequest) {
-      return;
-    }
-    setState(() {
-      _districtSuggestions = suggestions;
-    });
-  }
-
   Future<void> _refreshMembers() async {
     setState(() {
       _refreshing = true;
@@ -475,5 +371,97 @@ class _MembersScreenState extends State<MembersScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class MemberSearchDelegate extends SearchDelegate<Member?> {
+  MemberSearchDelegate({
+    required this.currentUser,
+    required this.repository,
+  });
+
+  final Member currentUser;
+  final MemberRepository repository;
+
+  @override
+  String get searchFieldLabel => 'Search by name or posting details';
+
+  List<Member> _results(String input) {
+    final members = repository
+        .search(query: input, districtFilter: '')
+        .where((member) => currentUser.isAdmin || member.isApproved)
+        .toList();
+    return members;
+  }
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return <Widget>[
+      if (query.isNotEmpty)
+        IconButton(
+          onPressed: () => query = '',
+          icon: const Icon(Icons.clear),
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      onPressed: () => close(context, null),
+      icon: const Icon(Icons.arrow_back),
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    final suggestions = _results(query).take(12).toList();
+    if (query.trim().isEmpty) {
+      return const Center(
+        child: Text('Type a name, role, posting place, or district.'),
+      );
+    }
+    if (suggestions.isEmpty) {
+      return const Center(
+        child: Text('No matching member suggestions.'),
+      );
+    }
+    return ListView.builder(
+      itemCount: suggestions.length,
+      itemBuilder: (context, index) {
+        final member = suggestions[index];
+        return ListTile(
+          leading: const Icon(Icons.person_outline),
+          title: Text(member.name),
+          subtitle: Text('${member.postingLocation}, ${member.postingDistrict}'),
+          trailing: const Icon(Icons.north_west),
+          onTap: () => close(context, member),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final results = _results(query);
+    if (results.isEmpty) {
+      return const Center(
+        child: Text('No members found for this search.'),
+      );
+    }
+    return ListView.builder(
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final member = results[index];
+        return ListTile(
+          leading: const CircleAvatar(
+            child: Icon(Icons.person_outline),
+          ),
+          title: Text(member.name),
+          subtitle: Text('${member.role} • ${member.postingLocation}, ${member.postingDistrict}'),
+          onTap: () => close(context, member),
+        );
+      },
+    );
   }
 }
