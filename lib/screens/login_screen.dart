@@ -35,6 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _submitting = false;
   bool _biometricAvailable = false;
   bool _checkingBiometric = true;
+  static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
+  static final RegExp _mpinPattern = RegExp(r'^[0-9]{6}$');
 
   @override
   void initState() {
@@ -225,8 +227,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     final languageCode = _languageService.currentLanguageCode;
     final mobile = _mobileController.text.trim();
-    if (mobile.length != 10) {
+    final mpin = _mpinController.text.trim();
+    if (!_mobilePattern.hasMatch(mobile)) {
       _showMessage(AppStrings.tr(languageCode, 'enter_valid_mobile'));
+      return;
+    }
+    if (!_mpinPattern.hasMatch(mpin)) {
+      _showMessage(AppStrings.tr(languageCode, 'mpin_exact_6'));
       return;
     }
     setState(() {
@@ -235,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final result = await widget.authService.loginWithMpin(
       mobileNumber: mobile,
-      mpin: _mpinController.text.trim(),
+      mpin: mpin,
     );
     if (!mounted) {
       return;

@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../models/member.dart';
+import 'member_details_screen.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 
@@ -34,6 +36,7 @@ class _MembersScreenState extends State<MembersScreen> {
   int _districtRequest = 0;
   int _stationRequest = 0;
   bool _refreshing = false;
+  bool _updatingLiveLocation = false;
 
   @override
   void initState() {
@@ -64,6 +67,11 @@ class _MembersScreenState extends State<MembersScreen> {
       appBar: AppBar(
         title: const BrandedScreenTitle('All Members'),
         actions: <Widget>[
+          IconButton(
+            onPressed: _updatingLiveLocation ? null : _shareMyLiveLocation,
+            icon: const Icon(Icons.my_location_outlined),
+            tooltip: 'Share my live location',
+          ),
           IconButton(
             onPressed: _refreshing ? null : _refreshMembers,
             icon: const Icon(Icons.refresh),
@@ -134,8 +142,7 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget _buildMemberCard(Member member) {
     final blocked = member.isBlocked;
     final isCurrentUser = member.id == widget.currentUser.id;
-    final appointment =
-        '${member.appointmentDate.day}/${member.appointmentDate.month}/${member.appointmentDate.year}';
+    final hasLiveLocation = member.liveLatitude != null && member.liveLongitude != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -179,10 +186,16 @@ class _MembersScreenState extends State<MembersScreen> {
             const SizedBox(height: 4),
             Text(
                 'Posting: ${member.postingLocation}, ${member.postingDistrict}'),
+            if (widget.currentUser.isAdmin) ...<Widget>[
+              const SizedBox(height: 4),
+              Text('Home district: ${member.homeDistrict}'),
+            ],
             const SizedBox(height: 4),
-            Text('Home district: ${member.homeDistrict}'),
-            const SizedBox(height: 4),
-            Text('Appointment date: $appointment'),
+            Text(
+              hasLiveLocation
+                  ? 'Live location available'
+                  : 'Live location not shared yet',
+            ),
             if (member.referenceMemberName != null) ...<Widget>[
               const SizedBox(height: 4),
               Text('Reference: ${member.referenceMemberName}'),
@@ -201,6 +214,18 @@ class _MembersScreenState extends State<MembersScreen> {
                   onPressed: blocked ? null : () => _openWhatsApp(member.mobileNumber),
                   icon: const Icon(Icons.chat_outlined),
                   label: const Text('WhatsApp'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: () => _openMemberDetails(member),
+                  icon: const Icon(Icons.badge_outlined),
+                  label: const Text('View Details'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: hasLiveLocation
+                      ? () => _openMap(member.liveLatitude!, member.liveLongitude!)
+                      : null,
+                  icon: const Icon(Icons.pin_drop_outlined),
+                  label: const Text('Live Location'),
                 ),
                 if (widget.currentUser.isAdmin)
                   FilledButton.tonalIcon(
@@ -311,6 +336,84 @@ class _MembersScreenState extends State<MembersScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _openMap(double lat, double lng) async {
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openMemberDetails(Member member) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => MemberDetailsScreen(
+          currentUser: widget.currentUser,
+          member: member,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareMyLiveLocation() async {
+    setState(() {
+      _updatingLiveLocation = true;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showMessage('Location services are disabled on this device.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showMessage('Location permission is required to share live location.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final current = widget.repository.findById(widget.currentUser.id);
+      if (current == null) {
+        _showMessage('Current member profile not found.');
+        return;
+      }
+
+      final updated = current.copyWith(
+        liveLatitude: position.latitude,
+        liveLongitude: position.longitude,
+        liveLocationUpdatedAt: DateTime.now(),
+        lastUpdated: DateTime.now(),
+      );
+      final saved = await widget.repository.saveMember(updated);
+      if (!saved) {
+        _showMessage('Unable to sync live location to cloud.');
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      _showMessage('Live location shared successfully.');
+    } catch (error) {
+      _showMessage('Unable to fetch live location: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _updatingLiveLocation = false;
+        });
+      }
+    }
+  }
+
   void _onSearchChanged(String value) {
     _stationDebounce?.cancel();
     _stationDebounce = Timer(const Duration(milliseconds: 350), () {
@@ -365,5 +468,12 @@ class _MembersScreenState extends State<MembersScreen> {
     setState(() {
       _refreshing = false;
     });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }

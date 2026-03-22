@@ -306,8 +306,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newMpin = _newMpinController.text.trim();
     final confirm = _confirmMpinController.text.trim();
 
-    if (newMpin.length != 6) {
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(newMpin)) {
       _showMessage(AppStrings.tr(languageCode, 'mpin_exact_6'));
+      return;
+    }
+    if (RegExp(r'^(\d)\1{5}$').hasMatch(newMpin)) {
+      _showMessage('M-PIN cannot be all same digits.');
       return;
     }
     if (newMpin != confirm) {

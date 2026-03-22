@@ -13,6 +13,23 @@ class Member {
     required this.homeDistrict,
     required this.postingDistrict,
     required this.postingLocation,
+    this.department,
+    this.postRank,
+    this.officialName,
+    this.batchYear,
+    this.whatsappNumber,
+    this.callingContactNumber,
+    this.postingPlaceLocation,
+    this.emergencyContact,
+    this.homeVillageMohalla,
+    this.homeGaliNo,
+    this.homePostOffice,
+    this.homePoliceStation,
+    this.homeTehsil,
+    this.homeVillageLocation,
+    this.liveLatitude,
+    this.liveLongitude,
+    this.liveLocationUpdatedAt,
     required this.appointmentDate,
     required this.role,
     required this.lastUpdated,
@@ -37,6 +54,23 @@ class Member {
   final String homeDistrict;
   final String postingDistrict;
   final String postingLocation;
+  final String? department;
+  final String? postRank;
+  final String? officialName;
+  final String? batchYear;
+  final String? whatsappNumber;
+  final String? callingContactNumber;
+  final String? postingPlaceLocation;
+  final String? emergencyContact;
+  final String? homeVillageMohalla;
+  final String? homeGaliNo;
+  final String? homePostOffice;
+  final String? homePoliceStation;
+  final String? homeTehsil;
+  final String? homeVillageLocation;
+  final double? liveLatitude;
+  final double? liveLongitude;
+  final DateTime? liveLocationUpdatedAt;
   final DateTime appointmentDate;
   final String role;
   final DateTime lastUpdated;
@@ -61,6 +95,26 @@ class Member {
     String? homeDistrict,
     String? postingDistrict,
     String? postingLocation,
+    String? department,
+    String? postRank,
+    String? officialName,
+    String? batchYear,
+    String? whatsappNumber,
+    String? callingContactNumber,
+    String? postingPlaceLocation,
+    String? emergencyContact,
+    String? homeVillageMohalla,
+    String? homeGaliNo,
+    String? homePostOffice,
+    String? homePoliceStation,
+    String? homeTehsil,
+    String? homeVillageLocation,
+    double? liveLatitude,
+    bool clearLiveLatitude = false,
+    double? liveLongitude,
+    bool clearLiveLongitude = false,
+    DateTime? liveLocationUpdatedAt,
+    bool clearLiveLocationUpdatedAt = false,
     DateTime? appointmentDate,
     String? role,
     DateTime? lastUpdated,
@@ -85,6 +139,26 @@ class Member {
       homeDistrict: homeDistrict ?? this.homeDistrict,
       postingDistrict: postingDistrict ?? this.postingDistrict,
       postingLocation: postingLocation ?? this.postingLocation,
+        department: department ?? this.department,
+        postRank: postRank ?? this.postRank,
+        officialName: officialName ?? this.officialName,
+        batchYear: batchYear ?? this.batchYear,
+        whatsappNumber: whatsappNumber ?? this.whatsappNumber,
+        callingContactNumber: callingContactNumber ?? this.callingContactNumber,
+        postingPlaceLocation: postingPlaceLocation ?? this.postingPlaceLocation,
+        emergencyContact: emergencyContact ?? this.emergencyContact,
+        homeVillageMohalla: homeVillageMohalla ?? this.homeVillageMohalla,
+        homeGaliNo: homeGaliNo ?? this.homeGaliNo,
+        homePostOffice: homePostOffice ?? this.homePostOffice,
+        homePoliceStation: homePoliceStation ?? this.homePoliceStation,
+        homeTehsil: homeTehsil ?? this.homeTehsil,
+        homeVillageLocation: homeVillageLocation ?? this.homeVillageLocation,
+        liveLatitude: clearLiveLatitude ? null : (liveLatitude ?? this.liveLatitude),
+        liveLongitude:
+          clearLiveLongitude ? null : (liveLongitude ?? this.liveLongitude),
+        liveLocationUpdatedAt: clearLiveLocationUpdatedAt
+          ? null
+          : (liveLocationUpdatedAt ?? this.liveLocationUpdatedAt),
       appointmentDate: appointmentDate ?? this.appointmentDate,
       role: role ?? this.role,
       lastUpdated: lastUpdated ?? this.lastUpdated,
@@ -116,6 +190,23 @@ class Member {
       'homeDistrict': homeDistrict,
       'postingDistrict': postingDistrict,
       'postingLocation': postingLocation,
+      'department': department,
+      'postRank': postRank,
+      'officialName': officialName,
+      'batchYear': batchYear,
+      'whatsappNumber': whatsappNumber,
+      'callingContactNumber': callingContactNumber,
+      'postingPlaceLocation': postingPlaceLocation,
+      'emergencyContact': emergencyContact,
+      'homeVillageMohalla': homeVillageMohalla,
+      'homeGaliNo': homeGaliNo,
+      'homePostOffice': homePostOffice,
+      'homePoliceStation': homePoliceStation,
+      'homeTehsil': homeTehsil,
+      'homeVillageLocation': homeVillageLocation,
+      'liveLatitude': liveLatitude,
+      'liveLongitude': liveLongitude,
+      'liveLocationUpdatedAt': liveLocationUpdatedAt?.toIso8601String(),
       'appointmentDate': appointmentDate.toIso8601String(),
       'role': role,
       'lastUpdated': lastUpdated.toIso8601String(),
@@ -141,6 +232,25 @@ class Member {
       homeDistrict: map['homeDistrict'] as String,
       postingDistrict: map['postingDistrict'] as String,
       postingLocation: map['postingLocation'] as String,
+        department: map['department'] as String?,
+        postRank: map['postRank'] as String?,
+        officialName: map['officialName'] as String?,
+        batchYear: map['batchYear'] as String?,
+        whatsappNumber: map['whatsappNumber'] as String?,
+        callingContactNumber: map['callingContactNumber'] as String?,
+        postingPlaceLocation: map['postingPlaceLocation'] as String?,
+        emergencyContact: map['emergencyContact'] as String?,
+        homeVillageMohalla: map['homeVillageMohalla'] as String?,
+        homeGaliNo: map['homeGaliNo'] as String?,
+        homePostOffice: map['homePostOffice'] as String?,
+        homePoliceStation: map['homePoliceStation'] as String?,
+        homeTehsil: map['homeTehsil'] as String?,
+        homeVillageLocation: map['homeVillageLocation'] as String?,
+        liveLatitude: (map['liveLatitude'] as num?)?.toDouble(),
+        liveLongitude: (map['liveLongitude'] as num?)?.toDouble(),
+        liveLocationUpdatedAt: map['liveLocationUpdatedAt'] == null
+          ? null
+          : DateTime.parse(map['liveLocationUpdatedAt'] as String),
       appointmentDate: DateTime.parse(map['appointmentDate'] as String),
       role: map['role'] as String,
       lastUpdated: DateTime.parse(map['lastUpdated'] as String),

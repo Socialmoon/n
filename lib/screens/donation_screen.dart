@@ -44,6 +44,9 @@ class _DonationScreenState extends State<DonationScreen> {
   DonationTab _selectedTab = DonationTab.donate;
   String? _selectedMemberMobile;
   bool _savingPaymentSettings = false;
+  static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
+  static final RegExp _upiPattern = RegExp(r'^[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}$');
+  static final RegExp _safeRefPattern = RegExp(r'^[A-Za-z0-9-]{4,40}$');
 
   bool get _isAdmin => widget.currentUser.isAdmin;
 
@@ -359,7 +362,7 @@ class _DonationScreenState extends State<DonationScreen> {
         const SizedBox(height: 10),
         if (_isAdmin)
           DropdownButtonFormField<String?>(
-            value: _selectedMemberMobile,
+            initialValue: _selectedMemberMobile,
             decoration: const InputDecoration(
               labelText: 'Select member',
               prefixIcon: Icon(Icons.person_search_outlined),
@@ -683,12 +686,34 @@ class _DonationScreenState extends State<DonationScreen> {
 
   Future<void> _submitDonation() async {
     final amount = double.tryParse(_amountController.text.trim());
-    if (amount == null || amount <= 0) {
+    if (amount == null || amount <= 0 || amount > 1000000) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid donation amount.')),
+        const SnackBar(content: Text('Enter a valid donation amount (1 to 1000000).')),
+      );
+      return;
+    }
+
+    final transactionRef = _transactionRefController.text.trim();
+    if (transactionRef.isNotEmpty && !_safeRefPattern.hasMatch(transactionRef)) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transaction reference must be 4-40 letters/numbers.')),
+      );
+      return;
+    }
+
+    final note = _noteController.text.trim();
+    if (note.length > 300) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Note can be up to 300 characters only.')),
       );
       return;
     }
@@ -715,10 +740,8 @@ class _DonationScreenState extends State<DonationScreen> {
       member: widget.currentUser,
       amount: amount,
       upiId: _activeUpiId,
-      note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-      transactionRef: _transactionRefController.text.trim().isEmpty
-          ? null
-          : _transactionRefController.text.trim(),
+      note: note.isEmpty ? null : note,
+      transactionRef: transactionRef.isEmpty ? null : transactionRef,
       screenshotPath: screenshotUrl,
     );
 
@@ -735,6 +758,8 @@ class _DonationScreenState extends State<DonationScreen> {
       );
       return;
     }
+
+    await _autoShareProofToAdmin(screenshotUrl);
 
     if (!mounted) {
       return;
@@ -753,6 +778,21 @@ class _DonationScreenState extends State<DonationScreen> {
     );
   }
 
+  Future<void> _autoShareProofToAdmin(String? screenshotUrl) async {
+    final proofLine = (screenshotUrl == null || screenshotUrl.isEmpty)
+        ? 'Proof URL: not attached'
+        : 'Proof URL: $screenshotUrl';
+    final message = Uri.encodeComponent(
+      'Donation submitted for verification.\n'
+      'Member: ${widget.currentUser.name}\n'
+      'Mobile: ${widget.currentUser.mobileNumber}\n'
+      'Amount: ${_amountController.text.trim()}\n'
+      '$proofLine',
+    );
+    final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Future<void> _savePaymentSettings() async {
     final upi = _upiIdController.text.trim();
     final name = _upiNameController.text.trim();
@@ -761,6 +801,27 @@ class _DonationScreenState extends State<DonationScreen> {
     if (upi.isEmpty || name.isEmpty || mobile.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('UPI ID, beneficiary name, and admin mobile are required.')),
+      );
+      return;
+    }
+
+    if (!_upiPattern.hasMatch(upi)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid UPI ID (example@bank).')),
+      );
+      return;
+    }
+
+    if (name.length < 2 || name.length > 60) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Beneficiary name must be 2-60 characters.')),
+      );
+      return;
+    }
+
+    if (!_mobilePattern.hasMatch(mobile)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Admin mobile must be a valid 10 digit number.')),
       );
       return;
     }

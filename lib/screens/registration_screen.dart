@@ -27,7 +27,7 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   static const List<String> _steps = <String>[
     'Identity',
-    'Posting',
+    'Details',
     'Documents',
     'Review',
   ];
@@ -37,9 +37,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _mobileController = TextEditingController();
   final _mpinController = TextEditingController();
   final _referenceController = TextEditingController();
+  final _departmentController = TextEditingController();
+  final _postRankController = TextEditingController();
+  final _officialNameController = TextEditingController();
+  final _batchYearController = TextEditingController();
+  final _whatsappController = TextEditingController();
+  final _callingNumberController = TextEditingController();
+  final _postingPlaceLocationController = TextEditingController();
+  final _emergencyContactController = TextEditingController();
   final _homeDistrictController = TextEditingController();
   final _postingDistrictController = TextEditingController();
   final _postingLocationController = TextEditingController();
+  final _homeVillageMohallaController = TextEditingController();
+  final _homeGaliNoController = TextEditingController();
+  final _homePostOfficeController = TextEditingController();
+  final _homePoliceStationController = TextEditingController();
+  final _homeTehsilController = TextEditingController();
+  final _homeVillageLocationController = TextEditingController();
   XFile? _selfie;
   XFile? _idCardPhoto;
   Member? _referenceMember;
@@ -57,6 +71,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   int _postingDistrictRequest = 0;
   int _postingStationRequest = 0;
 
+  static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
+  static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
+  static final RegExp _yearPattern = RegExp(r'^[0-9]{4}$');
+
   @override
   void dispose() {
     _homeDistrictDebounce?.cancel();
@@ -67,15 +85,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _mobileController.dispose();
     _mpinController.dispose();
     _referenceController.dispose();
+    _departmentController.dispose();
+    _postRankController.dispose();
+    _officialNameController.dispose();
+    _batchYearController.dispose();
+    _whatsappController.dispose();
+    _callingNumberController.dispose();
+    _postingPlaceLocationController.dispose();
+    _emergencyContactController.dispose();
     _homeDistrictController.dispose();
     _postingDistrictController.dispose();
     _postingLocationController.dispose();
+    _homeVillageMohallaController.dispose();
+    _homeGaliNoController.dispose();
+    _homePostOfficeController.dispose();
+    _homePoliceStationController.dispose();
+    _homeTehsilController.dispose();
+    _homeVillageLocationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -273,14 +306,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildPostingStep() {
     return _buildStepPage(
-      title: 'Posting details',
+      title: 'Posting and home details',
       subtitle:
           'Capture the service information that will appear in the directory.',
       child: Column(
         children: <Widget>[
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Posting Details',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(_departmentController, 'Department'),
+          _buildTextField(_postRankController, 'Post / Rank'),
+          _buildTextField(_officialNameController, 'Official Name'),
+          _buildTextField(
+            _batchYearController,
+            'Batch Year',
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            digitsOnly: true,
+          ),
           _buildTextField(
             _homeDistrictController,
-            'Home district',
+            'Home District Name',
             onChanged: _onHomeDistrictChanged,
             onTap: () => _loadHomeDistrictSuggestions(_homeDistrictController.text),
           ),
@@ -311,7 +362,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           _buildTextField(
             _postingLocationController,
-            'Posting location / Police station',
+            'Posting Place',
             onChanged: _onPostingLocationChanged,
             onTap: () => _loadPostingStationSuggestions(_postingLocationController.text),
           ),
@@ -324,6 +375,43 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               });
             },
           ),
+          _buildTextField(
+            _whatsappController,
+            'Whatsapp Number',
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            digitsOnly: true,
+          ),
+          _buildTextField(
+            _callingNumberController,
+            'Calling Contact No.',
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            digitsOnly: true,
+          ),
+          _buildTextField(_postingPlaceLocationController, 'Posting Place Location'),
+          _buildTextField(
+            _emergencyContactController,
+            'Emergency Contact',
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            digitsOnly: true,
+          ),
+          const SizedBox(height: 12),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Home District Details (Admin only visibility)',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
+          _buildTextField(_homeGaliNoController, 'Gali No.'),
+          _buildTextField(_homePostOfficeController, 'Post Office'),
+          _buildTextField(_homePoliceStationController, 'Home Police Station'),
+          _buildTextField(_homeTehsilController, 'Home Tehsil'),
+          _buildTextField(_homeVillageLocationController, 'Home Village Location'),
         ],
       ),
     );
@@ -369,12 +457,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'Reference',
             _referenceMember?.name ?? _referenceController.text.trim(),
           ),
-          _buildSummaryRow(
-              'Home district', _homeDistrictController.text.trim()),
+            _buildSummaryRow('Department', _departmentController.text.trim()),
+            _buildSummaryRow('Post / Rank', _postRankController.text.trim()),
+            _buildSummaryRow('Official Name', _officialNameController.text.trim()),
+            _buildSummaryRow('Batch Year', _batchYearController.text.trim()),
           _buildSummaryRow(
               'Posting district', _postingDistrictController.text.trim()),
           _buildSummaryRow(
-              'Posting location', _postingLocationController.text.trim()),
+              'Posting place', _postingLocationController.text.trim()),
+            _buildSummaryRow('Whatsapp', _whatsappController.text.trim()),
+            _buildSummaryRow('Calling Contact', _callingNumberController.text.trim()),
+            _buildSummaryRow(
+              'Posting place location', _postingPlaceLocationController.text.trim()),
+            _buildSummaryRow('Emergency Contact', _emergencyContactController.text.trim()),
+            _buildSummaryRow('Home District', _homeDistrictController.text.trim()),
+            _buildSummaryRow('Village / Mohalla', _homeVillageMohallaController.text.trim()),
+            _buildSummaryRow('Gali No.', _homeGaliNoController.text.trim()),
+            _buildSummaryRow('Post Office', _homePostOfficeController.text.trim()),
+            _buildSummaryRow('Home Police Station', _homePoliceStationController.text.trim()),
+            _buildSummaryRow('Home Tehsil', _homeTehsilController.text.trim()),
+            _buildSummaryRow('Home Village Location', _homeVillageLocationController.text.trim()),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -399,6 +501,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     required Widget child,
   }) {
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -559,7 +662,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Widget _buildBottomBar() {
-    return Container(
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -584,6 +692,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -689,11 +798,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'Enter full name, mobile number, M-PIN and reference mobile number.');
       return false;
     }
-    if (mobile.length != 10 || reference.length != 10) {
+    if (!_namePattern.hasMatch(name)) {
+      _showMessage('Enter a valid full name (letters and spaces only).');
+      return false;
+    }
+    if (!_mobilePattern.hasMatch(mobile) || !_mobilePattern.hasMatch(reference)) {
       _showMessage('Mobile numbers must be 10 digits.');
       return false;
     }
-    if (mpin.length != 6) {
+    if (mpin.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(mpin)) {
       _showMessage('M-PIN must be exactly 6 digits.');
       return false;
     }
@@ -721,6 +834,70 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _postingDistrictController.text.trim().isEmpty ||
         _postingLocationController.text.trim().isEmpty) {
       _showMessage('Complete all posting details.');
+      return false;
+    }
+
+    final department = _departmentController.text.trim();
+    final postRank = _postRankController.text.trim();
+    final officialName = _officialNameController.text.trim();
+    final batchYear = _batchYearController.text.trim();
+    final whatsapp = _whatsappController.text.trim();
+    final callingContact = _callingNumberController.text.trim();
+    final postingPlaceLocation = _postingPlaceLocationController.text.trim();
+    final emergencyContact = _emergencyContactController.text.trim();
+    final homeVillageMohalla = _homeVillageMohallaController.text.trim();
+    final homeGaliNo = _homeGaliNoController.text.trim();
+    final homePostOffice = _homePostOfficeController.text.trim();
+    final homePoliceStation = _homePoliceStationController.text.trim();
+    final homeTehsil = _homeTehsilController.text.trim();
+    final homeVillageLocation = _homeVillageLocationController.text.trim();
+
+    if (department.isEmpty ||
+        postRank.isEmpty ||
+        officialName.isEmpty ||
+        batchYear.isEmpty ||
+        whatsapp.isEmpty ||
+        callingContact.isEmpty ||
+        postingPlaceLocation.isEmpty ||
+        emergencyContact.isEmpty) {
+      _showMessage('Complete all posting details.');
+      return false;
+    }
+
+    if (!_namePattern.hasMatch(officialName)) {
+      _showMessage('Enter a valid official name.');
+      return false;
+    }
+
+    final currentYear = DateTime.now().year;
+    final batch = int.tryParse(batchYear);
+    if (!_yearPattern.hasMatch(batchYear) ||
+        batch == null ||
+        batch < 1970 ||
+        batch > currentYear) {
+      _showMessage('Enter a valid batch year.');
+      return false;
+    }
+
+    if (!_mobilePattern.hasMatch(whatsapp) ||
+        !_mobilePattern.hasMatch(callingContact) ||
+        !_mobilePattern.hasMatch(emergencyContact)) {
+      _showMessage('Complete all posting details with valid phone numbers.');
+      return false;
+    }
+
+    if (postingPlaceLocation.length < 3) {
+      _showMessage('Posting place location must be more descriptive.');
+      return false;
+    }
+
+    if (homeVillageMohalla.isEmpty ||
+        homeGaliNo.isEmpty ||
+        homePostOffice.isEmpty ||
+        homePoliceStation.isEmpty ||
+        homeTehsil.isEmpty ||
+        homeVillageLocation.isEmpty) {
+      _showMessage('Complete all home district details.');
       return false;
     }
 
@@ -823,6 +1000,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       homeDistrict: _homeDistrictController.text.trim(),
       postingDistrict: _postingDistrictController.text.trim(),
       postingLocation: _postingLocationController.text.trim(),
+      department: _departmentController.text.trim(),
+      postRank: _postRankController.text.trim(),
+      officialName: _officialNameController.text.trim(),
+      batchYear: _batchYearController.text.trim(),
+      whatsappNumber: _whatsappController.text.trim(),
+      callingContactNumber: _callingNumberController.text.trim(),
+      postingPlaceLocation: _postingPlaceLocationController.text.trim(),
+      emergencyContact: _emergencyContactController.text.trim(),
+      homeVillageMohalla: _homeVillageMohallaController.text.trim(),
+      homeGaliNo: _homeGaliNoController.text.trim(),
+      homePostOffice: _homePostOfficeController.text.trim(),
+      homePoliceStation: _homePoliceStationController.text.trim(),
+      homeTehsil: _homeTehsilController.text.trim(),
+      homeVillageLocation: _homeVillageLocationController.text.trim(),
       appointmentDate: now,
       role: 'Member',
       lastUpdated: now,

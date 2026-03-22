@@ -45,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _selfiePath;
   Uint8List? _selfiePreviewBytes;
   bool _saving = false;
+  static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
 
   @override
   void initState() {
@@ -402,6 +403,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (name.isEmpty) {
       _showMessage('Name cannot be empty.');
+      return;
+    }
+    if (!_namePattern.hasMatch(name)) {
+      _showMessage('Enter a valid name (letters and spaces only).');
       return;
     }
 
