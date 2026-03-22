@@ -138,10 +138,8 @@ class AuthService {
 
       final authenticated = await _localAuthentication.authenticate(
         localizedReason: 'Authenticate to access the member directory',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
       );
       if (!authenticated) {
         return const AuthResult(

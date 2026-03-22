@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/brand.dart';
-import '../models/donation_entry.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 

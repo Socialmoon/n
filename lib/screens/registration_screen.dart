@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 
-import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/location_suggestion_service.dart';
@@ -118,8 +117,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: DecoratedBox(
@@ -133,16 +130,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         child: SafeArea(
           child: Column(
             children: <Widget>[
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: keyboardOpen
-                    ? const SizedBox.shrink()
-                    : _buildHeroHeader(),
-              ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: _buildStepStrip(),
               ),
               Expanded(
@@ -161,49 +150,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader() {
-    return Container(
-      key: const ValueKey<String>('registration-hero-header'),
-      width: double.infinity,
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: <Color>[
-            Color(0xFF123C56),
-            Color(0xFF2B6E78),
-            Color(0xFFE0B36A)
-          ],
-        ),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-              color: Color(0x22000000), blurRadius: 24, offset: Offset(0, 10)),
-        ],
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          BrandLogo(size: 44),
-          SizedBox(height: 12),
-          Text(
-            'New Member Registration',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '${AppBrand.appName} guided onboarding with posting details and document capture.',
-            style: TextStyle(color: Colors.white70, height: 1.4),
-          ),
-        ],
       ),
     );
   }
@@ -888,10 +834,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     try {
       final authenticated = await _localAuthentication.authenticate(
         localizedReason: 'Verify fingerprint for quick login after registration',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
       );
       if (!mounted) {
         return;

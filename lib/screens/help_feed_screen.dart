@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
-import '../models/help_comment.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
@@ -325,40 +324,6 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     );
   }
 
-  Widget _buildCommentTile(HelpComment comment) {
-    final stamp =
-        '${comment.createdAt.day}/${comment.createdAt.month} ${comment.createdAt.hour.toString().padLeft(2, '0')}:${comment.createdAt.minute.toString().padLeft(2, '0')}';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Icon(Icons.subdirectory_arrow_right, size: 18),
-          const SizedBox(width: 6),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: <TextSpan>[
-                  TextSpan(
-                    text: '${comment.memberName}: ',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  TextSpan(text: comment.message),
-                  TextSpan(
-                    text: '  •  $stamp',
-                    style: const TextStyle(color: Color(0xFF5A6B74)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _createHelpPost() async {
     _helpMessageController.clear();
     _selectedHelpCategory = _helpCategories.first;
@@ -454,61 +419,6 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Help request posted.')),
     );
-  }
-
-  Future<void> _addComment(HelpPost post) async {
-    final controller = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add comment'),
-          content: TextField(
-            controller: controller,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Comment'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Post comment'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      controller.dispose();
-      return;
-    }
-
-    final message = controller.text.trim();
-    controller.dispose();
-    if (message.isEmpty) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment cannot be empty.')),
-      );
-      return;
-    }
-
-    await widget.helpFeedService.addComment(
-      postId: post.id,
-      member: widget.currentUser,
-      message: message,
-    );
-
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
   }
 
   Future<void> _deletePost(HelpPost post) async {
