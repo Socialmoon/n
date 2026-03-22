@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
@@ -303,12 +302,6 @@ class _DonationScreenState extends State<DonationScreen> {
               style: const TextStyle(color: Color(0xFF2B6E78)),
             ),
           ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _shareProofToAdmin,
-          icon: const Icon(Icons.ios_share_outlined),
-          label: const Text('Share screenshot to admin'),
-        ),
         const SizedBox(height: 6),
         TextButton.icon(
           onPressed: _openAdminChat,
@@ -680,25 +673,6 @@ class _DonationScreenState extends State<DonationScreen> {
     });
   }
 
-  Future<void> _shareProofToAdmin() async {
-    if (_proofScreenshot == null) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attach screenshot proof first.')),
-      );
-      return;
-    }
-
-    await Share.shareXFiles(
-      <XFile>[_proofScreenshot!],
-      text:
-          'Donation proof for verification\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nAdmin: +91$_activeAdminMobile',
-      subject: 'Donation proof',
-    );
-  }
-
   Future<void> _openAdminChat() async {
     final message = Uri.encodeComponent(
       'Hello Admin, I have made a donation and uploaded payment proof for verification.',
@@ -726,16 +700,18 @@ class _DonationScreenState extends State<DonationScreen> {
         if (!mounted) {
           return;
         }
+        final uploadError = widget.donationService.lastUploadError;
+        final message = (uploadError == null || uploadError.isEmpty)
+            ? 'Unable to upload screenshot to cloud. Please retry.'
+            : 'Unable to upload screenshot to cloud: $uploadError';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to upload screenshot to cloud. Please retry.'),
-          ),
+          SnackBar(content: Text(message)),
         );
         return;
       }
     }
 
-    await widget.donationService.createDonation(
+    final created = await widget.donationService.createDonation(
       member: widget.currentUser,
       amount: amount,
       upiId: _activeUpiId,
@@ -745,6 +721,20 @@ class _DonationScreenState extends State<DonationScreen> {
           : _transactionRefController.text.trim(),
       screenshotPath: screenshotUrl,
     );
+
+    if (!created) {
+      if (!mounted) {
+        return;
+      }
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to save donation in cloud. Please retry.'
+          : 'Unable to save donation in cloud: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return;
+    }
 
     if (!mounted) {
       return;
@@ -779,7 +769,7 @@ class _DonationScreenState extends State<DonationScreen> {
       _savingPaymentSettings = true;
     });
 
-    await widget.donationService.updatePaymentSettings(
+    final saved = await widget.donationService.updatePaymentSettings(
       actor: widget.currentUser,
       upiId: upi,
       upiName: name,
@@ -794,6 +784,17 @@ class _DonationScreenState extends State<DonationScreen> {
     setState(() {
       _savingPaymentSettings = false;
     });
+
+    if (!saved) {
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to save payment settings in cloud. Please retry.'
+          : 'Unable to save payment settings in cloud: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Payment settings updated successfully.')),
@@ -824,8 +825,16 @@ class _DonationScreenState extends State<DonationScreen> {
       return;
     }
     if (uploaded == null) {
+      final uploadError = widget.donationService.lastUploadError;
+      final writeError = widget.donationService.lastWriteError;
+      final detail = (uploadError != null && uploadError.isNotEmpty)
+          ? uploadError
+          : writeError;
+      final message = (detail == null || detail.isEmpty)
+          ? 'Unable to upload custom QR. Please retry.'
+          : 'Unable to upload custom QR: $detail';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to upload custom QR. Please retry.')),
+        SnackBar(content: Text(message)),
       );
       return;
     }
@@ -838,7 +847,7 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _removeCustomQr() async {
-    await widget.donationService.updatePaymentSettings(
+    final saved = await widget.donationService.updatePaymentSettings(
       actor: widget.currentUser,
       upiId: _activeUpiId,
       upiName: _activeUpiName,
@@ -846,6 +855,16 @@ class _DonationScreenState extends State<DonationScreen> {
       customQrImageUrl: '',
     );
     if (!mounted) {
+      return;
+    }
+    if (!saved) {
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to remove uploaded QR from cloud. Please retry.'
+          : 'Unable to remove uploaded QR from cloud: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
       return;
     }
     setState(() {

@@ -77,6 +77,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         repository: widget.repository,
         donationService: widget.donationService,
         onOpenSettings: _openSettings,
+        onProfileUpdated: widget.onCurrentUserUpdated,
       ),
     ];
 

@@ -3,8 +3,6 @@
 -- Prerequisites:
 -- 1) Run 01_schema.sql and 02_rls_policies.sql first.
 -- 2) Ensure the target user's UUID exists in auth.users.
---
--- Replace all CHANGE_ME_* values before running.
 
 insert into public.members (
   id,
@@ -29,12 +27,12 @@ insert into public.members (
 )
 values (
   'seed-admin',
-  'CHANGE_ME_AUTH_USER_UUID',
+  '6d1c8e08-a173-4171-ad20-0dc5e314bd69',
   'Control Room Admin',
-  'CHANGE_ME_MOBILE',
+  '9193410557',
   'admin',
-  'CHANGE_ME_PASSWORD_HASH_SHA256',
-  'CHANGE_ME_6_DIGIT_MPIN',
+  '6d1a8c14a653079e16d4c1163f1231470c1958f6c728e5234f9db560e16a901a',
+  '180000',
   '',
   null,
   null,
@@ -58,5 +56,5 @@ set
   last_updated = now();
 
 insert into public.app_admins (user_id)
-values ('CHANGE_ME_AUTH_USER_UUID')
+values ('6d1c8e08-a173-4171-ad20-0dc5e314bd69')
 on conflict (user_id) do nothing;

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:vibration/vibration.dart';
 
+import '../core/app_strings.dart';
 import '../core/brand.dart';
 import '../models/member.dart';
+import '../services/app_language_service.dart';
 import '../services/app_settings_service.dart';
 import '../services/member_repository.dart';
 
@@ -24,8 +27,10 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const String _bugReportMobile = '9193410557';
   final _newMpinController = TextEditingController();
   final _confirmMpinController = TextEditingController();
+  final AppLanguageService _languageService = AppLanguageService();
   final AppSettingsService _settingsService = AppSettingsService();
   bool _notificationsEnabled = true;
   bool _vibrationEnabled = true;
@@ -47,126 +52,179 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const BrandedScreenTitle('Settings'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    'Security',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Set or update your 6 digit M-PIN used for login.',
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _newMpinController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    obscureText: true,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.digitsOnly,
+    return ValueListenableBuilder<Locale>(
+      valueListenable: _languageService.localeListenable,
+      builder: (context, locale, _) {
+        final languageCode = locale.languageCode;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: BrandedScreenTitle(AppStrings.tr(languageCode, 'settings')),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(20),
+            children: <Widget>[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        AppStrings.tr(languageCode, 'security'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(AppStrings.tr(languageCode, 'security_subtitle')),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _newMpinController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        obscureText: true,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          labelText:
+                              AppStrings.tr(languageCode, 'new_6_digit_mpin'),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _confirmMpinController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        obscureText: true,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          labelText: AppStrings.tr(languageCode, 'confirm_mpin'),
+                          prefixIcon: const Icon(Icons.lock_reset_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _saving ? null : _saveMpin,
+                        icon: const Icon(Icons.verified_user_outlined),
+                        label: Text(
+                          _saving
+                              ? AppStrings.tr(languageCode, 'saving')
+                              : AppStrings.tr(languageCode, 'update_mpin'),
+                        ),
+                      ),
                     ],
-                    decoration: const InputDecoration(
-                      labelText: 'New 6 digit M-PIN',
-                      prefixIcon: Icon(Icons.lock_outline),
-                    ),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _confirmMpinController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    obscureText: true,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.digitsOnly,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                        child: Text(
+                          AppStrings.tr(languageCode, 'preferences'),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (_loadingPrefs)
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: LinearProgressIndicator(),
+                        ),
+                      ListTile(
+                        leading: const Icon(Icons.language_outlined),
+                        title: Text(AppStrings.tr(languageCode, 'language')),
+                        subtitle:
+                            Text(AppStrings.tr(languageCode, 'choose_language')),
+                        trailing: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: languageCode,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+                              _languageService.setLanguageCode(value);
+                            },
+                            items: AppStrings.supportedLocales
+                                .map((locale) => DropdownMenuItem<String>(
+                                      value: locale.languageCode,
+                                      child: Text(
+                                        AppStrings.languageLabel(
+                                          locale.languageCode,
+                                          languageCode,
+                                        ),
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                      SwitchListTile.adaptive(
+                        value: _notificationsEnabled,
+                        onChanged: _loadingPrefs
+                            ? null
+                            : (enabled) => _updateNotifications(enabled),
+                        title: Text(AppStrings.tr(languageCode, 'notifications')),
+                        subtitle:
+                            Text(AppStrings.tr(languageCode, 'notifications_subtitle')),
+                        secondary: const Icon(Icons.notifications_outlined),
+                      ),
+                      SwitchListTile.adaptive(
+                        value: _vibrationEnabled,
+                        onChanged: _loadingPrefs
+                            ? null
+                            : (enabled) => _updateVibration(enabled),
+                        title: Text(AppStrings.tr(languageCode, 'vibration')),
+                        subtitle:
+                            Text(AppStrings.tr(languageCode, 'vibration_subtitle')),
+                        secondary: const Icon(Icons.vibration_outlined),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.bug_report_outlined),
+                        title: const Text('Report a bug'),
+                        subtitle: const Text('Send issue details to support team.'),
+                        onTap: _reportBug,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading:
+                            const Icon(Icons.logout, color: Colors.redAccent),
+                        title: Text(AppStrings.tr(languageCode, 'logout')),
+                        subtitle:
+                            Text(AppStrings.tr(languageCode, 'logout_subtitle')),
+                        onTap: _confirmLogout,
+                      ),
                     ],
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm M-PIN',
-                      prefixIcon: Icon(Icons.lock_reset_outlined),
-                    ),
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _saveMpin,
-                    icon: const Icon(Icons.verified_user_outlined),
-                    label: Text(_saving ? 'Saving...' : 'Update M-PIN'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-                    child: Text(
-                      'Preferences',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    AppStrings.tr(languageCode, 'profile_admin_verified_message'),
                   ),
-                  const SizedBox(height: 4),
-                  if (_loadingPrefs)
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: LinearProgressIndicator(),
-                    ),
-                  SwitchListTile.adaptive(
-                    value: _notificationsEnabled,
-                    onChanged: _loadingPrefs
-                        ? null
-                        : (enabled) => _updateNotifications(enabled),
-                    title: const Text('In-app notifications'),
-                    subtitle: const Text('Show alerts and action confirmations.'),
-                    secondary: const Icon(Icons.notifications_outlined),
-                  ),
-                  SwitchListTile.adaptive(
-                    value: _vibrationEnabled,
-                    onChanged:
-                        _loadingPrefs ? null : (enabled) => _updateVibration(enabled),
-                    title: const Text('Vibration'),
-                    subtitle:
-                        const Text('Vibrate on emergency actions and alerts.'),
-                    secondary: const Icon(Icons.vibration_outlined),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.redAccent),
-                    title: const Text('Logout'),
-                    subtitle: const Text('Sign out from this device now.'),
-                    onTap: _confirmLogout,
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Profile fields marked as admin verified can only be changed by admin workflows.',
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -184,16 +242,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _updateNotifications(bool enabled) async {
+    final languageCode = _languageService.currentLanguageCode;
     setState(() {
       _notificationsEnabled = enabled;
     });
     await _settingsService.setNotificationsEnabled(enabled);
     _showMessage(
-      enabled ? 'In-app notifications enabled.' : 'In-app notifications disabled.',
+      enabled
+          ? AppStrings.tr(languageCode, 'notifications_enabled')
+          : AppStrings.tr(languageCode, 'notifications_disabled'),
     );
   }
 
   Future<void> _updateVibration(bool enabled) async {
+    final languageCode = _languageService.currentLanguageCode;
     setState(() {
       _vibrationEnabled = enabled;
     });
@@ -201,23 +263,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (enabled && await Vibration.hasVibrator()) {
       await Vibration.vibrate(duration: 120);
     }
-    _showMessage(enabled ? 'Vibration enabled.' : 'Vibration disabled.');
+    _showMessage(
+      enabled
+          ? AppStrings.tr(languageCode, 'vibration_enabled')
+          : AppStrings.tr(languageCode, 'vibration_disabled'),
+    );
   }
 
   Future<void> _confirmLogout() async {
+    final languageCode = _languageService.currentLanguageCode;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout now?'),
+        title: Text(AppStrings.tr(languageCode, 'logout_confirm_title')),
+        content: Text(AppStrings.tr(languageCode, 'logout_confirm_message')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppStrings.tr(languageCode, 'cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Logout'),
+            child: Text(AppStrings.tr(languageCode, 'logout')),
           ),
         ],
       ),
@@ -235,15 +302,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveMpin() async {
+    final languageCode = _languageService.currentLanguageCode;
     final newMpin = _newMpinController.text.trim();
     final confirm = _confirmMpinController.text.trim();
 
     if (newMpin.length != 6) {
-      _showMessage('M-PIN must be exactly 6 digits.');
+      _showMessage(AppStrings.tr(languageCode, 'mpin_exact_6'));
       return;
     }
     if (newMpin != confirm) {
-      _showMessage('M-PIN confirmation does not match.');
+      _showMessage(AppStrings.tr(languageCode, 'mpin_mismatch'));
       return;
     }
 
@@ -266,7 +334,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _saving = false;
       });
-      _showMessage('Unable to update M-PIN in cloud. Please retry.');
+      _showMessage(AppStrings.tr(languageCode, 'mpin_cloud_retry'));
       return;
     }
 
@@ -277,8 +345,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _saving = false;
     });
-    _showMessage('M-PIN updated successfully.');
+    _showMessage(AppStrings.tr(languageCode, 'mpin_updated'));
     Navigator.of(context).pop(updated);
+  }
+
+  Future<void> _reportBug() async {
+    final message = Uri.encodeComponent(
+      'Bug report\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nIssue: ',
+    );
+    final uri = Uri.parse('https://wa.me/91$_bugReportMobile?text=$message');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      _showMessage('Unable to open bug report channel. Please retry.');
+    }
   }
 
   void _showMessage(String message) {

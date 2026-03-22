@@ -178,17 +178,14 @@ class AuthService {
     if (normalized.isEmpty) {
       return null;
     }
-    final local = _repository.findByMobile(normalized);
-    if (local != null) {
-      return local;
+    // Always refresh once so profile fields (like selfie_path) reflect latest cloud state.
+    await _repository.refreshFromCloud();
+    final latest = _repository.findByMobile(normalized);
+    if (latest != null) {
+      return latest;
     }
 
-    // Pull latest directory rows before failing login when a member was seeded remotely.
-    await _repository.refreshFromCloud();
-    final refreshed = _repository.findByMobile(normalized);
-    if (refreshed != null) {
-      return refreshed;
-    }
+    // Fallback direct lookup for partial directory loads.
     return _repository.fetchByMobileFromCloud(normalized);
   }
 

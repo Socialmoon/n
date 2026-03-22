@@ -114,12 +114,15 @@ class MemberRepository {
     if (normalized.isEmpty) {
       return null;
     }
+    Member? latest;
     for (final member in _members) {
       if (_normalizeMobile(member.mobileNumber) == normalized) {
-        return member;
+        if (latest == null || member.lastUpdated.isAfter(latest.lastUpdated)) {
+          latest = member;
+        }
       }
     }
-    return null;
+    return latest;
   }
 
   String _normalizeMobile(String value) {

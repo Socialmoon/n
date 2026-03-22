@@ -19,6 +19,7 @@ class ProfileScreen extends StatefulWidget {
     required this.repository,
     required this.donationService,
     this.onOpenSettings,
+    this.onProfileUpdated,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class ProfileScreen extends StatefulWidget {
   final MemberRepository repository;
   final DonationService donationService;
   final Future<void> Function()? onOpenSettings;
+  final ValueChanged<Member>? onProfileUpdated;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -59,6 +61,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController.dispose();
     _postingLocationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentUser.id != oldWidget.currentUser.id ||
+        widget.currentUser.lastUpdated != oldWidget.currentUser.lastUpdated) {
+      _nameController.text = widget.currentUser.name;
+      _postingLocationController.text = widget.currentUser.postingLocation;
+      // Preserve unsaved local preview if user is editing right now.
+      if (_selfiePreviewBytes == null) {
+        _selfiePath = widget.currentUser.selfiePath;
+      }
+    }
   }
 
   @override
@@ -119,10 +135,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       CircleAvatar(
                         radius: 34,
                         backgroundColor: const Color(0xFFE6ECF1),
-                        backgroundImage: _selfiePreviewBytes == null
-                            ? null
-                            : MemoryImage(_selfiePreviewBytes!),
-                        child: _selfiePreviewBytes == null
+                        backgroundImage: _profileImageProvider(),
+                        child: _profileImageProvider() == null
                             ? const Icon(Icons.person, size: 36)
                             : null,
                       ),
@@ -139,7 +153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Text(
                               _selfiePath == null
                                   ? 'No photo selected.'
-                                  : 'Photo selected and ready to save.',
+                                  : (_selfiePreviewBytes != null
+                                      ? 'Photo selected and ready to save.'
+                                      : 'Cloud photo linked to your profile.'),
                               style: const TextStyle(color: Color(0xFF5A6B74)),
                             ),
                             const SizedBox(height: 8),
@@ -423,7 +439,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _saving = false;
         });
-        _showMessage('Unable to upload profile photo to cloud. Please retry.');
+        final uploadError = widget.repository.cloudService.lastUploadError;
+        final message = (uploadError == null || uploadError.isEmpty)
+            ? 'Unable to upload profile photo to cloud. Please retry.'
+            : 'Unable to upload profile photo to cloud: $uploadError';
+        _showMessage(message);
         return;
       }
       selfiePath = uploaded;
@@ -433,6 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       name: name,
       postingLocation: postingLocation,
       selfiePath: selfiePath,
+      clearSelfiePath: selfiePath == null,
       lastUpdated: DateTime.now(),
     );
     final saved = await widget.repository.saveMember(updated);
@@ -445,15 +466,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _saving = false;
       });
-      _showMessage('Unable to save profile to cloud. Please retry.');
+      final writeError = widget.repository.cloudService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to save profile to cloud. Please retry.'
+          : 'Unable to save profile to cloud: $writeError';
+      _showMessage(message);
       return;
     }
 
+    widget.onProfileUpdated?.call(updated);
+
     setState(() {
       _saving = false;
+      _selfiePath = updated.selfiePath;
+      _selfiePreviewBytes = null;
     });
 
-    Navigator.of(context).pop(updated);
+    // In dashboard flow this screen is pushed and should return updated member.
+    // In main tab flow it is embedded and should remain on screen.
+    if (widget.onProfileUpdated == null) {
+      Navigator.of(context).pop(updated);
+      return;
+    }
+
+    _showMessage('Profile updated successfully.');
+  }
+
+  ImageProvider<Object>? _profileImageProvider() {
+    if (_selfiePreviewBytes != null) {
+      return MemoryImage(_selfiePreviewBytes!);
+    }
+    final path = _selfiePath;
+    if (path == null || path.isEmpty) {
+      return null;
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return NetworkImage(path);
+    }
+    return null;
   }
 
   void _showMessage(String message) {

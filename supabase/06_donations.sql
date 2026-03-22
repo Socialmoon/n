@@ -16,6 +16,15 @@ create table if not exists public.donations (
   created_at timestamptz not null default now()
 );
 
+alter table public.donations
+  add column if not exists reviewed_at timestamptz;
+
+alter table public.donations
+  add column if not exists reviewed_by text;
+
+alter table public.donations
+  add column if not exists rejection_reason text;
+
 create index if not exists idx_donations_created_at on public.donations(created_at desc);
 
 alter table public.donations enable row level security;

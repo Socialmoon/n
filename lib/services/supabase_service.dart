@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -14,10 +13,46 @@ import '../models/member.dart';
 
 class SupabaseService {
   bool _initialized = false;
+  String? _lastWriteError;
+  String? _lastUploadError;
   static const Duration _initTimeout = Duration(seconds: 20);
   static const String _mediaBucket = 'app-media';
 
   bool get isConfigured => SupabaseConfig.isConfigured;
+  String? get lastWriteError => _lastWriteError;
+  String? get lastUploadError => _lastUploadError;
+
+  Future<bool> _ensureInitialized() async {
+    if (!isConfigured) {
+      return false;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+    return _initialized;
+  }
+
+  Future<bool> _ensureWriteSession() async {
+    final initialized = await _ensureInitialized();
+    if (!initialized) {
+      return false;
+    }
+
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession != null) {
+      return true;
+    }
+
+    try {
+      await client.auth.signInAnonymously().timeout(_initTimeout);
+    } catch (error) {
+      debugPrint(
+        'Supabase anonymous sign-in required for writes but failed: $error',
+      );
+    }
+
+    return client.auth.currentSession != null;
+  }
 
   Future<void> initialize() async {
     if (!isConfigured || _initialized) {
@@ -94,6 +129,8 @@ class SupabaseService {
       return null;
     }
 
+    Member? latestMatch;
+
     if (_initialized) {
       try {
         for (final candidate in mobileCandidates) {
@@ -101,14 +138,20 @@ class SupabaseService {
               .from('members')
               .select()
               .eq('mobile_number', candidate)
+              .order('last_updated', ascending: false)
               .limit(1) as List<dynamic>;
           if (rows.isEmpty) {
             continue;
           }
           final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
-          if (member != null) {
-            return member;
+          if (member != null &&
+              (latestMatch == null ||
+                  member.lastUpdated.isAfter(latestMatch.lastUpdated))) {
+            latestMatch = member;
           }
+        }
+        if (latestMatch != null) {
+          return latestMatch;
         }
       } catch (error) {
         debugPrint('Supabase SDK fetchMemberByMobile failed: $error');
@@ -120,7 +163,7 @@ class SupabaseService {
     try {
       for (final candidate in mobileCandidates) {
         final uri = Uri.parse(
-          '${SupabaseConfig.url}/rest/v1/members?select=*&mobile_number=eq.$candidate&limit=1',
+          '${SupabaseConfig.url}/rest/v1/members?select=*&mobile_number=eq.$candidate&order=last_updated.desc&limit=1',
         );
         final response = await http.get(
           uri,
@@ -141,11 +184,13 @@ class SupabaseService {
           continue;
         }
         final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
-        if (member != null) {
-          return member;
+        if (member != null &&
+            (latestMatch == null ||
+                member.lastUpdated.isAfter(latestMatch.lastUpdated))) {
+          latestMatch = member;
         }
       }
-      return null;
+      return latestMatch;
     } catch (error) {
       debugPrint('Supabase REST fallback fetchMemberByMobile failed: $error');
       return null;
@@ -153,22 +198,54 @@ class SupabaseService {
   }
 
   Future<bool> upsertMember(Member member) async {
-    if (!isConfigured) {
+    _lastWriteError = null;
+    if (!await _ensureWriteSession()) {
+      _lastWriteError = 'No authenticated Supabase session for write.';
       return false;
     }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
-      return false;
-    }
+
+    final client = Supabase.instance.client;
     try {
-      await Supabase.instance.client
+      await client
           .from('members')
           .upsert(_memberToRow(member), onConflict: 'id');
       return true;
     } catch (error) {
-      debugPrint('Supabase upsertMember failed: $error');
+      // Some projects with stricter RLS can reject upsert semantics; fallback to
+      // insert-or-update keeps profile/registration writes operational.
+      debugPrint('Supabase upsertMember primary attempt failed: $error');
+    }
+
+    final currentUserId = client.auth.currentUser?.id;
+    final insertRow = _memberToRow(
+      member,
+      ownerId: currentUserId,
+      includeOwnerId: true,
+    );
+
+    try {
+      await client.from('members').insert(insertRow);
+      return true;
+    } on PostgrestException catch (error) {
+      if (error.code == '23505') {
+        try {
+          await client
+              .from('members')
+              .update(_memberToRow(member))
+              .eq('id', member.id);
+          return true;
+        } catch (updateError) {
+          _lastWriteError = _compactError(updateError.toString());
+          debugPrint('Supabase update member fallback failed: $updateError');
+          return false;
+        }
+      }
+      _lastWriteError = _compactError(error.message);
+      debugPrint('Supabase upsertMember insert fallback failed: $error');
+      return false;
+    } catch (error) {
+      _lastWriteError = _compactError(error.toString());
+      debugPrint('Supabase upsertMember fallback failed: $error');
       return false;
     }
   }
@@ -198,13 +275,7 @@ class SupabaseService {
   }
 
   Future<void> insertAlert(EmergencyAlert alert) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
+    if (!await _ensureWriteSession()) {
       return;
     }
     try {
@@ -241,13 +312,7 @@ class SupabaseService {
   }
 
   Future<void> insertHelpPost(HelpPost post) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
+    if (!await _ensureWriteSession()) {
       return;
     }
     try {
@@ -260,13 +325,7 @@ class SupabaseService {
   }
 
   Future<void> deleteHelpPost(String postId) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
+    if (!await _ensureWriteSession()) {
       return;
     }
     try {
@@ -304,13 +363,7 @@ class SupabaseService {
   }
 
   Future<void> insertHelpComment(HelpComment comment) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
+    if (!await _ensureWriteSession()) {
       return;
     }
     try {
@@ -346,41 +399,65 @@ class SupabaseService {
     }
   }
 
-  Future<void> insertDonation(DonationEntry entry) async {
-    if (!isConfigured) {
-      return;
+  Future<bool> insertDonation(DonationEntry entry) async {
+    _lastWriteError = null;
+    if (!await _ensureInitialized()) {
+      _lastWriteError = 'Supabase not initialized.';
+      return false;
     }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
-      return;
-    }
+    final hasSession = await _ensureWriteSession();
     try {
-      await Supabase.instance.client.from('donations').insert(
-            _donationToRow(entry),
-          );
+      if (hasSession) {
+        await Supabase.instance.client.from('donations').insert(
+              _donationToRow(entry),
+            );
+        return true;
+      }
     } catch (error) {
-      debugPrint('Supabase insertDonation failed: $error');
+      // Fall through to REST fallback for anon-role projects.
+      debugPrint('Supabase SDK insertDonation failed: $error');
+    }
+
+    try {
+      final uri = Uri.parse('${SupabaseConfig.url}/rest/v1/donations');
+      final response = await http.post(
+        uri,
+        headers: <String, String>{
+          'apikey': SupabaseConfig.anonKey,
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: jsonEncode(_donationToRow(entry)),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return true;
+      }
+      _lastWriteError = _extractApiError(response.body) ??
+          'Donation insert failed (HTTP ${response.statusCode}).';
+      return false;
+    } catch (error) {
+      _lastWriteError = _compactError(error.toString());
+      debugPrint('Supabase REST insertDonation failed: $error');
+      return false;
     }
   }
 
-  Future<void> upsertDonation(DonationEntry entry) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
-      return;
+  Future<bool> upsertDonation(DonationEntry entry) async {
+    _lastWriteError = null;
+    if (!await _ensureWriteSession()) {
+      _lastWriteError = 'No authenticated Supabase session for write.';
+      return false;
     }
     try {
       await Supabase.instance.client
           .from('donations')
           .upsert(_donationToRow(entry), onConflict: 'id');
+      return true;
     } catch (error) {
+      _lastWriteError = _compactError(error.toString());
       debugPrint('Supabase upsertDonation failed: $error');
+      return false;
     }
   }
 
@@ -410,25 +487,24 @@ class SupabaseService {
     }
   }
 
-  Future<void> upsertAppSetting({
+  Future<bool> upsertAppSetting({
     required String key,
     required String value,
   }) async {
-    if (!isConfigured) {
-      return;
-    }
-    if (!_initialized) {
-      await initialize();
-    }
-    if (!_initialized) {
-      return;
+    _lastWriteError = null;
+    if (!await _ensureWriteSession()) {
+      _lastWriteError = 'No authenticated Supabase session for write.';
+      return false;
     }
     try {
       await Supabase.instance.client
           .from('app_settings')
           .upsert(<String, dynamic>{'key': key, 'value': value}, onConflict: 'key');
+      return true;
     } catch (error) {
+      _lastWriteError = error.toString();
       debugPrint('Supabase upsertAppSetting failed: $error');
+      return false;
     }
   }
 
@@ -437,37 +513,142 @@ class SupabaseService {
     required String folder,
     required String fileName,
   }) async {
-    if (!isConfigured) {
+    _lastUploadError = null;
+    if (!await _ensureInitialized()) {
+      _lastUploadError = 'Supabase not initialized.';
       return null;
     }
-    if (!_initialized) {
-      await initialize();
+
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) {
+      try {
+        await client.auth.signInAnonymously().timeout(_initTimeout);
+      } catch (error) {
+        // Continue with anon key access; some setups allow storage writes to anon role.
+        debugPrint('Supabase anonymous sign-in before upload failed: $error');
+      }
     }
-    if (!_initialized) {
-      return null;
-    }
+
     final path = '$folder/$fileName';
+    final contentType = _detectImageContentType(bytes);
     try {
-      await Supabase.instance.client.storage
+      await client.storage
           .from(_mediaBucket)
           .uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(
+            fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: true,
-              contentType: 'image/jpeg',
+              contentType: contentType,
             ),
           );
-      return Supabase.instance.client.storage.from(_mediaBucket).getPublicUrl(path);
+      return client.storage.from(_mediaBucket).getPublicUrl(path);
     } catch (error) {
-      debugPrint('Supabase uploadImageBytes failed: $error');
+      debugPrint('Supabase SDK uploadImageBytes failed: $error');
+    }
+
+    try {
+      final encodedPath = path
+          .split('/')
+          .map(Uri.encodeComponent)
+          .join('/');
+      final uri = Uri.parse(
+        '${SupabaseConfig.url}/storage/v1/object/$_mediaBucket/$encodedPath',
+      );
+      final response = await http.post(
+        uri,
+        headers: <String, String>{
+          'apikey': SupabaseConfig.anonKey,
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Content-Type': contentType,
+          'x-upsert': 'true',
+        },
+        body: bytes,
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return client.storage.from(_mediaBucket).getPublicUrl(path);
+      }
+      _lastUploadError = _extractApiError(response.body) ??
+          'Image upload failed (HTTP ${response.statusCode}).';
+      return null;
+    } catch (error) {
+      _lastUploadError = _compactError(error.toString());
+      debugPrint('Supabase REST uploadImageBytes failed: $error');
       return null;
     }
   }
 
-  Map<String, dynamic> _memberToRow(Member member) {
-    return <String, dynamic>{
+  String _compactError(String value) {
+    final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.length <= 260) {
+      return normalized;
+    }
+    return '${normalized.substring(0, 260)}...';
+  }
+
+  String _detectImageContentType(Uint8List bytes) {
+    if (bytes.length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+      return 'image/jpeg';
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A) {
+      return 'image/png';
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+    if (bytes.length >= 6 &&
+        bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38 &&
+        (bytes[4] == 0x37 || bytes[4] == 0x39) &&
+        bytes[5] == 0x61) {
+      return 'image/gif';
+    }
+    return 'application/octet-stream';
+  }
+
+  String? _extractApiError(String body) {
+    if (body.trim().isEmpty) {
+      return null;
+    }
+    try {
+      final parsed = jsonDecode(body);
+      if (parsed is Map<String, dynamic>) {
+        final message = parsed['message'] ?? parsed['error_description'] ?? parsed['error'];
+        if (message is String && message.trim().isNotEmpty) {
+          return _compactError(message);
+        }
+      }
+      return _compactError(body);
+    } catch (_) {
+      return _compactError(body);
+    }
+  }
+
+  Map<String, dynamic> _memberToRow(
+    Member member, {
+    String? ownerId,
+    bool includeOwnerId = false,
+  }) {
+    final row = <String, dynamic>{
       'id': member.id,
       'name': member.name,
       'mobile_number': member.mobileNumber,
@@ -489,6 +670,12 @@ class SupabaseService {
       'is_blocked': member.isBlocked,
       'is_approved': member.isApproved,
     };
+
+    if (includeOwnerId && ownerId != null && ownerId.isNotEmpty) {
+      row['owner_id'] = ownerId;
+    }
+
+    return row;
   }
 
   Member _memberFromRow(Map<String, dynamic> row) {

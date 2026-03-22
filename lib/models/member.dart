@@ -55,7 +55,9 @@ class Member {
     String? referenceMobileNumber,
     String? referenceMemberName,
     String? selfiePath,
+    bool clearSelfiePath = false,
     String? idCardPhotoPath,
+    bool clearIdCardPhotoPath = false,
     String? homeDistrict,
     String? postingDistrict,
     String? postingLocation,
@@ -77,8 +79,9 @@ class Member {
       referenceMobileNumber:
           referenceMobileNumber ?? this.referenceMobileNumber,
       referenceMemberName: referenceMemberName ?? this.referenceMemberName,
-      selfiePath: selfiePath ?? this.selfiePath,
-      idCardPhotoPath: idCardPhotoPath ?? this.idCardPhotoPath,
+        selfiePath: clearSelfiePath ? null : (selfiePath ?? this.selfiePath),
+        idCardPhotoPath:
+          clearIdCardPhotoPath ? null : (idCardPhotoPath ?? this.idCardPhotoPath),
       homeDistrict: homeDistrict ?? this.homeDistrict,
       postingDistrict: postingDistrict ?? this.postingDistrict,
       postingLocation: postingLocation ?? this.postingLocation,

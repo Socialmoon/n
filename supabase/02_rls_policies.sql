@@ -28,8 +28,8 @@ create policy members_update_policy
 on public.members
 for update
 to authenticated
-using (public.is_app_admin() or owner_id = auth.uid())
-with check (public.is_app_admin() or owner_id = auth.uid());
+using (true)
+with check (true);
 
 drop policy if exists members_delete_policy on public.members;
 create policy members_delete_policy
@@ -194,21 +194,21 @@ create policy app_admins_select_policy
 on public.app_admins
 for select
 to authenticated
-using (public.is_app_admin());
+using (auth.uid() = user_id);
 
 drop policy if exists app_admins_insert_policy on public.app_admins;
 create policy app_admins_insert_policy
 on public.app_admins
 for insert
 to authenticated
-with check (public.is_app_admin());
+with check (false);
 
 drop policy if exists app_admins_delete_policy on public.app_admins;
 create policy app_admins_delete_policy
 on public.app_admins
 for delete
 to authenticated
-using (public.is_app_admin());
+using (false);
 
 -- STORAGE policies (app-media bucket)
 drop policy if exists app_media_public_read on storage.objects;
@@ -222,7 +222,7 @@ drop policy if exists app_media_upload_policy on storage.objects;
 create policy app_media_upload_policy
 on storage.objects
 for insert
-to authenticated
+to anon, authenticated
 with check (bucket_id = 'app-media');
 
 drop policy if exists app_media_update_policy on storage.objects;

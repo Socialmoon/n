@@ -40,7 +40,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _homeDistrictController = TextEditingController();
   final _postingDistrictController = TextEditingController();
   final _postingLocationController = TextEditingController();
-  DateTime? _appointmentDate;
   XFile? _selfie;
   XFile? _idCardPhoto;
   Member? _referenceMember;
@@ -325,15 +324,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               });
             },
           ),
-          OutlinedButton.icon(
-            onPressed: _pickAppointmentDate,
-            icon: const Icon(Icons.event_outlined),
-            label: Text(
-              _appointmentDate == null
-                  ? 'Select appointment date'
-                  : 'Appointment: ${_appointmentDate!.day}/${_appointmentDate!.month}/${_appointmentDate!.year}',
-            ),
-          ),
         ],
       ),
     );
@@ -385,12 +375,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               'Posting district', _postingDistrictController.text.trim()),
           _buildSummaryRow(
               'Posting location', _postingLocationController.text.trim()),
-          _buildSummaryRow(
-            'Appointment date',
-            _appointmentDate == null
-                ? 'Not selected'
-                : '${_appointmentDate!.day}/${_appointmentDate!.month}/${_appointmentDate!.year}',
-          ),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -626,24 +610,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Future<void> _pickAppointmentDate() async {
-    final today = DateTime.now();
-    final minDate = DateTime(today.year, today.month, today.day);
-    final selected = await showDatePicker(
-      context: context,
-      firstDate: minDate,
-      lastDate: DateTime(today.year + 20, 12, 31),
-      initialDate: _appointmentDate != null && _appointmentDate!.isBefore(minDate)
-          ? minDate
-          : (_appointmentDate ?? minDate),
-    );
-    if (selected != null) {
-      setState(() {
-        _appointmentDate = selected;
-      });
-    }
-  }
-
   Future<void> _pickSelfie() async {
     final picker = ImagePicker();
     final file =
@@ -781,21 +747,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    if (_appointmentDate == null) {
-      _showMessage('Select the appointment date.');
-      return false;
-    }
-    final appointment = DateTime(
-      _appointmentDate!.year,
-      _appointmentDate!.month,
-      _appointmentDate!.day,
-    );
-    final today = DateTime.now();
-    final current = DateTime(today.year, today.month, today.day);
-    if (appointment.isBefore(current)) {
-      _showMessage('Appointment date cannot be in the past.');
-      return false;
-    }
     return true;
   }
 
@@ -849,7 +800,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       setState(() {
         _submitting = false;
       });
-      _showMessage('Unable to upload documents to cloud. Please retry.');
+      final uploadError = mediaService.lastUploadError;
+      final message = (uploadError == null || uploadError.isEmpty)
+          ? 'Unable to upload documents to cloud. Please retry.'
+          : 'Unable to upload documents to cloud: $uploadError';
+      _showMessage(message);
       return;
     }
 
@@ -868,7 +823,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       homeDistrict: _homeDistrictController.text.trim(),
       postingDistrict: _postingDistrictController.text.trim(),
       postingLocation: _postingLocationController.text.trim(),
-      appointmentDate: _appointmentDate!,
+      appointmentDate: now,
       role: 'Member',
       lastUpdated: now,
       passwordUpdatedAt: now,
@@ -883,7 +838,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       setState(() {
         _submitting = false;
       });
-      _showMessage('Unable to create registration in cloud. Please retry.');
+      final cloudError = mediaService.lastWriteError;
+      final message = (cloudError == null || cloudError.isEmpty)
+          ? 'Unable to create registration in cloud. Please retry.'
+          : 'Unable to create registration in cloud: $cloudError';
+      _showMessage(message);
       return;
     }
 
