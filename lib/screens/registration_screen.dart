@@ -529,33 +529,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }) {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 20,
-                offset: Offset(0, 10)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF123C56),
+              letterSpacing: 0.2,
             ),
-            const SizedBox(height: 8),
-            Text(subtitle,
-                style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4)),
-            const SizedBox(height: 20),
-            child,
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: Color(0xFFD8E3E8),
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
       ),
     );
   }
