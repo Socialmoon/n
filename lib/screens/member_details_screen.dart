@@ -22,6 +22,8 @@ class MemberDetailsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          _buildProfileHeader(),
+          const SizedBox(height: 12),
           _section(
             title: 'Basic',
             children: <Widget>[
@@ -101,6 +103,61 @@ class MemberDetailsScreen extends StatelessWidget {
             Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
             ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: <Widget>[
+            if (selfieUrl.isEmpty)
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: const Color(0xFFE8F0F5),
+                child: Text(
+                  initial,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
+              )
+            else
+              ClipOval(
+                child: Image.network(
+                  selfieUrl,
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => CircleAvatar(
+                    radius: 32,
+                    backgroundColor: const Color(0xFFE8F0F5),
+                    child: Text(
+                      initial,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    member.name,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(member.role),
+                  Text('${member.postingLocation}, ${member.postingDistrict}'),
+                ],
+              ),
+            ),
           ],
         ),
       ),

@@ -38,7 +38,7 @@ class Member {
     this.idCardPhotoPath,
     this.isAdmin = false,
     this.isBlocked = false,
-    this.isApproved = true,
+    this.isApproved = false,
   });
 
   final String id;
@@ -257,7 +257,7 @@ class Member {
       passwordUpdatedAt: DateTime.parse(map['passwordUpdatedAt'] as String),
       isAdmin: map['isAdmin'] as bool? ?? false,
       isBlocked: map['isBlocked'] as bool? ?? false,
-      isApproved: map['isApproved'] as bool? ?? true,
+      isApproved: map['isApproved'] as bool? ?? (map['isAdmin'] as bool? ?? false),
     );
   }
 

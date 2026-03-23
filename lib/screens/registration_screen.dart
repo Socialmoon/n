@@ -748,11 +748,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Widget _buildBottomBar() {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).viewPadding.bottom;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: keyboardInset),
+      padding: EdgeInsets.only(bottom: safeBottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
         decoration: const BoxDecoration(

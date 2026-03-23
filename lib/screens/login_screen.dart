@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 import '../core/app_strings.dart';
 import '../core/brand.dart';
 import '../models/member.dart';
@@ -8,8 +10,6 @@ import '../services/app_language_service.dart';
 import '../services/auth_service.dart';
 import '../services/member_repository.dart';
 import 'registration_screen.dart';
-
-enum LoginMode { mpin }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -31,10 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _mobileController = TextEditingController();
   final _mpinController = TextEditingController();
   final AppLanguageService _languageService = AppLanguageService();
-  LoginMode _mode = LoginMode.mpin;
   bool _submitting = false;
   bool _biometricAvailable = false;
   bool _checkingBiometric = true;
+  bool _obscureMpin = true;
   static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
   static final RegExp _mpinPattern = RegExp(r'^[0-9]{6}$');
 
@@ -53,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     return ValueListenableBuilder<Locale>(
       valueListenable: _languageService.localeListenable,
       builder: (context, locale, _) {
@@ -62,161 +63,207 @@ class _LoginScreenState extends State<LoginScreen> {
           body: DecoratedBox(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: <Color>[
-                  Color(0xFF0D2438),
-                  Color(0xFF1A4A67),
-                  Color(0xFFE4B363)
-                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[Color(0xFF0C2C3A), Color(0xFF20606E), Color(0xFFE0AE5A)],
               ),
             ),
-            child: SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: languageCode,
-                                  icon: const Icon(Icons.keyboard_arrow_down),
-                                  onChanged: (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-                                    _languageService.setLanguageCode(value);
-                                  },
-                                  items: AppStrings.supportedLocales
-                                      .map((locale) => DropdownMenuItem<String>(
-                                            value: locale.languageCode,
-                                            child: Text(
-                                              AppStrings.languageLabel(
-                                                locale.languageCode,
-                                                languageCode,
+            child: Stack(
+              children: <Widget>[
+                Positioned(
+                  top: -120,
+                  left: -90,
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x30FFFFFF),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -160,
+                  right: -100,
+                  child: Container(
+                    width: 320,
+                    height: 320,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x33FFFFFF),
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOut,
+                          padding: EdgeInsets.fromLTRB(24, keyboardOpen ? 18 : 24, 24, 24),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                            color: const Color(0xFFFDFBF7),
+                            border: Border.all(color: const Color(0xFFDCCFAF)),
+                            boxShadow: const <BoxShadow>[
+                              BoxShadow(
+                                color: Color(0x35092A34),
+                                blurRadius: 24,
+                                offset: Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: languageCode,
+                                    icon: const Icon(Icons.keyboard_arrow_down),
+                                    onChanged: (value) {
+                                      if (value == null) {
+                                        return;
+                                      }
+                                      _languageService.setLanguageCode(value);
+                                    },
+                                    items: AppStrings.supportedLocales
+                                        .map((locale) => DropdownMenuItem<String>(
+                                              value: locale.languageCode,
+                                              child: Text(
+                                                AppStrings.languageLabel(
+                                                  locale.languageCode,
+                                                  languageCode,
+                                                ),
                                               ),
-                                            ),
-                                          ))
-                                      .toList(),
+                                            ))
+                                        .toList(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Row(
-                              children: <Widget>[
-                                BrandLogo(size: 48, withBackdrop: false),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    AppBrand.appName,
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w800,
+                              Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 58,
+                                    height: 58,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: const LinearGradient(
+                                        colors: <Color>[Color(0xFF0C2D3A), Color(0xFF225F6E)],
+                                      ),
+                                    ),
+                                    child: const BrandLogo(size: 38, withBackdrop: false),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      AppBrand.appName,
+                                      style: GoogleFonts.merriweather(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF142C38),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                AppStrings.tr(languageCode, 'login_tagline'),
+                                style: const TextStyle(color: Color(0xFF5A6470)),
+                              ),
+                              const SizedBox(height: 20),
+                              TextField(
+                                controller: _mobileController,
+                                keyboardType: TextInputType.phone,
+                                maxLength: 10,
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                onChanged: (_) => _refreshBiometricAvailability(),
+                                decoration: InputDecoration(
+                                  labelText: AppStrings.tr(languageCode, 'mobile_number'),
+                                  prefixIcon: const Icon(Icons.phone_iphone_outlined),
+                                ),
+                              ),
+                              TextField(
+                                controller: _mpinController,
+                                obscureText: _obscureMpin,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: AppStrings.tr(languageCode, 'mpin_label'),
+                                  prefixIcon: const Icon(Icons.lock_outline),
+                                  suffixIcon: IconButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureMpin = !_obscureMpin;
+                                      });
+                                    },
+                                    icon: Icon(
+                                      _obscureMpin
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(AppStrings.tr(languageCode, 'login_tagline')),
-                            const SizedBox(height: 24),
-                            SegmentedButton<LoginMode>(
-                              segments: const <ButtonSegment<LoginMode>>[
-                                ButtonSegment<LoginMode>(
-                                  value: LoginMode.mpin,
-                                  label: Text('M-PIN'),
-                                  icon: Icon(Icons.lock_outline),
+                              ),
+                              const SizedBox(height: 18),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: _submitting ? null : _submit,
+                                  icon: const Icon(Icons.login_outlined),
+                                  label: Text(
+                                    _submitting
+                                        ? AppStrings.tr(languageCode, 'signing_in')
+                                        : AppStrings.tr(languageCode, 'sign_in'),
+                                  ),
                                 ),
-                              ],
-                              selected: <LoginMode>{_mode},
-                              onSelectionChanged: (selection) {
-                                setState(() {
-                                  _mode = selection.first;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller: _mobileController,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: InputDecoration(
-                                labelText:
-                                    AppStrings.tr(languageCode, 'mobile_number'),
                               ),
-                            ),
-                            TextField(
-                              controller: _mpinController,
-                              obscureText: true,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: InputDecoration(
-                                labelText:
-                                    AppStrings.tr(languageCode, 'mpin_label'),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            FilledButton(
-                              onPressed: _submitting ? null : _submit,
-                              child: Text(
-                                _submitting
-                                    ? AppStrings.tr(languageCode, 'signing_in')
-                                    : AppStrings.tr(languageCode, 'sign_in'),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              onPressed:
-                                  (_checkingBiometric || !_biometricAvailable)
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: (_checkingBiometric || !_biometricAvailable)
                                       ? null
                                       : _loginWithBiometric,
-                              icon: const Icon(Icons.fingerprint),
-                              label: Text(
-                                _checkingBiometric
-                                    ? AppStrings.tr(
-                                        languageCode,
-                                        'checking_biometrics',
-                                      )
-                                    : AppStrings.tr(
-                                        languageCode,
-                                        'use_biometric_login',
-                                      ),
-                              ),
-                            ),
-                            const Divider(height: 32),
-                            TextButton(
-                              onPressed: _openRegistration,
-                              child: Text(
-                                AppStrings.tr(
-                                  languageCode,
-                                  'new_member_registration',
+                                  icon: const Icon(Icons.fingerprint),
+                                  label: Text(
+                                    _checkingBiometric
+                                        ? AppStrings.tr(languageCode, 'checking_biometrics')
+                                        : AppStrings.tr(languageCode, 'use_biometric_login'),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              const Divider(height: 30),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: _openRegistration,
+                                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                                  label: Text(
+                                    AppStrings.tr(
+                                      languageCode,
+                                      'new_member_registration',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         );
@@ -259,7 +306,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginWithBiometric() async {
     final languageCode = _languageService.currentLanguageCode;
-    final result = await widget.authService.loginWithBiometric();
+    final result = await widget.authService.loginWithBiometric(
+      mobileNumber: _mobileController.text.trim(),
+    );
     if (!mounted) {
       return;
     }
@@ -292,7 +341,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _checkingBiometric = true;
     });
-    final available = await widget.authService.isBiometricAvailable();
+    final available = await widget.authService.isBiometricAvailable(
+      mobileNumber: _mobileController.text.trim(),
+    );
     if (!mounted) {
       return;
     }

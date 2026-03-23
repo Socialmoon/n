@@ -27,26 +27,7 @@ class MemberCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[Color(0xFF0F3A4A), Color(0xFF2E7D83)],
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildAvatar(member),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -119,5 +100,47 @@ class MemberCard extends StatelessWidget {
 
   Future<void> _launchUri(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _buildAvatar(Member member) {
+    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+
+    if (selfieUrl.isEmpty) {
+      return _buildInitialAvatar(initial);
+    }
+
+    return ClipOval(
+      child: Image.network(
+        selfieUrl,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildInitialAvatar(initial),
+      ),
+    );
+  }
+
+  Widget _buildInitialAvatar(String initial) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[Color(0xFF0F3A4A), Color(0xFF2E7D83)],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }

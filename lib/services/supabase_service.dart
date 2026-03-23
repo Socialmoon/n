@@ -734,7 +734,7 @@ class SupabaseService {
       'passwordUpdatedAt': row['password_updated_at'] as String,
       'isAdmin': row['is_admin'] as bool? ?? false,
       'isBlocked': row['is_blocked'] as bool? ?? false,
-      'isApproved': row['is_approved'] as bool? ?? true,
+      'isApproved': row['is_approved'] as bool? ?? (row['is_admin'] as bool? ?? false),
     });
   }
 

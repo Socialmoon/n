@@ -73,11 +73,12 @@ class AuthService {
     );
   }
 
-  Future<bool> isBiometricAvailable() async {
-    if (_lastMobile == null) {
+  Future<bool> isBiometricAvailable({String? mobileNumber}) async {
+    final targetMobile = _normalizeMobile(mobileNumber ?? _lastMobile ?? '');
+    if (targetMobile.isEmpty) {
       return false;
     }
-    final member = await _resolveMember(_lastMobile!);
+    final member = await _resolveMember(targetMobile);
     if (member == null) {
       return false;
     }
@@ -112,15 +113,16 @@ class AuthService {
     return _completeLogin(member);
   }
 
-  Future<AuthResult> loginWithBiometric() async {
-    if (_lastMobile == null) {
+  Future<AuthResult> loginWithBiometric({String? mobileNumber}) async {
+    final targetMobile = _normalizeMobile(mobileNumber ?? _lastMobile ?? '');
+    if (targetMobile.isEmpty) {
       return const AuthResult(
-          error: 'No previous member available for biometric login.');
+          error: 'Enter your mobile number before biometric login.');
     }
-    final member = await _resolveMember(_lastMobile!);
+    final member = await _resolveMember(targetMobile);
     if (member == null) {
       return const AuthResult(
-          error: 'Stored member session is no longer valid.');
+          error: 'Member not found for this mobile number.');
     }
     try {
       final canCheck = await _localAuthentication.canCheckBiometrics;
@@ -159,6 +161,10 @@ class AuthService {
     if (member.isBlocked) {
       return const AuthResult(
           error: 'Your account has been blocked. Contact an admin.');
+    }
+    if (!member.isApproved) {
+      return const AuthResult(
+          error: 'Your registration is pending admin approval.');
     }
     if (member.needsProfileRefresh) {
       return const AuthResult(error: 'Profile update required before login.');

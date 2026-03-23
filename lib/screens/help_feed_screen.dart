@@ -5,6 +5,7 @@ import '../core/brand.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
+import 'post_new_request_screen.dart';
 
 class HelpFeedScreen extends StatefulWidget {
   const HelpFeedScreen({
@@ -31,14 +32,11 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   ];
 
   final TextEditingController _feedSearchController = TextEditingController();
-  final TextEditingController _helpMessageController = TextEditingController();
-  String _selectedHelpCategory = _helpCategories.first;
   String _activeCategory = 'All';
 
   @override
   void dispose() {
     _feedSearchController.dispose();
-    _helpMessageController.dispose();
     super.dispose();
   }
 
@@ -325,91 +323,20 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   }
 
   Future<void> _createHelpPost() async {
-    _helpMessageController.clear();
-    _selectedHelpCategory = _helpCategories.first;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Post help request'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'Share your need clearly so members can support quickly.',
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedHelpCategory,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: _helpCategories
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item,
-                              child: Text(item),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setDialogState(() {
-                          _selectedHelpCategory = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _helpMessageController,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'What help do you need?',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Post'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final result = await Navigator.of(context).push<PostNewRequestResult>(
+      MaterialPageRoute<PostNewRequestResult>(
+        builder: (context) => PostNewRequestScreen(categories: _helpCategories),
+      ),
     );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    final message = _helpMessageController.text.trim();
-    if (message.isEmpty) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a help request message.')),
-      );
+    if (result == null) {
       return;
     }
 
     await widget.helpFeedService.createPost(
       member: widget.currentUser,
-      category: _selectedHelpCategory,
-      message: message,
+      category: result.category,
+      message: result.message,
     );
 
     if (!mounted) {

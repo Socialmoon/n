@@ -103,6 +103,8 @@ class _MembersScreenState extends State<MembersScreen> {
           children: <Widget>[
             Row(
               children: <Widget>[
+                _buildAvatar(member),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     member.name,
@@ -371,6 +373,32 @@ class _MembersScreenState extends State<MembersScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildAvatar(Member member) {
+    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+    if (selfieUrl.isEmpty) {
+      return _buildInitialAvatar(initial);
+    }
+
+    return ClipOval(
+      child: Image.network(
+        selfieUrl,
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildInitialAvatar(initial),
+      ),
+    );
+  }
+
+  Widget _buildInitialAvatar(String initial) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: const Color(0xFFE8F0F5),
+      child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
   }
 }
 
