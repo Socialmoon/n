@@ -274,16 +274,18 @@ class SupabaseService {
     }
   }
 
-  Future<void> insertAlert(EmergencyAlert alert) async {
+  Future<bool> insertAlert(EmergencyAlert alert) async {
     if (!await _ensureWriteSession()) {
-      return;
+      return false;
     }
     try {
       await Supabase.instance.client.from('emergency_alerts').insert(
             _alertToRow(alert),
           );
+      return true;
     } catch (error) {
       debugPrint('Supabase insertAlert failed: $error');
+      return false;
     }
   }
 
@@ -311,30 +313,34 @@ class SupabaseService {
     }
   }
 
-  Future<void> insertHelpPost(HelpPost post) async {
+  Future<bool> insertHelpPost(HelpPost post) async {
     if (!await _ensureWriteSession()) {
-      return;
+      return false;
     }
     try {
       await Supabase.instance.client.from('help_posts').insert(
             _helpPostToRow(post),
           );
+      return true;
     } catch (error) {
       debugPrint('Supabase insertHelpPost failed: $error');
+      return false;
     }
   }
 
-  Future<void> deleteHelpPost(String postId) async {
+  Future<bool> deleteHelpPost(String postId) async {
     if (!await _ensureWriteSession()) {
-      return;
+      return false;
     }
     try {
       await Supabase.instance.client
           .from('help_posts')
           .delete()
           .eq('id', postId);
+      return true;
     } catch (error) {
       debugPrint('Supabase deleteHelpPost failed: $error');
+      return false;
     }
   }
 
@@ -362,16 +368,18 @@ class SupabaseService {
     }
   }
 
-  Future<void> insertHelpComment(HelpComment comment) async {
+  Future<bool> insertHelpComment(HelpComment comment) async {
     if (!await _ensureWriteSession()) {
-      return;
+      return false;
     }
     try {
       await Supabase.instance.client.from('help_post_comments').insert(
             _helpCommentToRow(comment),
           );
+      return true;
     } catch (error) {
       debugPrint('Supabase insertHelpComment failed: $error');
+      return false;
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/member.dart';
 import '../services/donation_service.dart';
@@ -40,6 +41,7 @@ class MainShellScreen extends StatefulWidget {
 
 class _MainShellScreenState extends State<MainShellScreen> {
   late int _index;
+  DateTime? _lastBackPressAt;
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final tabs = <Widget>[
       DashboardScreen(
         currentUser: widget.currentUser,
@@ -81,41 +84,64 @@ class _MainShellScreenState extends State<MainShellScreen> {
       ),
     ];
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: tabs,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: _switchTab,
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups_rounded),
-            label: 'Members',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum_rounded),
-            label: 'Feed',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.volunteer_activism_outlined),
-            selectedIcon: Icon(Icons.volunteer_activism_rounded),
-            label: 'Donations',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Account',
-          ),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        if (_index != 0) {
+          _switchTab(0);
+          return;
+        }
+        final now = DateTime.now();
+        final shouldExit = _lastBackPressAt != null &&
+            now.difference(_lastBackPressAt!) <= const Duration(seconds: 2);
+        if (shouldExit) {
+          SystemNavigator.pop();
+          return;
+        }
+        _lastBackPressAt = now;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Press back again to exit app.')),
+        );
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _index,
+          children: tabs,
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: _switchTab,
+          destinations: <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: isHindi ? 'होम' : 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups_rounded),
+              label: isHindi ? 'सदस्य' : 'Members',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.forum_outlined),
+              selectedIcon: Icon(Icons.forum_rounded),
+              label: isHindi ? 'फीड' : 'Feed',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.volunteer_activism_outlined),
+              selectedIcon: Icon(Icons.volunteer_activism_rounded),
+              label: isHindi ? 'डोनेशन' : 'Donations',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: isHindi ? 'अकाउंट' : 'Account',
+            ),
+          ],
+        ),
       ),
     );
   }

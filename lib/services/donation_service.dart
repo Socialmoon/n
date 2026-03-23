@@ -27,7 +27,8 @@ class DonationService {
   String get adminMobile => _adminMobile;
   String? get customQrImageUrl => _customQrImageUrl;
   String? get lastUploadError => _cloudService.lastUploadError;
-  String? get lastWriteError => _cloudService.lastWriteError;
+  String? _lastOperationError;
+  String? get lastWriteError => _lastOperationError ?? _cloudService.lastWriteError;
 
   Future<void> load() async {
     if (!_cloudService.isConfigured) {
@@ -139,15 +140,45 @@ class DonationService {
     String? transactionRef,
     String? screenshotPath,
   }) async {
+    _lastOperationError = null;
+
+    final normalizedRef = transactionRef?.trim().toLowerCase();
+    if (normalizedRef != null && normalizedRef.isNotEmpty) {
+      final duplicateRef = _donations.any(
+        (entry) =>
+            entry.memberId == member.id &&
+            (entry.transactionRef?.trim().toLowerCase() == normalizedRef),
+      );
+      if (duplicateRef) {
+        _lastOperationError =
+            'Duplicate transaction reference detected. Please check before retrying.';
+        return false;
+      }
+    }
+
+    final now = DateTime.now();
+    final duplicateWindow = _donations.any(
+      (entry) =>
+          entry.memberId == member.id &&
+          entry.amount == amount &&
+          entry.createdAt.isAfter(now.subtract(const Duration(minutes: 2))) &&
+          (entry.note?.trim() ?? '') == (note?.trim() ?? ''),
+    );
+    if (duplicateWindow) {
+      _lastOperationError =
+          'A similar donation entry was submitted recently. Please wait and refresh history.';
+      return false;
+    }
+
     final entry = DonationEntry(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: now.microsecondsSinceEpoch.toString(),
       memberId: member.id,
       memberName: member.name,
       memberMobile: member.mobileNumber,
       amount: amount,
       upiId: upiId,
-      status: 'Pending Verification',
-      createdAt: DateTime.now(),
+      status: 'Verified',
+      createdAt: now,
       note: note,
       transactionRef: transactionRef,
       screenshotPath: screenshotPath,

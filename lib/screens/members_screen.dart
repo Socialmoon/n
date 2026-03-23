@@ -38,7 +38,8 @@ class _MembersScreenState extends State<MembersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final members = widget.repository
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
+    final visibleMembers = widget.repository
         .search(
           query: '',
           districtFilter: '',
@@ -46,9 +47,19 @@ class _MembersScreenState extends State<MembersScreen> {
         .where((member) => widget.currentUser.isAdmin || member.isApproved)
         .toList();
 
+    final members = <Member>[];
+    final mine = visibleMembers.firstWhere(
+      (member) => member.id == widget.currentUser.id,
+      orElse: () => widget.currentUser,
+    );
+    members.add(mine);
+    members.addAll(
+      visibleMembers.where((member) => member.id != widget.currentUser.id),
+    );
+
     return Scaffold(
       appBar: AppBar(
-        title: const BrandedScreenTitle('All Members'),
+        title: BrandedScreenTitle(isHindi ? 'सभी सदस्य' : 'All Members'),
         actions: <Widget>[
           IconButton(
             onPressed: _openSearchPage,

@@ -138,14 +138,17 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     if (hasScheme) {
       return _documentCard(
         label: label,
-        child: Image.network(
-          path,
-          height: 170,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(child: Text('Preview unavailable'));
-          },
+        child: InkWell(
+          onTap: () => _openImagePreview(path, label),
+          child: Image.network(
+            path,
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(child: Text('Preview unavailable'));
+            },
+          ),
         ),
       );
     }
@@ -163,9 +166,9 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
           }
           return Image.memory(
             snapshot.data!,
-            height: 170,
+            height: 200,
             width: double.infinity,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
           );
         },
       ),
@@ -191,12 +194,35 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: SizedBox(
-              height: 170,
+              height: 200,
               width: double.infinity,
               child: child,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openImagePreview(String path, String label) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: Text(label)),
+          backgroundColor: Colors.black,
+          body: InteractiveViewer(
+            child: Center(
+              child: Image.network(
+                path,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text(
+                  'Preview unavailable',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

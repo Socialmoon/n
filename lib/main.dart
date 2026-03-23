@@ -32,7 +32,7 @@ class ApneSaathiApp extends StatefulWidget {
 
 class _ApneSaathiAppState extends State<ApneSaathiApp> {
   static const Duration _startupTimeout = Duration(seconds: 8);
-  static const Duration _autoLogoutAfter = Duration(minutes: 15);
+  static const Duration _autoLogoutAfter = Duration(minutes: 30);
 
   final SupabaseService _supabaseService = SupabaseService();
   late final MemberRepository _repository =

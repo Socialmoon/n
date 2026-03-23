@@ -12,6 +12,7 @@ import '../services/member_repository.dart';
 import 'admin_approvals_screen.dart';
 import 'admin_donation_leaderboard_screen.dart';
 import 'admin_payment_reviews_screen.dart';
+import 'admin_upi_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -236,8 +237,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _readOnlyRow('Mobile number', user.mobileNumber),
                   _readOnlyRow('Role', user.role),
                   _readOnlyRow('Reference mobile', user.referenceMobileNumber),
+                  _readOnlyRow(
+                    'Reference member',
+                    user.referenceMemberName ?? '-',
+                  ),
                   _readOnlyRow('Home district', user.homeDistrict),
                   _readOnlyRow('Posting district', user.postingDistrict),
+                  _readOnlyRow('Department', user.department ?? '-'),
+                  _readOnlyRow('Post / Rank', user.postRank ?? '-'),
+                  _readOnlyRow('Official name', user.officialName ?? '-'),
+                  _readOnlyRow('Batch year', user.batchYear ?? '-'),
+                  _readOnlyRow('WhatsApp', user.whatsappNumber ?? '-'),
+                  _readOnlyRow(
+                    'Calling contact',
+                    user.callingContactNumber ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Emergency contact',
+                    user.emergencyContact ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Posting place location',
+                    user.postingPlaceLocation ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Home village / mohalla',
+                    user.homeVillageMohalla ?? '-',
+                  ),
+                  _readOnlyRow('Home gali no', user.homeGaliNo ?? '-'),
+                  _readOnlyRow('Home post office', user.homePostOffice ?? '-'),
+                  _readOnlyRow(
+                    'Home police station',
+                    user.homePoliceStation ?? '-',
+                  ),
+                  _readOnlyRow('Home tehsil', user.homeTehsil ?? '-'),
+                  _readOnlyRow(
+                    'Home village location',
+                    user.homeVillageLocation ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Live latitude',
+                    user.liveLatitude?.toStringAsFixed(6) ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Live longitude',
+                    user.liveLongitude?.toStringAsFixed(6) ?? '-',
+                  ),
+                  _readOnlyRow(
+                    'Live location updated',
+                    user.liveLocationUpdatedAt?.toString() ?? '-',
+                  ),
                   _readOnlyRow(
                     'Appointment date',
                     '${user.appointmentDate.day}/${user.appointmentDate.month}/${user.appointmentDate.year}',
@@ -286,6 +335,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Review screenshots and verify or reject submissions.',
                       ),
                       onTap: _openPaymentVerification,
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.qr_code_2_outlined),
+                      title: const Text('UPI / QR Settings'),
+                      subtitle: const Text(
+                        'Manage donation UPI details and custom QR image.',
+                      ),
+                      onTap: _openUpiSettings,
                     ),
                   ],
                 ),
@@ -386,6 +444,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (context) => AdminPaymentReviewsScreen(
+          currentUser: widget.currentUser,
+          donationService: widget.donationService,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _openUpiSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminUpiSettingsScreen(
           currentUser: widget.currentUser,
           donationService: widget.donationService,
         ),

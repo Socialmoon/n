@@ -42,6 +42,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final allPosts = widget.helpFeedService.posts;
     final emergencyCount =
         allPosts.where((post) => post.category == 'Emergency').length;
@@ -64,130 +65,146 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const BrandedScreenTitle('Help Feed'),
+        title: BrandedScreenTitle(isHindi ? 'मदद फीड' : 'Help Feed'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: <Color>[Color(0xFF103A4A), Color(0xFF2C6E7E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: const <BoxShadow>[
-                BoxShadow(
-                  color: Color(0x290A2A38),
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createHelpPost,
+        icon: const Icon(Icons.add_comment_outlined),
+        label: Text(isHindi ? 'नई रिक्वेस्ट' : 'Post Request'),
+      ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[Color(0xFFF6F9FC), Color(0xFFEFF5F0)],
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: const LinearGradient(
+                  colors: <Color>[Color(0xFF0B3140), Color(0xFF235E6E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x33092634),
+                    blurRadius: 18,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    isHindi ? 'समुदाय सहायता फीड' : 'Community Support Feed',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isHindi
+                        ? 'सभी रिक्वेस्ट, कमेंट और तेज़ संपर्क एक जगह।'
+                        : 'Requests, comments, and instant contact in one place.',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _buildMetricTile(
+                          icon: Icons.forum_outlined,
+                          label: isHindi ? 'कुल पोस्ट' : 'Total posts',
+                          value: '${posts.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricTile(
+                          icon: Icons.warning_amber_outlined,
+                          label: isHindi ? 'आपातकाल' : 'Emergency',
+                          value: '$emergencyCount',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Community Support Feed',
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+            const SizedBox(height: 14),
+            TextField(
+              controller: _feedSearchController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: isHindi
+                    ? 'नाम, श्रेणी, स्थान या संदेश से खोजें'
+                    : 'Search by name, category, place, or message',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _feedSearchController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _feedSearchController.clear();
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.close),
+                        tooltip: isHindi ? 'साफ करें' : 'Clear',
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _helpCategories.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final category = index == 0 ? 'All' : _helpCategories[index - 1];
+                  final count = category == 'All'
+                      ? allPosts.length
+                      : allPosts.where((post) => post.category == category).length;
+                  return FilterChip(
+                    selected: category == _activeCategory,
+                    onSelected: (_) {
+                      setState(() {
+                        _activeCategory = category;
+                      });
+                    },
+                    label: Text('$category ($count)'),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (posts.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    (query.isNotEmpty || _activeCategory != 'All')
+                        ? (isHindi
+                            ? 'मौजूदा फ़िल्टर में कोई रिक्वेस्ट नहीं मिली।'
+                            : 'No requests match the current search/filter.')
+                        : (isHindi
+                            ? 'अभी कोई रिक्वेस्ट नहीं है। पहली मदद पोस्ट करें।'
+                            : 'No requests yet. Share the first update to activate nearby support.'),
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Real-time requests, comments, and direct contact in one place.',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _buildMetricTile(
-                        icon: Icons.forum_outlined,
-                        label: 'Total posts',
-                        value: '${posts.length}',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildMetricTile(
-                        icon: Icons.warning_amber_outlined,
-                        label: 'Emergency',
-                        value: '$emergencyCount',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _feedSearchController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'Search posts by name, category, place, or message',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _feedSearchController.text.trim().isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        _feedSearchController.clear();
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.close),
-                      tooltip: 'Clear search',
-                    ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 36,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _helpCategories.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final category = index == 0 ? 'All' : _helpCategories[index - 1];
-                final count = category == 'All'
-                    ? allPosts.length
-                    : allPosts.where((post) => post.category == category).length;
-                return FilterChip(
-                  selected: category == _activeCategory,
-                  onSelected: (_) {
-                    setState(() {
-                      _activeCategory = category;
-                    });
-                  },
-                  label: Text('$category ($count)'),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _createHelpPost,
-            icon: const Icon(Icons.add_comment_outlined),
-            label: const Text('Post New Request'),
-          ),
-          const SizedBox(height: 14),
-          if (posts.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  (query.isNotEmpty || _activeCategory != 'All')
-                      ? 'No requests match the current search/filter.'
-                      : 'No requests yet. Share the first update so nearby members can respond quickly.',
-                ),
               ),
-            ),
-          ...posts.map(_buildHelpPostCard),
-        ],
+            ...posts.map(_buildHelpPostCard),
+          ],
+        ),
       ),
     );
   }
@@ -235,6 +252,11 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFDDE6EC)),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openPostDetail(post),
@@ -269,7 +291,10 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                       ],
                     ),
                   ),
-                  Chip(label: Text(post.category)),
+                  Chip(
+                    label: Text(post.category),
+                    backgroundColor: const Color(0xFFEAF3F6),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -333,7 +358,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
       return;
     }
 
-    await widget.helpFeedService.createPost(
+    final created = await widget.helpFeedService.createPost(
       member: widget.currentUser,
       category: result.category,
       message: result.message,
@@ -342,10 +367,15 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     if (!mounted) {
       return;
     }
+    if (!created) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to post request to cloud. Please retry.')),
+      );
+      return;
+    }
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Help request posted.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Help request posted.')));
   }
 
   Future<void> _deletePost(HelpPost post) async {
@@ -373,15 +403,20 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
       return;
     }
 
-    await widget.helpFeedService.deletePost(post.id);
+    final deleted = await widget.helpFeedService.deletePost(post.id);
 
     if (!mounted) {
       return;
     }
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete post in cloud. Please retry.')),
+      );
+      return;
+    }
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Feed post deleted.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Feed post deleted.')));
   }
 
   Future<void> _openPhone(String mobile) async {
@@ -542,11 +577,20 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
     if (message.isEmpty) {
       return;
     }
-    await widget.helpFeedService.addComment(
+    final added = await widget.helpFeedService.addComment(
       postId: widget.post.id,
       member: widget.currentUser,
       message: message,
     );
+    if (!added) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to post comment to cloud. Please retry.')),
+      );
+      return;
+    }
     _commentController.clear();
     if (!mounted) {
       return;
@@ -579,8 +623,14 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
       return;
     }
 
-    await widget.helpFeedService.deletePost(widget.post.id);
+    final deleted = await widget.helpFeedService.deletePost(widget.post.id);
     if (!mounted) {
+      return;
+    }
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete post in cloud. Please retry.')),
+      );
       return;
     }
     Navigator.of(context).pop();

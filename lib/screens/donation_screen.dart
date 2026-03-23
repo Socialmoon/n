@@ -44,6 +44,7 @@ class _DonationScreenState extends State<DonationScreen> {
   DonationTab _selectedTab = DonationTab.donate;
   String? _selectedMemberMobile;
   bool _savingPaymentSettings = false;
+  bool _submittingDonation = false;
   static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
   static final RegExp _upiPattern = RegExp(r'^[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}$');
   static final RegExp _safeRefPattern = RegExp(r'^[A-Za-z0-9-]{4,40}$');
@@ -101,10 +102,7 @@ class _DonationScreenState extends State<DonationScreen> {
   Widget build(BuildContext context) {
     final tabs = <DonationTab>[DonationTab.donate, DonationTab.history];
     if (_isAdmin) {
-      tabs.addAll(<DonationTab>[
-        DonationTab.leaderboard,
-        DonationTab.paymentSettings,
-      ]);
+      tabs.add(DonationTab.leaderboard);
     }
 
     return Scaffold(
@@ -313,9 +311,9 @@ class _DonationScreenState extends State<DonationScreen> {
         ),
         const SizedBox(height: 14),
         FilledButton.icon(
-          onPressed: _submitDonation,
+          onPressed: _submittingDonation ? null : _submitDonation,
           icon: const Icon(Icons.verified_outlined),
-          label: const Text('Submit donation entry'),
+          label: Text(_submittingDonation ? 'Submitting...' : 'Submit donation entry'),
         ),
       ],
     );
@@ -685,11 +683,21 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _submitDonation() async {
+    if (_submittingDonation) {
+      return;
+    }
+    setState(() {
+      _submittingDonation = true;
+    });
+
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0 || amount > 1000000) {
       if (!mounted) {
         return;
       }
+      setState(() {
+        _submittingDonation = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid donation amount (1 to 1000000).')),
       );
@@ -701,6 +709,9 @@ class _DonationScreenState extends State<DonationScreen> {
       if (!mounted) {
         return;
       }
+      setState(() {
+        _submittingDonation = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Transaction reference must be 4-40 letters/numbers.')),
       );
@@ -712,6 +723,9 @@ class _DonationScreenState extends State<DonationScreen> {
       if (!mounted) {
         return;
       }
+      setState(() {
+        _submittingDonation = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Note can be up to 300 characters only.')),
       );
@@ -725,6 +739,9 @@ class _DonationScreenState extends State<DonationScreen> {
         if (!mounted) {
           return;
         }
+        setState(() {
+          _submittingDonation = false;
+        });
         final uploadError = widget.donationService.lastUploadError;
         final message = (uploadError == null || uploadError.isEmpty)
             ? 'Unable to upload screenshot to cloud. Please retry.'
@@ -749,6 +766,9 @@ class _DonationScreenState extends State<DonationScreen> {
       if (!mounted) {
         return;
       }
+      setState(() {
+        _submittingDonation = false;
+      });
       final writeError = widget.donationService.lastWriteError;
       final message = (writeError == null || writeError.isEmpty)
           ? 'Unable to save donation in cloud. Please retry.'
@@ -771,10 +791,11 @@ class _DonationScreenState extends State<DonationScreen> {
       _transactionRefController.clear();
       _proofScreenshot = null;
       _selectedTab = DonationTab.history;
+      _submittingDonation = false;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Donation submitted and pending admin verification.')),
+      const SnackBar(content: Text('Donation submitted and auto-verified successfully.')),
     );
   }
 

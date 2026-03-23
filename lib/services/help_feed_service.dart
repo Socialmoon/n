@@ -38,7 +38,7 @@ class HelpFeedService {
       ..addAll(cloudComments.reversed);
   }
 
-  Future<void> createPost({
+  Future<bool> createPost({
     required Member member,
     required String category,
     required String message,
@@ -55,10 +55,15 @@ class HelpFeedService {
     );
 
     _posts.add(post);
-    await _cloudService.insertHelpPost(post);
+    final saved = await _cloudService.insertHelpPost(post);
+    if (!saved) {
+      _posts.removeWhere((item) => item.id == post.id);
+      return false;
+    }
+    return true;
   }
 
-  Future<void> addComment({
+  Future<bool> addComment({
     required String postId,
     required Member member,
     required String message,
@@ -73,12 +78,29 @@ class HelpFeedService {
     );
 
     _comments.add(comment);
-    await _cloudService.insertHelpComment(comment);
+    final saved = await _cloudService.insertHelpComment(comment);
+    if (!saved) {
+      _comments.removeWhere((item) => item.id == comment.id);
+      return false;
+    }
+    return true;
   }
 
-  Future<void> deletePost(String postId) async {
+  Future<bool> deletePost(String postId) async {
+    final previousPosts = List<HelpPost>.from(_posts);
+    final previousComments = List<HelpComment>.from(_comments);
     _posts.removeWhere((post) => post.id == postId);
     _comments.removeWhere((comment) => comment.postId == postId);
-    await _cloudService.deleteHelpPost(postId);
+    final deleted = await _cloudService.deleteHelpPost(postId);
+    if (!deleted) {
+      _posts
+        ..clear()
+        ..addAll(previousPosts);
+      _comments
+        ..clear()
+        ..addAll(previousComments);
+      return false;
+    }
+    return true;
   }
 }

@@ -368,7 +368,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       controller.dispose();
       return;
     }
-    await widget.emergencyService.triggerAlert(
+    final sent = await widget.emergencyService.triggerAlert(
       member: widget.currentUser,
       message: controller.text.trim().isEmpty
           ? 'Immediate assistance required'
@@ -381,7 +381,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
     final notificationsEnabled =
         await _settingsService.getNotificationsEnabled();
-    if (!mounted || !notificationsEnabled) {
+    if (!mounted) {
+      return;
+    }
+    if (!sent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to send alert to cloud. Please retry.')),
+      );
+      return;
+    }
+    if (!notificationsEnabled) {
       return;
     }
     ScaffoldMessenger.of(context)

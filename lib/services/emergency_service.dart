@@ -33,7 +33,7 @@ class EmergencyService {
       ..addAll(cloudAlerts.reversed);
   }
 
-  Future<void> triggerAlert({
+  Future<bool> triggerAlert({
     required Member member,
     required String message,
   }) async {
@@ -46,11 +46,12 @@ class EmergencyService {
       location: member.postingLocation,
     );
     _alerts.add(alert);
-    await _cloudService.insertAlert(alert);
+    final saved = await _cloudService.insertAlert(alert);
     final vibrationEnabled = await _settingsService.getVibrationEnabled();
     if (vibrationEnabled && await Vibration.hasVibrator()) {
       await Vibration.vibrate(pattern: <int>[0, 300, 200, 300]);
     }
+    return saved;
   }
 
 }
