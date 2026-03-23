@@ -25,6 +25,11 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  static const Color _ink = Color(0xFF1E2A36);
+  static const Color _accent = Color(0xFFB08A53);
+  static const Color _panel = Color(0xFFFCFAF5);
+  static const Color _border = Color(0xFFE1D8C8);
+
   static const List<String> _steps = <String>[
     'Identity',
     'Details',
@@ -117,6 +122,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: DecoratedBox(
@@ -124,14 +131,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: <Color>[Color(0xFFEEF4F7), Color(0xFFF7F1E7)],
+            colors: <Color>[Color(0xFFF3EEE2), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: <Widget>[
+              _buildScreenHeader(keyboardOpen),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: EdgeInsets.fromLTRB(20, keyboardOpen ? 8 : 10, 20, 0),
                 child: _buildStepStrip(),
               ),
               Expanded(
@@ -154,9 +162,69 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  Widget _buildScreenHeader(bool keyboardOpen) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      height: keyboardOpen ? 0 : 66,
+      margin: EdgeInsets.fromLTRB(20, keyboardOpen ? 0 : 8, 20, 0),
+      child: keyboardOpen
+          ? const SizedBox.shrink()
+          : Row(
+              children: <Widget>[
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _ink,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.verified_user_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Member Registration',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Complete details carefully for quick approval',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF5B6470),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   Widget _buildStepStrip() {
-    return Row(
-      children: List<Widget>.generate(_steps.length, (int index) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F5EB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: List<Widget>.generate(_steps.length, (int index) {
         final active = index == _currentStep;
         final complete = index < _currentStep;
         return Expanded(
@@ -166,14 +234,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               children: <Widget>[
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
-                  height: 12,
+                  height: 10,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     color: complete
-                        ? const Color(0xFF2B6E78)
+                        ? _ink
                         : active
-                            ? const Color(0xFFE0B36A)
-                            : const Color(0xFFD7E0E5),
+                            ? _accent
+                            : const Color(0xFFD5D0C3),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -183,7 +251,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     fontSize: 12,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     color: active
-                        ? const Color(0xFF123C56)
+                        ? _ink
                         : const Color(0xFF5A6B74),
                   ),
                 ),
@@ -192,6 +260,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         );
       }),
+      ),
     );
   }
 
@@ -225,9 +294,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.digitsOnly,
             ],
-            decoration: const InputDecoration(
-              labelText: 'Reference member mobile number',
-            ),
+            decoration: _fieldDecoration('Reference member mobile number'),
             onChanged: (value) {
               setState(() {
                 _referenceMember = widget.repository.findByMobile(value.trim());
@@ -240,13 +307,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               margin: const EdgeInsets.only(top: 6),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4EBD8),
-                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFFF1E7D3),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE0CEAA)),
               ),
               child: Row(
                 children: <Widget>[
                   const CircleAvatar(
-                    backgroundColor: Color(0xFF123C56),
+                    backgroundColor: _ink,
                     foregroundColor: Colors.white,
                     child: Icon(Icons.verified_user_outlined),
                   ),
@@ -473,35 +541,52 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     required String subtitle,
     required Widget child,
   }) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF123C56),
-              letterSpacing: 0.2,
+      padding: EdgeInsets.fromLTRB(20, 14, 20, bottomInset + 110),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        decoration: BoxDecoration(
+          color: _panel,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 14,
+              offset: Offset(0, 5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          const Divider(
-            height: 1,
-            thickness: 1,
-            color: Color(0xFFD8E3E8),
-          ),
-          const SizedBox(height: 18),
-          child,
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: _border,
+            ),
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -518,14 +603,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFD5DEE3)),
-          color: const Color(0xFFF9FBFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border),
+          color: Colors.white,
         ),
         child: Row(
           children: <Widget>[
             CircleAvatar(
-              backgroundColor: const Color(0xFF123C56),
+              backgroundColor: _ink,
               foregroundColor: Colors.white,
               child: Icon(icon),
             ),
@@ -593,7 +678,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           SizedBox(
             width: 120,
             child:
-                Text(label, style: const TextStyle(color: Color(0xFF5A6B74))),
+                Text(label, style: const TextStyle(color: Color(0xFF5A6B74), fontWeight: FontWeight.w600)),
           ),
           Expanded(
             child: Text(
@@ -622,7 +707,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFD5DEE3)),
+          border: Border.all(color: _border),
           boxShadow: const <BoxShadow>[
             BoxShadow(
               color: Color(0x14000000),
@@ -665,35 +750,46 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildBottomBar() {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     return AnimatedPadding(
-      duration: const Duration(milliseconds: 160),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: keyboardInset),
       child: Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Row(
-        children: <Widget>[
-          if (_currentStep > 0)
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFFCF6),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          border: Border(top: BorderSide(color: _border)),
+        ),
+        child: Row(
+          children: <Widget>[
+            if (_currentStep > 0)
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _border),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: _submitting ? null : _previousStep,
+                  child: const Text('Back'),
+                ),
+              ),
+            if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
-              child: OutlinedButton(
-                onPressed: _submitting ? null : _previousStep,
-                child: const Text('Back'),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _ink,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: _submitting ? null : _handlePrimaryAction,
+                child: Text(_currentStep == _steps.length - 1
+                    ? (_submitting ? 'Registering...' : 'Submit registration')
+                    : 'Continue'),
               ),
             ),
-          if (_currentStep > 0) const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton(
-              onPressed: _submitting ? null : _handlePrimaryAction,
-              child: Text(_currentStep == _steps.length - 1
-                  ? (_submitting ? 'Registering...' : 'Submit registration')
-                  : 'Continue'),
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -705,9 +801,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF6F8FA),
+          color: const Color(0xFFF8F4EB),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD8E1E7)),
+          border: Border.all(color: _border),
         ),
         child: const Row(
           children: <Widget>[
@@ -739,7 +835,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         children: <Widget>[
           Icon(
             _biometricVerified ? Icons.verified_outlined : Icons.fingerprint,
-            color: const Color(0xFF123C56),
+            color: _ink,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -747,7 +843,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _biometricVerified
                   ? 'Fingerprint verified. You can use biometric login after registration.'
                   : 'Optional: verify fingerprint while setting your M-PIN.',
-              style: const TextStyle(color: Color(0xFF123C56)),
+              style: const TextStyle(color: _ink),
             ),
           ),
           const SizedBox(width: 10),
@@ -772,13 +868,37 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      textInputAction: TextInputAction.next,
       maxLength: maxLength,
       inputFormatters: digitsOnly
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       onChanged: onChanged,
       onTap: onTap,
-      decoration: InputDecoration(labelText: label),
+      decoration: _fieldDecoration(label),
+    );
+  }
+
+  InputDecoration _fieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      floatingLabelStyle: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _accent, width: 1.2),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _border),
+      ),
+      counterText: '',
     );
   }
 
