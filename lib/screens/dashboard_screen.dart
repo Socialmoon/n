@@ -11,11 +11,9 @@ import '../services/app_settings_service.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
-import 'member_details_screen.dart';
 import 'admin_approvals_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import '../widgets/member_card.dart';
 
 const int _membersTabIndex = 1;
 const int _helpTabIndex = 2;
@@ -105,10 +103,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final members = widget.repository.members;
-    final visibleMembers =
-        members.where((member) => member.id != widget.currentUser.id).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const BrandedScreenTitle('Dashboard'),
@@ -188,19 +182,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const Text('Visible member data excludes home district.'),
           const Text('Admin accounts can see it in the cards below.'),
           const SizedBox(height: 12),
-          if (visibleMembers.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('No members available right now.'),
-              ),
-            ),
-          ...visibleMembers.map(
-            (member) => MemberCard(
-              member: member,
-              showAdminFields: widget.currentUser.isAdmin,
-            ),
-          ),
           const SizedBox(height: 24),
           const Text(
             'Recent emergency alerts',
@@ -519,30 +500,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _openMembersSearch() async {
-    final selected = await showSearch<Member?>(
-      context: context,
-      delegate: MemberSearchDelegate(
-        currentUser: widget.currentUser,
-        repository: widget.repository,
-      ),
-    );
-    if (!mounted || selected == null) {
-      return;
-    }
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => MemberDetailsScreen(
-          currentUser: widget.currentUser,
-          member: selected,
-        ),
-      ),
-    );
-
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
+    await _openMembers();
   }
 
   void _goToTabOrOpen(int tabIndex, Future<void> Function() fallback) {

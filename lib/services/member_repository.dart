@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/member.dart';
 import 'supabase_service.dart';
 
@@ -10,8 +12,43 @@ class MemberRepository {
 
   List<Member> get members => List.unmodifiable(_members);
 
+  List<Member> get activeMembers => _members
+      .where((member) => !member.isDeleted)
+      .toList()
+    ..sort((left, right) => left.name.compareTo(right.name));
+
   List<Member> get pendingApprovals => _members
-      .where((member) => !member.isApproved && !member.isAdmin)
+      .where((member) => !member.isApproved && !member.isAdmin && !member.isDeleted)
+      .toList()
+    ..sort((left, right) => left.name.compareTo(right.name));
+
+  List<Member> get retiredMembers => _members
+      .where((member) => member.isRetired && !member.isDeleted)
+      .toList()
+    ..sort((left, right) => left.name.compareTo(right.name));
+
+  List<Member> get deletedMembers => _members
+      .where((member) => member.isDeleted)
+      .toList()
+    ..sort((left, right) => right.lastUpdated.compareTo(left.lastUpdated));
+
+  List<Member> get inactiveOver30Days => _members
+      .where((member) {
+        final lastSeen = member.lastLoginAt ?? member.lastUpdated;
+        return !member.isDeleted && DateTime.now().difference(lastSeen).inDays >= 30;
+      })
+      .toList()
+    ..sort((left, right) {
+      final leftSeen = left.lastLoginAt ?? left.lastUpdated;
+      final rightSeen = right.lastLoginAt ?? right.lastUpdated;
+      return leftSeen.compareTo(rightSeen);
+    });
+
+  List<Member> get pendingUpdateApprovals => _members
+      .where((member) =>
+          !member.isDeleted &&
+          !member.isAdmin &&
+          (member.pendingUpdatePayload?.trim().isNotEmpty ?? false))
       .toList()
     ..sort((left, right) => left.name.compareTo(right.name));
 
@@ -188,6 +225,9 @@ class MemberRepository {
     final normalizedDistrict = districtFilter.trim().toLowerCase();
 
     return _members.where((member) {
+      if (member.isDeleted) {
+        return false;
+      }
       final matchesQuery = normalizedQuery.isEmpty ||
           member.name.toLowerCase().contains(normalizedQuery) ||
           member.postingLocation.toLowerCase().contains(normalizedQuery) ||
@@ -200,4 +240,169 @@ class MemberRepository {
   }
 
   SupabaseService get cloudService => _cloudService;
+
+  Future<bool> setMemberRetired({
+    required Member actor,
+    required String memberId,
+    required bool retired,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
+    }
+
+    final current = getById(memberId);
+    if (current == null) {
+      return false;
+    }
+
+    if (current.isAdmin) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final updated = current.copyWith(
+      isRetired: retired,
+      retiredAt: retired ? now : null,
+      clearRetiredAt: !retired,
+      lastUpdated: now,
+    );
+    return saveMember(updated);
+  }
+
+  Future<bool> setMemberDeleted({
+    required Member actor,
+    required String memberId,
+    required bool deleted,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
+    }
+
+    final current = getById(memberId);
+    if (current == null) {
+      return false;
+    }
+
+    if (current.isAdmin) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final updated = current.copyWith(
+      isDeleted: deleted,
+      deletedAt: deleted ? now : null,
+      clearDeletedAt: !deleted,
+      lastUpdated: now,
+    );
+    return saveMember(updated);
+  }
+
+  Future<bool> resolvePendingUpdate({
+    required Member actor,
+    required String memberId,
+    required bool approve,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
+    }
+
+    final current = getById(memberId);
+    if (current == null) {
+      return false;
+    }
+
+    final raw = current.pendingUpdatePayload?.trim() ?? '';
+    if (raw.isEmpty) {
+      return false;
+    }
+
+    if (!approve) {
+      final rejected = current.copyWith(
+        clearPendingUpdatePayload: true,
+        lastUpdated: DateTime.now(),
+      );
+      return saveMember(rejected);
+    }
+
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final approved = current.copyWith(
+        name: _stringOrCurrent(map, 'name', current.name),
+        homeState: _stringOrCurrent(map, 'homeState', current.homeState),
+        homeDistrict: _stringOrCurrent(map, 'homeDistrict', current.homeDistrict),
+        postingState: _stringOrCurrent(map, 'postingState', current.postingState),
+        postingDistrict:
+            _stringOrCurrent(map, 'postingDistrict', current.postingDistrict),
+        postingLocation:
+            _stringOrCurrent(map, 'postingLocation', current.postingLocation),
+        department: _stringOrCurrent(map, 'department', current.department),
+        postRank: _stringOrCurrent(map, 'postRank', current.postRank),
+        officialName:
+            _stringOrCurrent(map, 'officialName', current.officialName),
+        batchYear: _stringOrCurrent(map, 'batchYear', current.batchYear),
+        gender: _stringOrCurrent(map, 'gender', current.gender),
+        maritalStatus:
+            _stringOrCurrent(map, 'maritalStatus', current.maritalStatus),
+        postingCategory:
+            _stringOrCurrent(map, 'postingCategory', current.postingCategory),
+        postingWorkAs:
+            _stringOrCurrent(map, 'postingWorkAs', current.postingWorkAs),
+        whatsappNumber:
+            _stringOrCurrent(map, 'whatsappNumber', current.whatsappNumber),
+        callingContactNumber: _stringOrCurrent(
+          map,
+          'callingContactNumber',
+          current.callingContactNumber,
+        ),
+        emergencyContact:
+            _stringOrCurrent(map, 'emergencyContact', current.emergencyContact),
+        postingPlaceLocation: _stringOrCurrent(
+          map,
+          'postingPlaceLocation',
+          current.postingPlaceLocation,
+        ),
+        homeVillageMohalla: _stringOrCurrent(
+          map,
+          'homeVillageMohalla',
+          current.homeVillageMohalla,
+        ),
+        homeGaliNo: _stringOrCurrent(map, 'homeGaliNo', current.homeGaliNo),
+        homePostOffice:
+            _stringOrCurrent(map, 'homePostOffice', current.homePostOffice),
+        homePoliceStation: _stringOrCurrent(
+          map,
+          'homePoliceStation',
+          current.homePoliceStation,
+        ),
+        homeTehsil: _stringOrCurrent(map, 'homeTehsil', current.homeTehsil),
+        homeVillageLocation: _stringOrCurrent(
+          map,
+          'homeVillageLocation',
+          current.homeVillageLocation,
+        ),
+        selfiePath: _stringOrCurrent(map, 'selfiePath', current.selfiePath),
+        clearPendingUpdatePayload: true,
+        lastUpdated: DateTime.now(),
+      );
+      return saveMember(approved);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? _stringOrCurrent(
+    Map<String, dynamic> map,
+    String key,
+    String? currentValue,
+  ) {
+    final value = map[key] as String?;
+    if (value == null) {
+      return currentValue;
+    }
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return currentValue;
+    }
+    return trimmed;
+  }
 }

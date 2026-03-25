@@ -21,6 +21,9 @@ class DonationService {
   String _upiName = defaultUpiName;
   String _adminMobile = defaultAdminMobile;
   String? _customQrImageUrl;
+  bool _createDonationInProgress = false;
+  String? _lastCreateFingerprint;
+  DateTime? _lastCreateAt;
 
   String get upiId => _upiId;
   String get upiName => _upiName;
@@ -142,7 +145,26 @@ class DonationService {
   }) async {
     _lastOperationError = null;
 
+    final normalizedNote = note?.trim() ?? '';
     final normalizedRef = transactionRef?.trim().toLowerCase();
+    final fingerprint =
+        '${member.id}|${amount.toStringAsFixed(2)}|${normalizedRef ?? ''}|${normalizedNote.toLowerCase()}';
+
+    if (_createDonationInProgress) {
+      _lastOperationError =
+          'A donation submission is already in progress. Please wait.';
+      return false;
+    }
+
+    final recentDuplicate = _lastCreateFingerprint == fingerprint &&
+        _lastCreateAt != null &&
+        DateTime.now().difference(_lastCreateAt!).inMinutes < 5;
+    if (recentDuplicate) {
+      _lastOperationError =
+          'This donation was already submitted recently. Please refresh history before retrying.';
+      return false;
+    }
+
     if (normalizedRef != null && normalizedRef.isNotEmpty) {
       final duplicateRef = _donations.any(
         (entry) =>
@@ -162,7 +184,7 @@ class DonationService {
           entry.memberId == member.id &&
           entry.amount == amount &&
           entry.createdAt.isAfter(now.subtract(const Duration(minutes: 2))) &&
-          (entry.note?.trim() ?? '') == (note?.trim() ?? ''),
+          (entry.note?.trim() ?? '') == normalizedNote,
     );
     if (duplicateWindow) {
       _lastOperationError =
@@ -177,19 +199,26 @@ class DonationService {
       memberMobile: member.mobileNumber,
       amount: amount,
       upiId: upiId,
-      status: 'Verified',
+      status: 'Pending',
       createdAt: now,
-      note: note,
-      transactionRef: transactionRef,
+      note: normalizedNote.isEmpty ? null : normalizedNote,
+      transactionRef:
+          normalizedRef == null || normalizedRef.isEmpty ? null : normalizedRef,
       screenshotPath: screenshotPath,
     );
 
+    _createDonationInProgress = true;
     _donations.add(entry);
     final saved = await _cloudService.insertDonation(entry);
+    _createDonationInProgress = false;
+
     if (!saved) {
       _donations.removeWhere((item) => item.id == entry.id);
       return false;
     }
+
+    _lastCreateFingerprint = fingerprint;
+    _lastCreateAt = DateTime.now();
     return true;
   }
 

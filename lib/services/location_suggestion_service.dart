@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 class LocationSuggestionService {
   static const String _dataAssetPath = 'police_station_list.csv';
+  static const int _defaultSuggestionLimit = 8;
 
   final Map<String, List<String>> _districtCache = <String, List<String>>{};
   final Map<String, List<String>> _stationCache = <String, List<String>>{};
@@ -14,10 +15,10 @@ class LocationSuggestionService {
     await _ensureLoaded();
 
     final normalized = query.trim().toLowerCase();
-    final districts = _districtStations.keys.toList()..sort();
+    final districts = _allDistricts();
 
     if (normalized.isEmpty) {
-      return districts.take(8).toList();
+      return districts.take(_defaultSuggestionLimit).toList();
     }
 
     final cached = _districtCache[normalized];
@@ -27,10 +28,22 @@ class LocationSuggestionService {
 
     final filtered = districts
         .where((district) => district.toLowerCase().contains(normalized))
-        .take(8)
+        .take(_defaultSuggestionLimit)
         .toList();
     _districtCache[normalized] = filtered;
     return filtered;
+  }
+
+  Future<List<String>> allDistricts({String query = ''}) async {
+    await _ensureLoaded();
+    final normalized = query.trim().toLowerCase();
+    final districts = _allDistricts();
+    if (normalized.isEmpty) {
+      return districts;
+    }
+    return districts
+        .where((district) => district.toLowerCase().contains(normalized))
+        .toList();
   }
 
   Future<List<String>> suggestPoliceStations({
@@ -59,16 +72,43 @@ class LocationSuggestionService {
     }
 
     final results = normalizedQuery.isEmpty
-        ? _uniqueTop(source)
+        ? _uniqueTop(source, limit: _defaultSuggestionLimit)
         : _uniqueTop(
             source
                 .where(
                   (station) => station.toLowerCase().contains(normalizedQuery),
                 )
                 .toList(),
+            limit: _defaultSuggestionLimit,
           );
     _stationCache[cacheKey] = results;
     return results;
+  }
+
+  Future<List<String>> allPoliceStations({
+    String query = '',
+    String? district,
+  }) async {
+    await _ensureLoaded();
+
+    final normalizedQuery = query.trim().toLowerCase();
+    final matchedDistrict = _resolveDistrict(district ?? '');
+    final source = <String>[];
+    if (matchedDistrict != null) {
+      source.addAll(_districtStations[matchedDistrict] ?? <String>[]);
+    } else {
+      for (final stations in _districtStations.values) {
+        source.addAll(stations);
+      }
+    }
+
+    final unique = _uniqueTop(source, limit: null)..sort();
+    if (normalizedQuery.isEmpty) {
+      return unique;
+    }
+    return unique
+        .where((station) => station.toLowerCase().contains(normalizedQuery))
+        .toList();
   }
 
   Future<List<String>> topDistricts() {
@@ -210,7 +250,12 @@ class LocationSuggestionService {
     return null;
   }
 
-  List<String> _uniqueTop(List<String> values) {
+  List<String> _allDistricts() {
+    final districts = _districtStations.keys.toList()..sort();
+    return districts;
+  }
+
+  List<String> _uniqueTop(List<String> values, {int? limit}) {
     final merged = <String>[];
     final seen = HashSet<String>();
 
@@ -225,7 +270,7 @@ class LocationSuggestionService {
       }
       seen.add(key);
       merged.add(trimmed);
-      if (merged.length >= 8) {
+      if (limit != null && merged.length >= limit) {
         break;
       }
     }

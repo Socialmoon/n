@@ -103,4 +103,17 @@ class HelpFeedService {
     }
     return true;
   }
+
+  Future<bool> deleteComment(String commentId) async {
+    final previousComments = List<HelpComment>.from(_comments);
+    _comments.removeWhere((comment) => comment.id == commentId);
+    final deleted = await _cloudService.deleteHelpComment(commentId);
+    if (!deleted) {
+      _comments
+        ..clear()
+        ..addAll(previousComments);
+      return false;
+    }
+    return true;
+  }
 }

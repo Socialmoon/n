@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -37,6 +38,28 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _postingLocationController;
+  late final TextEditingController _homeStateController;
+  late final TextEditingController _homeDistrictController;
+  late final TextEditingController _postingStateController;
+  late final TextEditingController _postingDistrictController;
+  late final TextEditingController _departmentController;
+  late final TextEditingController _postRankController;
+  late final TextEditingController _officialNameController;
+  late final TextEditingController _batchYearController;
+  late final TextEditingController _genderController;
+  late final TextEditingController _maritalStatusController;
+  late final TextEditingController _postingCategoryController;
+  late final TextEditingController _postingWorkAsController;
+  late final TextEditingController _whatsappController;
+  late final TextEditingController _callingContactController;
+  late final TextEditingController _emergencyContactController;
+  late final TextEditingController _postingPlaceLocationController;
+  late final TextEditingController _homeVillageMohallaController;
+  late final TextEditingController _homeGaliNoController;
+  late final TextEditingController _homePostOfficeController;
+  late final TextEditingController _homePoliceStationController;
+  late final TextEditingController _homeTehsilController;
+  late final TextEditingController _homeVillageLocationController;
   final ImagePicker _imagePicker = ImagePicker();
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
@@ -54,6 +77,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: widget.currentUser.name);
     _postingLocationController =
         TextEditingController(text: widget.currentUser.postingLocation);
+    _homeStateController = TextEditingController(text: widget.currentUser.homeState ?? '');
+    _homeDistrictController = TextEditingController(text: widget.currentUser.homeDistrict);
+    _postingStateController = TextEditingController(text: widget.currentUser.postingState ?? '');
+    _postingDistrictController = TextEditingController(text: widget.currentUser.postingDistrict);
+    _departmentController = TextEditingController(text: widget.currentUser.department ?? '');
+    _postRankController = TextEditingController(text: widget.currentUser.postRank ?? '');
+    _officialNameController = TextEditingController(text: widget.currentUser.officialName ?? '');
+    _batchYearController = TextEditingController(text: widget.currentUser.batchYear ?? '');
+    _genderController = TextEditingController(text: widget.currentUser.gender ?? '');
+    _maritalStatusController = TextEditingController(text: widget.currentUser.maritalStatus ?? '');
+    _postingCategoryController = TextEditingController(text: widget.currentUser.postingCategory ?? '');
+    _postingWorkAsController = TextEditingController(text: widget.currentUser.postingWorkAs ?? '');
+    _whatsappController = TextEditingController(text: widget.currentUser.whatsappNumber ?? '');
+    _callingContactController = TextEditingController(text: widget.currentUser.callingContactNumber ?? '');
+    _emergencyContactController = TextEditingController(text: widget.currentUser.emergencyContact ?? '');
+    _postingPlaceLocationController = TextEditingController(text: widget.currentUser.postingPlaceLocation ?? '');
+    _homeVillageMohallaController = TextEditingController(text: widget.currentUser.homeVillageMohalla ?? '');
+    _homeGaliNoController = TextEditingController(text: widget.currentUser.homeGaliNo ?? '');
+    _homePostOfficeController = TextEditingController(text: widget.currentUser.homePostOffice ?? '');
+    _homePoliceStationController = TextEditingController(text: widget.currentUser.homePoliceStation ?? '');
+    _homeTehsilController = TextEditingController(text: widget.currentUser.homeTehsil ?? '');
+    _homeVillageLocationController = TextEditingController(text: widget.currentUser.homeVillageLocation ?? '');
     _selfiePath = widget.currentUser.selfiePath;
   }
 
@@ -62,6 +107,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _stationDebounce?.cancel();
     _nameController.dispose();
     _postingLocationController.dispose();
+    _homeStateController.dispose();
+    _homeDistrictController.dispose();
+    _postingStateController.dispose();
+    _postingDistrictController.dispose();
+    _departmentController.dispose();
+    _postRankController.dispose();
+    _officialNameController.dispose();
+    _batchYearController.dispose();
+    _genderController.dispose();
+    _maritalStatusController.dispose();
+    _postingCategoryController.dispose();
+    _postingWorkAsController.dispose();
+    _whatsappController.dispose();
+    _callingContactController.dispose();
+    _emergencyContactController.dispose();
+    _postingPlaceLocationController.dispose();
+    _homeVillageMohallaController.dispose();
+    _homeGaliNoController.dispose();
+    _homePostOfficeController.dispose();
+    _homePoliceStationController.dispose();
+    _homeTehsilController.dispose();
+    _homeVillageLocationController.dispose();
     super.dispose();
   }
 
@@ -72,6 +139,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.currentUser.lastUpdated != oldWidget.currentUser.lastUpdated) {
       _nameController.text = widget.currentUser.name;
       _postingLocationController.text = widget.currentUser.postingLocation;
+      _homeStateController.text = widget.currentUser.homeState ?? '';
+      _homeDistrictController.text = widget.currentUser.homeDistrict;
+      _postingStateController.text = widget.currentUser.postingState ?? '';
+      _postingDistrictController.text = widget.currentUser.postingDistrict;
+      _departmentController.text = widget.currentUser.department ?? '';
+      _postRankController.text = widget.currentUser.postRank ?? '';
+      _officialNameController.text = widget.currentUser.officialName ?? '';
+      _batchYearController.text = widget.currentUser.batchYear ?? '';
+      _genderController.text = widget.currentUser.gender ?? '';
+      _maritalStatusController.text = widget.currentUser.maritalStatus ?? '';
+      _postingCategoryController.text = widget.currentUser.postingCategory ?? '';
+      _postingWorkAsController.text = widget.currentUser.postingWorkAs ?? '';
+      _whatsappController.text = widget.currentUser.whatsappNumber ?? '';
+      _callingContactController.text = widget.currentUser.callingContactNumber ?? '';
+      _emergencyContactController.text = widget.currentUser.emergencyContact ?? '';
+      _postingPlaceLocationController.text = widget.currentUser.postingPlaceLocation ?? '';
+      _homeVillageMohallaController.text = widget.currentUser.homeVillageMohalla ?? '';
+      _homeGaliNoController.text = widget.currentUser.homeGaliNo ?? '';
+      _homePostOfficeController.text = widget.currentUser.homePostOffice ?? '';
+      _homePoliceStationController.text = widget.currentUser.homePoliceStation ?? '';
+      _homeTehsilController.text = widget.currentUser.homeTehsil ?? '';
+      _homeVillageLocationController.text = widget.currentUser.homeVillageLocation ?? '';
       // Preserve unsaved local preview if user is editing right now.
       if (_selfiePreviewBytes == null) {
         _selfiePath = widget.currentUser.selfiePath;
@@ -212,11 +301,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: const Icon(Icons.save_outlined),
-                    label: Text(_saving ? 'Saving...' : 'Save Changes'),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.edit_note_outlined),
+                    title: const Text('Update full profile information'),
+                    subtitle: const Text(
+                      'Open a separate page to submit full profile update request for admin approval.',
+                    ),
+                    trailing: FilledButton.tonal(
+                      onPressed: _openUpdateInfoPage,
+                      child: const Text('Open'),
+                    ),
                   ),
                 ],
               ),
@@ -295,6 +391,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Status',
                     user.isBlocked ? 'Blocked' : 'Active',
                   ),
+                  _readOnlyRow(
+                    'Pending update',
+                    (user.pendingUpdatePayload?.trim().isNotEmpty ?? false)
+                        ? 'Awaiting admin approval'
+                        : 'No',
+                  ),
                 ],
               ),
             ),
@@ -351,6 +453,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _openUpdateInfoPage() async {
+    final previousValues = <String, String>{
+      'Home State': _homeStateController.text.trim(),
+      'Home District': _homeDistrictController.text.trim(),
+      'Posting State': _postingStateController.text.trim(),
+      'Posting District': _postingDistrictController.text.trim(),
+      'Sub Department': _departmentController.text.trim(),
+      'Rank': _postRankController.text.trim(),
+      'Official Name': _officialNameController.text.trim(),
+      'Batch Year': _batchYearController.text.trim(),
+      'Gender': _genderController.text.trim(),
+      'Marital Status': _maritalStatusController.text.trim(),
+      'Posting Category': _postingCategoryController.text.trim(),
+      'Posting Work As': _postingWorkAsController.text.trim(),
+      'Whatsapp Number': _whatsappController.text.trim(),
+      'Calling Contact Number': _callingContactController.text.trim(),
+      'Emergency Contact': _emergencyContactController.text.trim(),
+      'Posting Place Location': _postingPlaceLocationController.text.trim(),
+      'Home Village / Mohalla': _homeVillageMohallaController.text.trim(),
+      'Home Gali No': _homeGaliNoController.text.trim(),
+      'Home Post Office': _homePostOfficeController.text.trim(),
+      'Home Police Station': _homePoliceStationController.text.trim(),
+      'Home Tehsil': _homeTehsilController.text.trim(),
+      'Home Village Location': _homeVillageLocationController.text.trim(),
+    };
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => _ProfileUpdateInfoScreen(
+          homeStateController: _homeStateController,
+          homeDistrictController: _homeDistrictController,
+          postingStateController: _postingStateController,
+          postingDistrictController: _postingDistrictController,
+          departmentController: _departmentController,
+          postRankController: _postRankController,
+          officialNameController: _officialNameController,
+          batchYearController: _batchYearController,
+          genderController: _genderController,
+          maritalStatusController: _maritalStatusController,
+          postingCategoryController: _postingCategoryController,
+          postingWorkAsController: _postingWorkAsController,
+          whatsappController: _whatsappController,
+          callingContactController: _callingContactController,
+          emergencyContactController: _emergencyContactController,
+          postingPlaceLocationController: _postingPlaceLocationController,
+          homeVillageMohallaController: _homeVillageMohallaController,
+          homeGaliNoController: _homeGaliNoController,
+          homePostOfficeController: _homePostOfficeController,
+          homePoliceStationController: _homePoliceStationController,
+          homeTehsilController: _homeTehsilController,
+          homeVillageLocationController: _homeVillageLocationController,
+          previousValues: previousValues,
+          saving: _saving,
+          onSave: _save,
+        ),
       ),
     );
   }
@@ -473,6 +634,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final postingLocation = _postingLocationController.text.trim();
+    final currentProfile = _currentPublicProfileSnapshot(widget.currentUser);
+    final currentPostingLocation =
+        (currentProfile['postingLocation'] ?? '').toString().trim();
+    final postingLocationChanged =
+        postingLocation.toLowerCase() != currentPostingLocation.toLowerCase();
 
     if (name.isEmpty) {
       _showMessage('Name cannot be empty.');
@@ -488,13 +654,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final validStation = await _locationSuggestions.isKnownStation(
-      station: postingLocation,
-      district: widget.currentUser.postingDistrict,
-    );
-    if (!validStation) {
-      _showMessage('Choose a valid police station from suggestions.');
-      return;
+    if (postingLocationChanged) {
+      final validStation = await _locationSuggestions.isKnownStation(
+        station: postingLocation,
+        district: widget.currentUser.postingDistrict,
+      );
+      if (!validStation) {
+        _showMessage('Choose a valid police station from suggestions.');
+        return;
+      }
     }
 
     setState(() {
@@ -527,13 +695,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
       selfiePath = uploaded;
     }
 
-    final updated = widget.currentUser.copyWith(
-      name: name,
-      postingLocation: postingLocation,
-      selfiePath: selfiePath,
-      clearSelfiePath: selfiePath == null,
-      lastUpdated: DateTime.now(),
-    );
+    Member updated;
+    if (widget.currentUser.isAdmin) {
+      updated = widget.currentUser.copyWith(
+        name: name,
+        postingLocation: postingLocation,
+        homeState: _homeStateController.text.trim(),
+        homeDistrict: _homeDistrictController.text.trim(),
+        postingState: _postingStateController.text.trim(),
+        postingDistrict: _postingDistrictController.text.trim(),
+        department: _departmentController.text.trim(),
+        postRank: _postRankController.text.trim(),
+        officialName: _officialNameController.text.trim(),
+        batchYear: _batchYearController.text.trim(),
+        gender: _genderController.text.trim(),
+        maritalStatus: _maritalStatusController.text.trim(),
+        postingCategory: _postingCategoryController.text.trim(),
+        postingWorkAs: _postingWorkAsController.text.trim(),
+        whatsappNumber: _whatsappController.text.trim(),
+        callingContactNumber: _callingContactController.text.trim(),
+        emergencyContact: _emergencyContactController.text.trim(),
+        postingPlaceLocation: _postingPlaceLocationController.text.trim(),
+        homeVillageMohalla: _homeVillageMohallaController.text.trim(),
+        homeGaliNo: _homeGaliNoController.text.trim(),
+        homePostOffice: _homePostOfficeController.text.trim(),
+        homePoliceStation: _homePoliceStationController.text.trim(),
+        homeTehsil: _homeTehsilController.text.trim(),
+        homeVillageLocation: _homeVillageLocationController.text.trim(),
+        selfiePath: selfiePath,
+        clearSelfiePath: selfiePath == null,
+        lastUpdated: DateTime.now(),
+      );
+    } else {
+      final candidate = <String, dynamic>{
+        'name': name,
+        'postingLocation': postingLocation,
+        'homeState': _homeStateController.text.trim(),
+        'homeDistrict': _homeDistrictController.text.trim(),
+        'postingState': _postingStateController.text.trim(),
+        'postingDistrict': _postingDistrictController.text.trim(),
+        'department': _departmentController.text.trim(),
+        'postRank': _postRankController.text.trim(),
+        'officialName': _officialNameController.text.trim(),
+        'batchYear': _batchYearController.text.trim(),
+        'gender': _genderController.text.trim(),
+        'maritalStatus': _maritalStatusController.text.trim(),
+        'postingCategory': _postingCategoryController.text.trim(),
+        'postingWorkAs': _postingWorkAsController.text.trim(),
+        'whatsappNumber': _whatsappController.text.trim(),
+        'callingContactNumber': _callingContactController.text.trim(),
+        'emergencyContact': _emergencyContactController.text.trim(),
+        'postingPlaceLocation': _postingPlaceLocationController.text.trim(),
+        'homeVillageMohalla': _homeVillageMohallaController.text.trim(),
+        'homeGaliNo': _homeGaliNoController.text.trim(),
+        'homePostOffice': _homePostOfficeController.text.trim(),
+        'homePoliceStation': _homePoliceStationController.text.trim(),
+        'homeTehsil': _homeTehsilController.text.trim(),
+        'homeVillageLocation': _homeVillageLocationController.text.trim(),
+        'selfiePath': selfiePath ?? '',
+      };
+
+      final changed = <String, dynamic>{};
+      candidate.forEach((key, value) {
+        final next = (value ?? '').toString().trim();
+        final current = (currentProfile[key] ?? '').toString().trim();
+        if (next.toLowerCase() != current.toLowerCase()) {
+          changed[key] = next;
+        }
+      });
+
+      if (changed.isEmpty) {
+        setState(() {
+          _saving = false;
+        });
+        _showMessage('No changes detected. Update at least one field.');
+        return;
+      }
+
+      updated = widget.currentUser.copyWith(
+        pendingUpdatePayload: jsonEncode(changed),
+        previousPublicProfileSnapshot: jsonEncode(currentProfile),
+        lastUpdated: DateTime.now(),
+      );
+    }
     final saved = await widget.repository.saveMember(updated);
 
     if (!mounted) {
@@ -567,7 +811,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    _showMessage('Profile updated successfully.');
+    _showMessage(widget.currentUser.isAdmin
+        ? 'Profile updated successfully.'
+        : 'Update request sent to admin for approval.');
+  }
+
+  Map<String, dynamic> _currentPublicProfileSnapshot(Member member) {
+    return <String, dynamic>{
+      'name': member.name,
+      'homeState': member.homeState,
+      'homeDistrict': member.homeDistrict,
+      'postingState': member.postingState,
+      'postingDistrict': member.postingDistrict,
+      'postingLocation': member.postingLocation,
+      'postRank': member.postRank,
+      'batchYear': member.batchYear,
+      'department': member.department,
+      'officialName': member.officialName,
+      'gender': member.gender,
+      'maritalStatus': member.maritalStatus,
+      'postingCategory': member.postingCategory,
+      'postingWorkAs': member.postingWorkAs,
+      'whatsappNumber': member.whatsappNumber,
+      'callingContactNumber': member.callingContactNumber,
+      'emergencyContact': member.emergencyContact,
+      'postingPlaceLocation': member.postingPlaceLocation,
+      'homeVillageMohalla': member.homeVillageMohalla,
+      'homeGaliNo': member.homeGaliNo,
+      'homePostOffice': member.homePostOffice,
+      'homePoliceStation': member.homePoliceStation,
+      'homeTehsil': member.homeTehsil,
+      'homeVillageLocation': member.homeVillageLocation,
+    };
   }
 
   ImageProvider<Object>? _profileImageProvider() {
@@ -634,5 +909,259 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _selfiePath = null;
       _selfiePreviewBytes = null;
     });
+  }
+}
+
+class _ProfileUpdateInfoScreen extends StatelessWidget {
+  const _ProfileUpdateInfoScreen({
+    required this.homeStateController,
+    required this.homeDistrictController,
+    required this.postingStateController,
+    required this.postingDistrictController,
+    required this.departmentController,
+    required this.postRankController,
+    required this.officialNameController,
+    required this.batchYearController,
+    required this.genderController,
+    required this.maritalStatusController,
+    required this.postingCategoryController,
+    required this.postingWorkAsController,
+    required this.whatsappController,
+    required this.callingContactController,
+    required this.emergencyContactController,
+    required this.postingPlaceLocationController,
+    required this.homeVillageMohallaController,
+    required this.homeGaliNoController,
+    required this.homePostOfficeController,
+    required this.homePoliceStationController,
+    required this.homeTehsilController,
+    required this.homeVillageLocationController,
+    required this.previousValues,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final TextEditingController homeStateController;
+  final TextEditingController homeDistrictController;
+  final TextEditingController postingStateController;
+  final TextEditingController postingDistrictController;
+  final TextEditingController departmentController;
+  final TextEditingController postRankController;
+  final TextEditingController officialNameController;
+  final TextEditingController batchYearController;
+  final TextEditingController genderController;
+  final TextEditingController maritalStatusController;
+  final TextEditingController postingCategoryController;
+  final TextEditingController postingWorkAsController;
+  final TextEditingController whatsappController;
+  final TextEditingController callingContactController;
+  final TextEditingController emergencyContactController;
+  final TextEditingController postingPlaceLocationController;
+  final TextEditingController homeVillageMohallaController;
+  final TextEditingController homeGaliNoController;
+  final TextEditingController homePostOfficeController;
+  final TextEditingController homePoliceStationController;
+  final TextEditingController homeTehsilController;
+  final TextEditingController homeVillageLocationController;
+  final Map<String, String> previousValues;
+  final bool saving;
+  final Future<void> Function() onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Update Information')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6F0E3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDCCFB3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Previously entered info',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  ...previousValues.entries.map(
+                    (entry) => _infoRow(entry.key, entry.value),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Edit and submit updated details',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeStateController,
+              decoration: const InputDecoration(labelText: 'Home State'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeDistrictController,
+              decoration: const InputDecoration(labelText: 'Home District'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postingStateController,
+              decoration: const InputDecoration(labelText: 'Posting State'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postingDistrictController,
+              decoration: const InputDecoration(labelText: 'Posting District'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: departmentController,
+              decoration: const InputDecoration(labelText: 'Sub Department'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postRankController,
+              decoration: const InputDecoration(labelText: 'Rank'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: officialNameController,
+              decoration: const InputDecoration(labelText: 'Official Name'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: batchYearController,
+              decoration: const InputDecoration(labelText: 'Batch Year'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: genderController,
+              decoration: const InputDecoration(labelText: 'Gender'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: maritalStatusController,
+              decoration: const InputDecoration(labelText: 'Marital Status'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postingCategoryController,
+              decoration: const InputDecoration(labelText: 'Posting Category'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postingWorkAsController,
+              decoration: const InputDecoration(labelText: 'Posting Work As'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: whatsappController,
+              decoration: const InputDecoration(labelText: 'Whatsapp Number'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: callingContactController,
+              decoration: const InputDecoration(labelText: 'Calling Contact Number'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: emergencyContactController,
+              decoration: const InputDecoration(labelText: 'Emergency Contact'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: postingPlaceLocationController,
+              decoration: const InputDecoration(labelText: 'Posting Place Location Link/Coords'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeVillageMohallaController,
+              decoration: const InputDecoration(labelText: 'Home Village / Mohalla'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeGaliNoController,
+              decoration: const InputDecoration(labelText: 'Home Gali No'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homePostOfficeController,
+              decoration: const InputDecoration(labelText: 'Home Post Office'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homePoliceStationController,
+              decoration: const InputDecoration(labelText: 'Home Police Station'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeTehsilController,
+              decoration: const InputDecoration(labelText: 'Home Tehsil'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: homeVillageLocationController,
+              decoration: const InputDecoration(labelText: 'Home Village Location'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      await onSave();
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+              icon: const Icon(Icons.save_outlined),
+              label: Text(saving ? 'Saving...' : 'Submit Update Request'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF5A6B74),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value.isEmpty ? '-' : value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

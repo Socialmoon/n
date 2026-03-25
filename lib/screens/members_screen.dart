@@ -1,11 +1,19 @@
-import 'package:geolocator/geolocator.dart';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../models/member.dart';
-import 'member_details_screen.dart';
 import '../services/member_repository.dart';
+import 'member_details_screen.dart';
+
+enum _MemberFilterMode {
+  district,
+  postingLocation,
+  currentLocation,
+}
 
 class MembersScreen extends StatefulWidget {
   const MembersScreen({
@@ -24,6 +32,10 @@ class MembersScreen extends StatefulWidget {
 class _MembersScreenState extends State<MembersScreen> {
   bool _refreshing = false;
   bool _updatingLiveLocation = false;
+  _MemberFilterMode? _filterMode;
+  String? _selectedDistrict;
+  String? _selectedPostingLocation;
+  final double _radiusKm = 100;
 
   @override
   void initState() {
@@ -31,45 +43,74 @@ class _MembersScreenState extends State<MembersScreen> {
     _refreshMembers();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  List<Member> get _allVisibleMembers {
+    return widget.repository.activeMembers
+        .where((member) => widget.currentUser.isAdmin || member.isApproved)
+        .toList();
+  }
+
+  List<Member> get _filteredMembers {
+    final members = _allVisibleMembers
+        .where((member) => member.id != widget.currentUser.id)
+        .toList();
+
+    if (_filterMode == null) {
+      return const <Member>[];
+    }
+
+    if (_filterMode == _MemberFilterMode.district) {
+      final district = (_selectedDistrict ?? '').trim().toLowerCase();
+      if (district.isEmpty) {
+        return const <Member>[];
+      }
+      return members
+          .where((member) => member.postingDistrict.trim().toLowerCase() == district)
+          .toList();
+    }
+
+    if (_filterMode == _MemberFilterMode.postingLocation) {
+      final location = (_selectedPostingLocation ?? '').trim().toLowerCase();
+      if (location.isEmpty) {
+        return const <Member>[];
+      }
+      return members
+          .where((member) => member.postingLocation.trim().toLowerCase() == location)
+          .toList();
+    }
+
+    final currentCoords = _currentFilterCoordinates();
+    if (currentCoords == null) {
+      return const <Member>[];
+    }
+
+    return members.where((member) {
+      final postingCoords = _memberPostingCoordinates(member);
+      if (postingCoords == null) {
+        return false;
+      }
+      final distanceMeters = Geolocator.distanceBetween(
+        currentCoords.latitude,
+        currentCoords.longitude,
+        postingCoords.latitude,
+        postingCoords.longitude,
+      );
+      return distanceMeters <= _radiusKm * 1000;
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
-    final visibleMembers = widget.repository
-        .search(
-          query: '',
-          districtFilter: '',
-        )
-        .where((member) => widget.currentUser.isAdmin || member.isApproved)
-        .toList();
-
-    final members = <Member>[];
-    final mine = visibleMembers.firstWhere(
-      (member) => member.id == widget.currentUser.id,
-      orElse: () => widget.currentUser,
-    );
-    members.add(mine);
-    members.addAll(
-      visibleMembers.where((member) => member.id != widget.currentUser.id),
-    );
+    final filtered = _filteredMembers;
 
     return Scaffold(
       appBar: AppBar(
         title: BrandedScreenTitle(isHindi ? 'सभी सदस्य' : 'All Members'),
         actions: <Widget>[
           IconButton(
-            onPressed: _openSearchPage,
-            icon: const Icon(Icons.search),
-            tooltip: 'Search members',
-          ),
-          IconButton(
             onPressed: _updatingLiveLocation ? null : _shareMyLiveLocation,
             icon: const Icon(Icons.my_location_outlined),
-            tooltip: 'Share my live location',
+            tooltip: 'Share my current location',
           ),
           IconButton(
             onPressed: _refreshing ? null : _refreshMembers,
@@ -86,84 +127,196 @@ class _MembersScreenState extends State<MembersScreen> {
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(),
             ),
-          const SizedBox(height: 16),
-          if (members.isEmpty)
+          _buildFilterPanel(filtered),
+          const SizedBox(height: 12),
+          if (_filterMode == null)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('No members found.'),
+                child: Text(
+                  'Select a filter first. Member data is locked until you filter by district, posting location, or 100 km radius.',
+                ),
               ),
-            ),
-          ...members.map(_buildMemberCard),
+            )
+          else if (filtered.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No members found for the selected filter.'),
+              ),
+            )
+          else
+            ...filtered.map(_buildMemberCard),
         ],
       ),
     );
   }
 
-  Widget _buildMemberCard(Member member) {
-    final blocked = member.isBlocked;
-    final isCurrentUser = member.id == widget.currentUser.id;
-    final hasLiveLocation = member.liveLatitude != null && member.liveLongitude != null;
+  Widget _buildFilterPanel(List<Member> filteredMembers) {
+    final districts = _allVisibleMembers
+        .map((member) => member.postingDistrict.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final postingLocations = _allVisibleMembers
+        .map((member) => member.postingLocation.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                _buildAvatar(member),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    member.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (isCurrentUser)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 6),
-                    child: Chip(label: Text('You')),
-                  ),
-                if (!member.isApproved)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 6),
-                    child: Chip(label: Text('Pending Approval')),
-                  ),
-                if (blocked)
-                  const Chip(
-                    label: Text('Blocked'),
-                    backgroundColor: Color(0xFFFDE8E8),
-                  ),
-              ],
+            const Text(
+              'Member Filters',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
-            Text(member.role),
-            const SizedBox(height: 4),
-            Text('Mobile: ${member.mobileNumber}'),
-            const SizedBox(height: 4),
-            Text(
-                'Posting: ${member.postingLocation}, ${member.postingDistrict}'),
-            if (widget.currentUser.isAdmin) ...<Widget>[
-              const SizedBox(height: 4),
-              Text('Home district: ${member.homeDistrict}'),
-            ],
-            const SizedBox(height: 4),
-            Text(
-              hasLiveLocation
-                  ? 'Live location available'
-                  : 'Live location not shared yet',
+            const Text(
+              'Members are visible only after applying one filter.',
+              style: TextStyle(color: Color(0xFF5A6B74)),
             ),
-            if (member.referenceMemberName != null) ...<Widget>[
-              const SizedBox(height: 4),
-              Text('Reference: ${member.referenceMemberName}'),
-            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                ChoiceChip(
+                  label: const Text('By District'),
+                  selected: _filterMode == _MemberFilterMode.district,
+                  onSelected: (_) {
+                    setState(() {
+                      _filterMode = _MemberFilterMode.district;
+                    });
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('By Posting Location'),
+                  selected: _filterMode == _MemberFilterMode.postingLocation,
+                  onSelected: (_) {
+                    setState(() {
+                      _filterMode = _MemberFilterMode.postingLocation;
+                    });
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('By 100 km Radius'),
+                  selected: _filterMode == _MemberFilterMode.currentLocation,
+                  onSelected: (_) {
+                    setState(() {
+                      _filterMode = _MemberFilterMode.currentLocation;
+                    });
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
+            if (_filterMode == _MemberFilterMode.district)
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: districts.contains(_selectedDistrict)
+                    ? _selectedDistrict
+                    : null,
+                decoration: const InputDecoration(labelText: 'Posting District'),
+                items: districts
+                    .map(
+                      (district) => DropdownMenuItem<String>(
+                        value: district,
+                        child: Text(district),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedDistrict = value;
+                  });
+                },
+              ),
+            if (_filterMode == _MemberFilterMode.postingLocation)
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: postingLocations.contains(_selectedPostingLocation)
+                    ? _selectedPostingLocation
+                    : null,
+                decoration: const InputDecoration(labelText: 'Posting Place Name'),
+                items: postingLocations
+                    .map(
+                      (postingLocation) => DropdownMenuItem<String>(
+                        value: postingLocation,
+                        child: Text(postingLocation),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedPostingLocation = value;
+                  });
+                },
+              ),
+            if (_filterMode == _MemberFilterMode.currentLocation) ...<Widget>[
+              Text(
+                'Showing members whose posting station coordinates are within ${_radiusKm.toInt()} km of your current shared location.',
+              ),
+              const SizedBox(height: 4),
+              Text('Members in range: ${filteredMembers.length}'),
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () => _openRadiusMap(filteredMembers),
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Show All In-Range Members on Map'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMemberCard(Member member) {
+    final isCurrentUser = member.id == widget.currentUser.id;
+    final blocked = member.isBlocked;
+    final lastLogin = member.lastLoginAt == null
+        ? 'Never'
+        : _formatDateTime(member.lastLoginAt!);
+
+    final card = Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        leading: _buildAvatar(member),
+        title: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                member.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: member.isRetired ? const Color(0xFF8B6A29) : null,
+                ),
+              ),
+            ),
+            if (member.isRetired)
+              const Chip(
+                label: Text('Retired'),
+                backgroundColor: Color(0xFFFFF4D6),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SizedBox(height: 4),
+            Text('Rank: ${member.postRank ?? '-'}'),
+            Text('Batch Year: ${member.batchYear ?? '-'}'),
+            Text('Posting Place: ${member.postingLocation}'),
+            Text('Last Login: $lastLogin'),
+            if (blocked) const Text('Status: Blocked'),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -173,29 +326,30 @@ class _MembersScreenState extends State<MembersScreen> {
                   icon: const Icon(Icons.call_outlined),
                   label: const Text('Call'),
                 ),
-                OutlinedButton.icon(
-                  onPressed: blocked ? null : () => _openWhatsApp(member.mobileNumber),
-                  icon: const Icon(Icons.chat_outlined),
-                  label: const Text('WhatsApp'),
-                ),
                 FilledButton.tonalIcon(
                   onPressed: () => _openMemberDetails(member),
                   icon: const Icon(Icons.badge_outlined),
-                  label: const Text('View Details'),
+                  label: const Text('View Card'),
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: hasLiveLocation
-                      ? () => _openMap(member.liveLatitude!, member.liveLongitude!)
-                      : null,
-                  icon: const Icon(Icons.pin_drop_outlined),
-                  label: const Text('Live Location'),
-                ),
-                if (widget.currentUser.isAdmin)
-                  FilledButton.tonalIcon(
-                    onPressed: () => _toggleBlock(member),
-                    icon:
-                        Icon(blocked ? Icons.lock_open_outlined : Icons.block),
-                    label: Text(blocked ? 'Unblock' : 'Block'),
+                if (widget.currentUser.isAdmin && !isCurrentUser)
+                  PopupMenuButton<String>(
+                    tooltip: 'Admin actions',
+                    onSelected: (value) => _handleAdminAction(member, value),
+                    itemBuilder: (context) => <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        value: member.isBlocked ? 'unblock' : 'block',
+                        child: Text(member.isBlocked ? 'Unblock' : 'Block'),
+                      ),
+                      PopupMenuItem<String>(
+                        value: member.isRetired ? 'unretire' : 'retire',
+                        child: Text(member.isRetired ? 'Mark Active' : 'Mark Retired'),
+                      ),
+                      PopupMenuItem<String>(
+                        value: member.isDeleted ? 'restore' : 'delete',
+                        child: Text(member.isDeleted ? 'Restore' : 'Delete'),
+                      ),
+                    ],
+                    child: const Chip(label: Text('Admin Actions')),
                   ),
               ],
             ),
@@ -203,77 +357,73 @@ class _MembersScreenState extends State<MembersScreen> {
         ),
       ),
     );
-  }
 
-  Future<void> _toggleBlock(Member member) async {
-    final targetBlockState = !member.isBlocked;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(targetBlockState ? 'Block member?' : 'Unblock member?'),
-          content: Text(
-            targetBlockState
-                ? 'This member will not be able to log in until unblocked.'
-                : 'This member will be allowed to log in again.',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(targetBlockState ? 'Block' : 'Unblock'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
+    if (!member.isRetired) {
+      return card;
     }
 
-    final success = await widget.repository.setMemberBlocked(
-      actor: widget.currentUser,
-      memberId: member.id,
-      blocked: targetBlockState,
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 0.9, sigmaY: 0.9),
+      child: card,
     );
+  }
+
+  Future<void> _handleAdminAction(Member member, String action) async {
+    bool success = false;
+    if (action == 'block') {
+      success = await widget.repository.setMemberBlocked(
+        actor: widget.currentUser,
+        memberId: member.id,
+        blocked: true,
+      );
+    } else if (action == 'unblock') {
+      success = await widget.repository.setMemberBlocked(
+        actor: widget.currentUser,
+        memberId: member.id,
+        blocked: false,
+      );
+    } else if (action == 'retire') {
+      success = await widget.repository.setMemberRetired(
+        actor: widget.currentUser,
+        memberId: member.id,
+        retired: true,
+      );
+    } else if (action == 'unretire') {
+      success = await widget.repository.setMemberRetired(
+        actor: widget.currentUser,
+        memberId: member.id,
+        retired: false,
+      );
+    } else if (action == 'delete') {
+      success = await widget.repository.setMemberDeleted(
+        actor: widget.currentUser,
+        memberId: member.id,
+        deleted: true,
+      );
+    } else if (action == 'restore') {
+      success = await widget.repository.setMemberDeleted(
+        actor: widget.currentUser,
+        memberId: member.id,
+        deleted: false,
+      );
+    }
 
     if (!mounted) {
       return;
     }
 
     if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to update member block status.')),
-      );
+      _showMessage('Unable to update member status.');
       return;
     }
 
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text(targetBlockState ? 'Member blocked.' : 'Member unblocked.'),
-      ),
-    );
+    _showMessage('Member status updated.');
   }
 
   Future<void> _openPhone(String mobile) async {
     final uri = Uri.parse('tel:$mobile');
     await launchUrl(uri);
-  }
-
-  Future<void> _openWhatsApp(String mobile) async {
-    final uri = Uri.parse('https://wa.me/91$mobile');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  Future<void> _openMap(double lat, double lng) async {
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openMemberDetails(Member member) async {
@@ -285,20 +435,6 @@ class _MembersScreenState extends State<MembersScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _openSearchPage() async {
-    final selected = await showSearch<Member?>(
-      context: context,
-      delegate: MemberSearchDelegate(
-        currentUser: widget.currentUser,
-        repository: widget.repository,
-      ),
-    );
-    if (!mounted || selected == null) {
-      return;
-    }
-    await _openMemberDetails(selected);
   }
 
   Future<void> _shareMyLiveLocation() async {
@@ -324,9 +460,7 @@ class _MembersScreenState extends State<MembersScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       final current = widget.repository.findById(widget.currentUser.id);
@@ -363,6 +497,84 @@ class _MembersScreenState extends State<MembersScreen> {
     }
   }
 
+  Future<void> _openRadiusMap(List<Member> filteredMembers) async {
+    final coords = _currentFilterCoordinates();
+    if (coords == null) {
+      _showMessage('Share your live location first to use radius filter.');
+      return;
+    }
+
+    final inRangeCoordinates = filteredMembers
+        .map(_memberPostingCoordinates)
+        .whereType<_LatLng>()
+        .toList();
+
+    if (inRangeCoordinates.isEmpty) {
+      _showMessage('No in-range members with valid posting coordinates.');
+      return;
+    }
+
+    // Keep URL length manageable for Google Maps by limiting waypoints.
+    final cappedCoordinates = inRangeCoordinates.take(20).toList();
+    final waypoints = cappedCoordinates
+        .map((item) => '${item.latitude},${item.longitude}')
+        .join('|');
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&origin=${coords.latitude},${coords.longitude}&destination=${coords.latitude},${coords.longitude}&waypoints=$waypoints',
+    );
+
+    if (inRangeCoordinates.length > cappedCoordinates.length) {
+      _showMessage(
+        'Showing first ${cappedCoordinates.length} members on map due to map waypoint limit.',
+      );
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  _LatLng? _currentFilterCoordinates() {
+    final current = widget.repository.findById(widget.currentUser.id);
+    if (current?.liveLatitude != null && current?.liveLongitude != null) {
+      return _LatLng(current!.liveLatitude!, current.liveLongitude!);
+    }
+    return _memberPostingCoordinates(current ?? widget.currentUser);
+  }
+
+  _LatLng? _memberPostingCoordinates(Member member) {
+    final raw = member.postingPlaceLocation?.trim() ?? '';
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    final direct = RegExp(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$')
+        .firstMatch(raw);
+    if (direct != null) {
+      final lat = double.tryParse(direct.group(1)!);
+      final lng = double.tryParse(direct.group(2)!);
+      if (lat != null && lng != null) {
+        return _LatLng(lat, lng);
+      }
+    }
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed == null) {
+      return null;
+    }
+
+    final query = parsed.queryParameters['query'];
+    if (query != null) {
+      final parts = query.split(',');
+      if (parts.length == 2) {
+        final lat = double.tryParse(parts[0]);
+        final lng = double.tryParse(parts[1]);
+        if (lat != null && lng != null) {
+          return _LatLng(lat, lng);
+        }
+      }
+    }
+
+    return null;
+  }
+
   Future<void> _refreshMembers() async {
     setState(() {
       _refreshing = true;
@@ -379,6 +591,16 @@ class _MembersScreenState extends State<MembersScreen> {
     });
   }
 
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year;
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
+  }
+
   void _showMessage(String message) {
     if (!mounted) {
       return;
@@ -390,117 +612,32 @@ class _MembersScreenState extends State<MembersScreen> {
     final selfieUrl = member.selfiePath?.trim() ?? '';
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
     if (selfieUrl.isEmpty) {
-      return _buildInitialAvatar(initial);
+      return CircleAvatar(
+        radius: 22,
+        backgroundColor: const Color(0xFFE8F0F5),
+        child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
+      );
     }
 
     return ClipOval(
       child: Image.network(
         selfieUrl,
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildInitialAvatar(initial),
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          radius: 22,
+          backgroundColor: const Color(0xFFE8F0F5),
+          child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
       ),
-    );
-  }
-
-  Widget _buildInitialAvatar(String initial) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: const Color(0xFFE8F0F5),
-      child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }
 
-class MemberSearchDelegate extends SearchDelegate<Member?> {
-  MemberSearchDelegate({
-    required this.currentUser,
-    required this.repository,
-  });
+class _LatLng {
+  const _LatLng(this.latitude, this.longitude);
 
-  final Member currentUser;
-  final MemberRepository repository;
-
-  @override
-  String get searchFieldLabel => 'Search by name or posting details';
-
-  List<Member> _results(String input) {
-    final members = repository
-        .search(query: input, districtFilter: '')
-        .where((member) => currentUser.isAdmin || member.isApproved)
-        .toList();
-    return members;
-  }
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    return <Widget>[
-      if (query.isNotEmpty)
-        IconButton(
-          onPressed: () => query = '',
-          icon: const Icon(Icons.clear),
-        ),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      onPressed: () => close(context, null),
-      icon: const Icon(Icons.arrow_back),
-    );
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    final suggestions = _results(query).take(12).toList();
-    if (query.trim().isEmpty) {
-      return const Center(
-        child: Text('Type a name, role, posting place, or district.'),
-      );
-    }
-    if (suggestions.isEmpty) {
-      return const Center(
-        child: Text('No matching member suggestions.'),
-      );
-    }
-    return ListView.builder(
-      itemCount: suggestions.length,
-      itemBuilder: (context, index) {
-        final member = suggestions[index];
-        return ListTile(
-          leading: const Icon(Icons.person_outline),
-          title: Text(member.name),
-          subtitle: Text('${member.postingLocation}, ${member.postingDistrict}'),
-          trailing: const Icon(Icons.north_west),
-          onTap: () => close(context, member),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    final results = _results(query);
-    if (results.isEmpty) {
-      return const Center(
-        child: Text('No members found for this search.'),
-      );
-    }
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final member = results[index];
-        return ListTile(
-          leading: const CircleAvatar(
-            child: Icon(Icons.person_outline),
-          ),
-          title: Text(member.name),
-          subtitle: Text('${member.role} • ${member.postingLocation}, ${member.postingDistrict}'),
-          onTap: () => close(context, member),
-        );
-      },
-    );
-  }
+  final double latitude;
+  final double longitude;
 }

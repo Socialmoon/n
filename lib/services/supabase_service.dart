@@ -344,6 +344,22 @@ class SupabaseService {
     }
   }
 
+  Future<bool> deleteHelpComment(String commentId) async {
+    if (!await _ensureWriteSession()) {
+      return false;
+    }
+    try {
+      await Supabase.instance.client
+          .from('help_post_comments')
+          .delete()
+          .eq('id', commentId);
+      return true;
+    } catch (error) {
+      debugPrint('Supabase deleteHelpComment failed: $error');
+      return false;
+    }
+  }
+
   Future<List<HelpComment>> fetchHelpComments() async {
     if (!isConfigured) {
       return <HelpComment>[];
@@ -668,12 +684,18 @@ class SupabaseService {
       'selfie_path': member.selfiePath,
       'id_card_photo_path': member.idCardPhotoPath,
       'home_district': member.homeDistrict,
+      'home_state': member.homeState,
       'posting_district': member.postingDistrict,
+      'posting_state': member.postingState,
       'posting_location': member.postingLocation,
       'department': member.department,
       'post_rank': member.postRank,
       'official_name': member.officialName,
       'batch_year': member.batchYear,
+      'gender': member.gender,
+      'marital_status': member.maritalStatus,
+      'posting_category': member.postingCategory,
+      'posting_work_as': member.postingWorkAs,
       'whatsapp_number': member.whatsappNumber,
       'calling_contact_number': member.callingContactNumber,
       'posting_place_location': member.postingPlaceLocation,
@@ -687,6 +709,7 @@ class SupabaseService {
       'live_latitude': member.liveLatitude,
       'live_longitude': member.liveLongitude,
       'live_location_updated_at': member.liveLocationUpdatedAt?.toIso8601String(),
+      'last_login_at': member.lastLoginAt?.toIso8601String(),
       'appointment_date': member.appointmentDate.toIso8601String(),
       'role': member.role,
       'last_updated': member.lastUpdated.toIso8601String(),
@@ -694,6 +717,12 @@ class SupabaseService {
       'is_admin': member.isAdmin,
       'is_blocked': member.isBlocked,
       'is_approved': member.isApproved,
+      'is_retired': member.isRetired,
+      'retired_at': member.retiredAt?.toIso8601String(),
+      'is_deleted': member.isDeleted,
+      'deleted_at': member.deletedAt?.toIso8601String(),
+      'pending_update_payload': member.pendingUpdatePayload,
+      'previous_public_profile_snapshot': member.previousPublicProfileSnapshot,
     };
 
     if (includeOwnerId && ownerId != null && ownerId.isNotEmpty) {
@@ -717,12 +746,18 @@ class SupabaseService {
       'selfiePath': row['selfie_path'] as String?,
       'idCardPhotoPath': row['id_card_photo_path'] as String?,
       'homeDistrict': row['home_district'] as String,
+      'homeState': row['home_state'] as String?,
       'postingDistrict': row['posting_district'] as String,
+      'postingState': row['posting_state'] as String?,
       'postingLocation': row['posting_location'] as String,
       'department': row['department'] as String?,
       'postRank': row['post_rank'] as String?,
       'officialName': row['official_name'] as String?,
       'batchYear': row['batch_year'] as String?,
+      'gender': row['gender'] as String?,
+      'maritalStatus': row['marital_status'] as String?,
+      'postingCategory': row['posting_category'] as String?,
+      'postingWorkAs': row['posting_work_as'] as String?,
       'whatsappNumber': row['whatsapp_number'] as String?,
       'callingContactNumber': row['calling_contact_number'] as String?,
       'postingPlaceLocation': row['posting_place_location'] as String?,
@@ -736,6 +771,7 @@ class SupabaseService {
       'liveLatitude': (row['live_latitude'] as num?)?.toDouble(),
       'liveLongitude': (row['live_longitude'] as num?)?.toDouble(),
       'liveLocationUpdatedAt': row['live_location_updated_at'] as String?,
+      'lastLoginAt': row['last_login_at'] as String?,
       'appointmentDate': row['appointment_date'] as String,
       'role': row['role'] as String,
       'lastUpdated': row['last_updated'] as String,
@@ -743,6 +779,13 @@ class SupabaseService {
       'isAdmin': row['is_admin'] as bool? ?? false,
       'isBlocked': row['is_blocked'] as bool? ?? false,
       'isApproved': row['is_approved'] as bool? ?? (row['is_admin'] as bool? ?? false),
+      'isRetired': row['is_retired'] as bool? ?? false,
+      'retiredAt': row['retired_at'] as String?,
+      'isDeleted': row['is_deleted'] as bool? ?? false,
+      'deletedAt': row['deleted_at'] as String?,
+      'pendingUpdatePayload': row['pending_update_payload'] as String?,
+      'previousPublicProfileSnapshot':
+          row['previous_public_profile_snapshot'] as String?,
     });
   }
 

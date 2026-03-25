@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -44,6 +45,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _referenceController = TextEditingController();
   final _departmentController = TextEditingController();
   final _postRankController = TextEditingController();
+  final _customRankController = TextEditingController();
+  final _genderController = TextEditingController();
+  final _maritalStatusController = TextEditingController();
+  final _postingCategoryController = TextEditingController();
+  final _postingWorkAsController = TextEditingController();
+  final _homeStateController = TextEditingController(text: 'Uttar Pradesh');
+  final _postingStateController = TextEditingController(text: 'Uttar Pradesh');
   final _officialNameController = TextEditingController();
   final _batchYearController = TextEditingController();
   final _whatsappController = TextEditingController();
@@ -66,19 +74,73 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _submitting = false;
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
-  List<String> _homeDistrictSuggestions = <String>[];
-  List<String> _postingDistrictSuggestions = <String>[];
-  List<String> _postingStationSuggestions = <String>[];
-  Timer? _homeDistrictDebounce;
-  Timer? _postingDistrictDebounce;
-  Timer? _postingStationDebounce;
-  int _homeDistrictRequest = 0;
-  int _postingDistrictRequest = 0;
-  int _postingStationRequest = 0;
+  List<String> _allDistrictOptions = <String>[];
+  List<String> _allHomeStationOptions = <String>[];
+  List<String> _allPostingStationOptions = <String>[];
   final LocalAuthentication _localAuthentication = LocalAuthentication();
   bool _biometricSupported = false;
   bool _biometricVerified = false;
   bool _checkingBiometric = false;
+  bool _capturingPostingLocation = false;
+  bool _willUploadPostingLocationLater = false;
+
+  static const List<String> _subDepartments = <String>[
+    'Civil Police',
+    'P.A.C',
+    'Fire Service',
+    'Jail Warden',
+    'Armed Police',
+    'UPSSF',
+    'GRP',
+    'Dial 112',
+    'LIU',
+    'Radio Department',
+    'Others',
+  ];
+
+  static const List<String> _rankOptions = <String>[
+    'Constable',
+    'HC',
+    'Computer Operator',
+    'ASI',
+    'SI',
+    'Inspector',
+    'Other',
+  ];
+
+  static const List<String> _genderOptions = <String>[
+    'Male',
+    'Female',
+    'Other',
+  ];
+
+  static const List<String> _maritalStatusOptions = <String>[
+    'Single',
+    'Married',
+    'Divorced',
+    'Widowed',
+  ];
+
+  static const List<String> _postingCategories = <String>[
+    'Reserve Police Line',
+    'Circle Police Office',
+    'Police Station',
+    'Fire Station',
+    'District Police Office/Branch',
+    'Other Police Office/Branch',
+    'Battalion',
+    'Range Police Office',
+    'Zone Police Office',
+    'Police Head Quarter Office',
+    'District Jail',
+  ];
+
+  static const List<String> _postingWorkOptions = <String>[
+    'Field Work',
+    'Office Work',
+    'Court Work',
+    'N/A',
+  ];
 
   static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
   static final RegExp _mobilePattern = RegExp(r'^[0-9]{10}$');
@@ -88,13 +150,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void initState() {
     super.initState();
     _checkBiometricSupport();
+    unawaited(_primeFormOptions());
   }
 
   @override
   void dispose() {
-    _homeDistrictDebounce?.cancel();
-    _postingDistrictDebounce?.cancel();
-    _postingStationDebounce?.cancel();
     _pageController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
@@ -102,6 +162,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _referenceController.dispose();
     _departmentController.dispose();
     _postRankController.dispose();
+    _customRankController.dispose();
+    _genderController.dispose();
+    _maritalStatusController.dispose();
+    _postingCategoryController.dispose();
+    _postingWorkAsController.dispose();
+    _homeStateController.dispose();
+    _postingStateController.dispose();
     _officialNameController.dispose();
     _batchYearController.dispose();
     _whatsappController.dispose();
@@ -343,112 +410,176 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildPostingStep() {
     return _buildStepPage(
-      title: 'Posting and home details',
+      title: 'Service, home and posting details',
       subtitle:
-          'Capture the service information that will appear in the directory.',
+          'Fill details in chunks. Start with home details, then current posting.',
       child: Column(
         children: <Widget>[
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Posting Details',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
+          _buildChunkCard(
+            title: '1) Home details',
+            subtitle: 'For now state is fixed to Uttar Pradesh.',
+            initiallyExpanded: true,
+            children: <Widget>[
+              _buildTextField(_homeStateController, 'Home State', readOnly: true),
+              _buildSelectionField(
+                _homeDistrictController,
+                'Home District',
+                hint: 'Tap to choose from district list',
+                onTap: () => _pickFromList(
+                  title: 'Select Home District',
+                  options: _allDistrictOptions,
+                  controller: _homeDistrictController,
+                  onSelected: (_) {
+                    unawaited(_loadHomeStationOptions());
+                  },
+                ),
+              ),
+              _buildTextField(_homeTehsilController, 'Home Tehsil'),
+              _buildSelectionField(
+                _homePoliceStationController,
+                'Home Police Station',
+                hint: 'Tap to choose station',
+                onTap: () => _pickFromList(
+                  title: 'Select Home Police Station',
+                  options: _allHomeStationOptions,
+                  controller: _homePoliceStationController,
+                  allowCustomValue: true,
+                ),
+              ),
+              _buildTextField(_homePostOfficeController, 'Home Post Office'),
+              _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
+              _buildTextField(_homeGaliNoController, 'Gali No.'),
+            ],
           ),
           const SizedBox(height: 8),
-          _buildTextField(_departmentController, 'Department'),
-          _buildTextField(_postRankController, 'Post / Rank'),
-          _buildTextField(_officialNameController, 'Official Name'),
-          _buildTextField(
-            _batchYearController,
-            'Batch Year',
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            digitsOnly: true,
-          ),
-          _buildTextField(
-            _homeDistrictController,
-            'Home District Name',
-            onChanged: _onHomeDistrictChanged,
-            onTap: () => _loadHomeDistrictSuggestions(_homeDistrictController.text),
-          ),
-          _buildSuggestionChips(
-            suggestions: _homeDistrictSuggestions,
-            onSelected: (district) {
-              setState(() {
-                _homeDistrictController.text = district;
-                _homeDistrictSuggestions = <String>[];
-              });
-            },
-          ),
-          _buildTextField(
-            _postingDistrictController,
-            'Posting district',
-            onChanged: _onPostingDistrictChanged,
-            onTap: () => _loadPostingDistrictSuggestions(_postingDistrictController.text),
-          ),
-          _buildSuggestionChips(
-            suggestions: _postingDistrictSuggestions,
-            onSelected: (district) {
-              setState(() {
-                _postingDistrictController.text = district;
-                _postingDistrictSuggestions = <String>[];
-              });
-              _onPostingLocationChanged(_postingLocationController.text);
-            },
-          ),
-          _buildTextField(
-            _postingLocationController,
-            'Posting Place',
-            onChanged: _onPostingLocationChanged,
-            onTap: () => _loadPostingStationSuggestions(_postingLocationController.text),
-          ),
-          _buildSuggestionChips(
-            suggestions: _postingStationSuggestions,
-            onSelected: (station) {
-              setState(() {
-                _postingLocationController.text = station;
-                _postingStationSuggestions = <String>[];
-              });
-            },
-          ),
-          _buildTextField(
-            _whatsappController,
-            'Whatsapp Number',
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            digitsOnly: true,
-          ),
-          _buildTextField(
-            _callingNumberController,
-            'Calling Contact No.',
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            digitsOnly: true,
-          ),
-          _buildTextField(_postingPlaceLocationController, 'Posting Place Location'),
-          _buildTextField(
-            _emergencyContactController,
-            'Emergency Contact',
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            digitsOnly: true,
-          ),
-          const SizedBox(height: 12),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Home District Details (Admin only visibility)',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
+          _buildChunkCard(
+            title: '2) Current posting details',
+            subtitle:
+                'Upload only police station (or near station) location for accurate member map.',
+            children: <Widget>[
+              _buildTextField(_postingStateController, 'Posting State', readOnly: true),
+              _buildSelectionField(
+                _postingDistrictController,
+                'Posting District',
+                hint: 'Tap to choose district',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting District',
+                  options: _allDistrictOptions,
+                  controller: _postingDistrictController,
+                  onSelected: (_) {
+                    unawaited(_loadPostingStationOptions());
+                  },
+                ),
+              ),
+              _buildSelectionField(
+                _postingLocationController,
+                'Posting Police Station',
+                hint: 'Tap to choose police station',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting Police Station',
+                  options: _allPostingStationOptions,
+                  controller: _postingLocationController,
+                  allowCustomValue: true,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Please upload location of your police station or very near to it.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+                  ),
+                ),
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('I am away from station now, I will upload location later'),
+                subtitle: const Text(
+                  'You can submit registration now and update posting location later from profile.',
+                ),
+                value: _willUploadPostingLocationLater,
+                onChanged: (value) {
+                  setState(() {
+                    _willUploadPostingLocationLater = value;
+                    if (value) {
+                      _postingPlaceLocationController.clear();
+                    }
+                  });
+                },
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _willUploadPostingLocationLater
+                      ? null
+                      : _capturingPostingLocation
+                          ? null
+                          : _capturePostingLocation,
+                  icon: const Icon(Icons.my_location_outlined),
+                  label: Text(
+                    _capturingPostingLocation
+                        ? 'Capturing location...'
+                        : 'Use current GPS as posting location',
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
-          _buildTextField(_homeGaliNoController, 'Gali No.'),
-          _buildTextField(_homePostOfficeController, 'Post Office'),
-          _buildTextField(_homePoliceStationController, 'Home Police Station'),
-          _buildTextField(_homeTehsilController, 'Home Tehsil'),
-          _buildTextField(_homeVillageLocationController, 'Home Village Location'),
+          _buildChunkCard(
+            title: '3) Service profile details',
+            subtitle: 'These details will be used in member cards and filters.',
+            children: <Widget>[
+              _buildDropdownField(
+                _departmentController,
+                'Sub Department',
+                _subDepartments,
+              ),
+              _buildDropdownField(_postRankController, 'Rank', _rankOptions),
+              if (_postRankController.text == 'Other')
+                _buildTextField(_customRankController, 'Enter rank name'),
+              _buildTextField(_officialNameController, 'Official Name'),
+              _buildDropdownField(_batchYearController, 'Batch Year', _batchYears()),
+              _buildDropdownField(_genderController, 'Gender', _genderOptions),
+              _buildDropdownField(
+                _maritalStatusController,
+                'Marital Status',
+                _maritalStatusOptions,
+              ),
+              _buildDropdownField(
+                _postingCategoryController,
+                'Posting Category',
+                _postingCategories,
+              ),
+              _buildDropdownField(
+                _postingWorkAsController,
+                'Posting Work As',
+                _postingWorkOptions,
+              ),
+              _buildTextField(
+                _whatsappController,
+                'Whatsapp Number',
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                digitsOnly: true,
+              ),
+              _buildTextField(
+                _callingNumberController,
+                'Calling Contact No.',
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                digitsOnly: true,
+              ),
+              _buildTextField(
+                _emergencyContactController,
+                'Emergency Contact',
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                digitsOnly: true,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -458,7 +589,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return _buildStepPage(
       title: 'Documents and selfie',
       subtitle:
-          'Capture the required ID proof and selfie for the member profile.',
+          'Selfie is required. ID card upload is optional but recommended.',
       child: Column(
         children: <Widget>[
           _buildUploadTile(
@@ -471,7 +602,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           const SizedBox(height: 12),
           _buildUploadTile(
             title: 'ID card photo',
-            subtitle: 'Upload the member identification card image.',
+            subtitle: 'Optional: upload member identification card image.',
             icon: Icons.badge_outlined,
             onTap: _pickIdCardPhoto,
           ),
@@ -498,26 +629,43 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'Reference',
             _referenceMember?.name ?? _referenceController.text.trim(),
           ),
-            _buildSummaryRow('Department', _departmentController.text.trim()),
-            _buildSummaryRow('Post / Rank', _postRankController.text.trim()),
+            _buildSummaryRow('Home State', _homeStateController.text.trim()),
+            _buildSummaryRow('Home District', _homeDistrictController.text.trim()),
+            _buildSummaryRow('Home Tehsil', _homeTehsilController.text.trim()),
+            _buildSummaryRow(
+              'Home Police Station', _homePoliceStationController.text.trim()),
+            _buildSummaryRow('Post Office', _homePostOfficeController.text.trim()),
+            _buildSummaryRow(
+              'Village / Mohalla', _homeVillageMohallaController.text.trim()),
+            _buildSummaryRow('Gali No.', _homeGaliNoController.text.trim()),
+            _buildSummaryRow('Posting State', _postingStateController.text.trim()),
+            _buildSummaryRow(
+              'Posting District', _postingDistrictController.text.trim()),
+            _buildSummaryRow(
+              'Posting Police Station', _postingLocationController.text.trim()),
+            _buildSummaryRow('Sub Department', _departmentController.text.trim()),
+            _buildSummaryRow(
+            'Rank',
+            _postRankController.text.trim() == 'Other'
+              ? _customRankController.text.trim()
+              : _postRankController.text.trim(),
+            ),
             _buildSummaryRow('Official Name', _officialNameController.text.trim()),
             _buildSummaryRow('Batch Year', _batchYearController.text.trim()),
-          _buildSummaryRow(
-              'Posting district', _postingDistrictController.text.trim()),
-          _buildSummaryRow(
-              'Posting place', _postingLocationController.text.trim()),
+            _buildSummaryRow('Gender', _genderController.text.trim()),
+            _buildSummaryRow('Marital Status', _maritalStatusController.text.trim()),
+            _buildSummaryRow(
+              'Posting Category', _postingCategoryController.text.trim()),
+            _buildSummaryRow('Posting Work As', _postingWorkAsController.text.trim()),
             _buildSummaryRow('Whatsapp', _whatsappController.text.trim()),
             _buildSummaryRow('Calling Contact', _callingNumberController.text.trim()),
-            _buildSummaryRow(
-              'Posting place location', _postingPlaceLocationController.text.trim()),
             _buildSummaryRow('Emergency Contact', _emergencyContactController.text.trim()),
-            _buildSummaryRow('Home District', _homeDistrictController.text.trim()),
-            _buildSummaryRow('Village / Mohalla', _homeVillageMohallaController.text.trim()),
-            _buildSummaryRow('Gali No.', _homeGaliNoController.text.trim()),
-            _buildSummaryRow('Post Office', _homePostOfficeController.text.trim()),
-            _buildSummaryRow('Home Police Station', _homePoliceStationController.text.trim()),
-            _buildSummaryRow('Home Tehsil', _homeTehsilController.text.trim()),
-            _buildSummaryRow('Home Village Location', _homeVillageLocationController.text.trim()),
+            _buildSummaryRow(
+              'Posting location upload plan',
+              _willUploadPostingLocationLater
+                  ? 'Will upload later (away from station now)'
+                  : 'Uploaded now',
+            ),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -691,62 +839,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildSuggestionChips({
-    required List<String> suggestions,
-    required ValueChanged<String> onSelected,
-  }) {
-    if (suggestions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(maxHeight: 190),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _border),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ListView.separated(
-          padding: EdgeInsets.zero,
-          shrinkWrap: true,
-          itemCount: suggestions.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final item = suggestions[index];
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onSelected(item),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: Row(
-                    children: <Widget>[
-                      const Icon(Icons.place_outlined,
-                          size: 18, color: Color(0xFF5A6B74)),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(item)),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomBar() {
     final safeBottom = MediaQuery.of(context).viewPadding.bottom;
     return AnimatedPadding(
@@ -862,11 +954,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
     bool digitsOnly = false,
+    bool readOnly = false,
     ValueChanged<String>? onChanged,
     VoidCallback? onTap,
   }) {
     return TextFormField(
       controller: controller,
+      readOnly: readOnly,
       keyboardType: keyboardType,
       textInputAction: TextInputAction.next,
       maxLength: maxLength,
@@ -876,6 +970,93 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       onChanged: onChanged,
       onTap: onTap,
       decoration: _fieldDecoration(label),
+    );
+  }
+
+  Widget _buildChunkCard({
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        initiallyExpanded: initiallyExpanded,
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, color: _ink),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildSelectionField(
+    TextEditingController controller,
+    String label, {
+    required VoidCallback onTap,
+    String? hint,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AbsorbPointer(
+        child: TextFormField(
+          controller: controller,
+          decoration: _fieldDecoration(label).copyWith(
+            hintText: hint,
+            suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownField(
+    TextEditingController controller,
+    String label,
+    List<String> options,
+  ) {
+    final current = controller.text.trim();
+    final selected = options.contains(current) ? current : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey<String>('${label}_${controller.text}'),
+        initialValue: selected,
+        isExpanded: true,
+        items: options
+            .map(
+              (item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(item),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            controller.text = value ?? '';
+            if (label == 'Rank' && controller.text != 'Other') {
+              _customRankController.clear();
+            }
+          });
+        },
+        decoration: _fieldDecoration(label),
+      ),
     );
   }
 
@@ -1096,28 +1277,39 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     final department = _departmentController.text.trim();
     final postRank = _postRankController.text.trim();
+    final customRank = _customRankController.text.trim();
     final officialName = _officialNameController.text.trim();
     final batchYear = _batchYearController.text.trim();
+    final gender = _genderController.text.trim();
+    final maritalStatus = _maritalStatusController.text.trim();
+    final postingCategory = _postingCategoryController.text.trim();
+    final postingWorkAs = _postingWorkAsController.text.trim();
     final whatsapp = _whatsappController.text.trim();
     final callingContact = _callingNumberController.text.trim();
-    final postingPlaceLocation = _postingPlaceLocationController.text.trim();
     final emergencyContact = _emergencyContactController.text.trim();
     final homeVillageMohalla = _homeVillageMohallaController.text.trim();
     final homeGaliNo = _homeGaliNoController.text.trim();
     final homePostOffice = _homePostOfficeController.text.trim();
     final homePoliceStation = _homePoliceStationController.text.trim();
     final homeTehsil = _homeTehsilController.text.trim();
-    final homeVillageLocation = _homeVillageLocationController.text.trim();
 
     if (department.isEmpty ||
         postRank.isEmpty ||
         officialName.isEmpty ||
         batchYear.isEmpty ||
+        gender.isEmpty ||
+        maritalStatus.isEmpty ||
+        postingCategory.isEmpty ||
+        postingWorkAs.isEmpty ||
         whatsapp.isEmpty ||
         callingContact.isEmpty ||
-        postingPlaceLocation.isEmpty ||
         emergencyContact.isEmpty) {
       _showMessage('Complete all posting details.');
+      return false;
+    }
+
+    if (postRank == 'Other' && customRank.isEmpty) {
+      _showMessage('Please enter rank when you select Other.');
       return false;
     }
 
@@ -1143,17 +1335,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    if (postingPlaceLocation.length < 3) {
-      _showMessage('Posting place location must be more descriptive.');
-      return false;
-    }
-
     if (homeVillageMohalla.isEmpty ||
         homeGaliNo.isEmpty ||
         homePostOffice.isEmpty ||
         homePoliceStation.isEmpty ||
-        homeTehsil.isEmpty ||
-        homeVillageLocation.isEmpty) {
+        homeTehsil.isEmpty) {
       _showMessage('Complete all home district details.');
       return false;
     }
@@ -1189,10 +1375,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showMessage('Upload selfie to continue.');
       return false;
     }
-    if (_idCardPhoto == null) {
-      _showMessage('Upload ID card photo to continue.');
-      return false;
-    }
     return true;
   }
 
@@ -1212,7 +1394,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     final selfieBytes = await _selfie!.readAsBytes();
-    final idCardBytes = await _idCardPhoto!.readAsBytes();
     final mediaService = widget.repository.cloudService;
     final now = DateTime.now();
     final baseName = now.microsecondsSinceEpoch;
@@ -1221,13 +1402,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       folder: 'member-docs',
       fileName: 'selfie_$baseName.jpg',
     );
-    final idCardUrl = await mediaService.uploadImageBytes(
-      bytes: idCardBytes,
-      folder: 'member-docs',
-      fileName: 'id_card_$baseName.jpg',
-    );
+    String? idCardUrl;
+    if (_idCardPhoto != null) {
+      final idCardBytes = await _idCardPhoto!.readAsBytes();
+      idCardUrl = await mediaService.uploadImageBytes(
+        bytes: idCardBytes,
+        folder: 'member-docs',
+        fileName: 'id_card_$baseName.jpg',
+      );
+    }
 
-    if (selfieUrl == null || idCardUrl == null) {
+    if (selfieUrl == null || (_idCardPhoto != null && idCardUrl == null)) {
       if (!mounted) {
         return;
       }
@@ -1243,6 +1428,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     final mobile = _mobileController.text.trim();
+    final effectiveRank = _postRankController.text.trim() == 'Other'
+      ? _customRankController.text.trim()
+      : _postRankController.text.trim();
     final member = Member(
       id: now.microsecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
@@ -1255,12 +1443,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       selfiePath: selfieUrl,
       idCardPhotoPath: idCardUrl,
       homeDistrict: _homeDistrictController.text.trim(),
+      homeState: _homeStateController.text.trim(),
       postingDistrict: _postingDistrictController.text.trim(),
+      postingState: _postingStateController.text.trim(),
       postingLocation: _postingLocationController.text.trim(),
       department: _departmentController.text.trim(),
-      postRank: _postRankController.text.trim(),
+      postRank: effectiveRank,
       officialName: _officialNameController.text.trim(),
       batchYear: _batchYearController.text.trim(),
+      gender: _genderController.text.trim(),
+      maritalStatus: _maritalStatusController.text.trim(),
+      postingCategory: _postingCategoryController.text.trim(),
+      postingWorkAs: _postingWorkAsController.text.trim(),
       whatsappNumber: _whatsappController.text.trim(),
       callingContactNumber: _callingNumberController.text.trim(),
       postingPlaceLocation: _postingPlaceLocationController.text.trim(),
@@ -1303,61 +1497,195 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     Navigator.of(context).pop(member);
   }
 
-  void _onHomeDistrictChanged(String value) {
-    _homeDistrictDebounce?.cancel();
-    _homeDistrictDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadHomeDistrictSuggestions(value);
-    });
-  }
-
-  void _onPostingDistrictChanged(String value) {
-    _postingDistrictDebounce?.cancel();
-    _postingDistrictDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadPostingDistrictSuggestions(value);
-    });
-    _onPostingLocationChanged(_postingLocationController.text);
-  }
-
-  void _onPostingLocationChanged(String value) {
-    _postingStationDebounce?.cancel();
-    _postingStationDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadPostingStationSuggestions(value);
-    });
-  }
-
-  Future<void> _loadHomeDistrictSuggestions(String query) async {
-    final request = ++_homeDistrictRequest;
-    final suggestions = await _locationSuggestions.suggestDistricts(query);
-    if (!mounted || request != _homeDistrictRequest) {
+  Future<void> _primeFormOptions() async {
+    final districts = await _locationSuggestions.allDistricts();
+    if (!mounted) {
       return;
     }
     setState(() {
-      _homeDistrictSuggestions = suggestions;
+      _allDistrictOptions = districts;
     });
+    await _loadHomeStationOptions();
+    await _loadPostingStationOptions();
   }
 
-  Future<void> _loadPostingDistrictSuggestions(String query) async {
-    final request = ++_postingDistrictRequest;
-    final suggestions = await _locationSuggestions.suggestDistricts(query);
-    if (!mounted || request != _postingDistrictRequest) {
+  Future<void> _loadHomeStationOptions() async {
+    final stations = await _locationSuggestions.allPoliceStations(
+      district: _homeDistrictController.text,
+    );
+    if (!mounted) {
       return;
     }
     setState(() {
-      _postingDistrictSuggestions = suggestions;
+      _allHomeStationOptions = stations;
     });
   }
 
-  Future<void> _loadPostingStationSuggestions(String query) async {
-    final request = ++_postingStationRequest;
-    final suggestions = await _locationSuggestions.suggestPoliceStations(
-      query: query,
+  Future<void> _loadPostingStationOptions() async {
+    final stations = await _locationSuggestions.allPoliceStations(
       district: _postingDistrictController.text,
     );
-    if (!mounted || request != _postingStationRequest) {
+    if (!mounted) {
       return;
     }
     setState(() {
-      _postingStationSuggestions = suggestions;
+      _allPostingStationOptions = stations;
     });
   }
+
+  List<String> _batchYears() {
+    final currentYear = DateTime.now().year;
+    return List<String>.generate(
+      currentYear - 1969,
+      (index) => (currentYear - index).toString(),
+    );
+  }
+
+  Future<void> _pickFromList({
+    required String title,
+    required List<String> options,
+    required TextEditingController controller,
+    bool allowCustomValue = false,
+    ValueChanged<String>? onSelected,
+  }) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final searchController = TextEditingController();
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = query.trim().isEmpty
+                ? options
+                : options
+                    .where(
+                      (item) => item.toLowerCase().contains(query.toLowerCase()),
+                    )
+                    .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: searchController,
+                      decoration: _fieldDecoration('Search').copyWith(
+                        suffixIcon: const Icon(Icons.search),
+                      ),
+                      onChanged: (value) {
+                        setSheetState(() {
+                          query = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Text(
+                                allowCustomValue
+                                    ? 'No matches. You can type and save a custom value.'
+                                    : 'No matches found.',
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final item = filtered[index];
+                                return ListTile(
+                                  title: Text(item),
+                                  onTap: () => Navigator.of(context).pop(item),
+                                );
+                              },
+                            ),
+                    ),
+                    if (allowCustomValue)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.tonal(
+                          onPressed: () => Navigator.of(context)
+                              .pop(searchController.text.trim()),
+                          child: const Text('Use typed value'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    final selected = (result ?? '').trim();
+    if (selected.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      controller.text = selected;
+    });
+    onSelected?.call(selected);
+  }
+
+  Future<void> _capturePostingLocation() async {
+    setState(() {
+      _capturingPostingLocation = true;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showMessage('Location service is disabled on this device.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showMessage('Allow location permission to capture posting location.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final link =
+          'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+      setState(() {
+        _postingPlaceLocationController.text = link;
+      });
+      _showMessage('Posting location captured.');
+    } catch (_) {
+      _showMessage('Unable to capture location. You can paste map link manually.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _capturingPostingLocation = false;
+        });
+      }
+    }
+  }
+
 }

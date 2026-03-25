@@ -529,14 +529,25 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                     ),
                   ),
                 ...comments.map(
-                  (comment) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.person_outline),
-                      title: Text(comment.memberName),
-                      subtitle: Text(comment.message),
-                    ),
-                  ),
+                  (comment) {
+                    final canDeleteComment = widget.currentUser.isAdmin ||
+                        widget.currentUser.id == comment.memberId;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: const Icon(Icons.person_outline),
+                        title: Text(comment.memberName),
+                        subtitle: Text(comment.message),
+                        trailing: canDeleteComment
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20),
+                                tooltip: 'Delete comment',
+                                onPressed: () => _deleteComment(comment.id),
+                              )
+                            : null,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -634,5 +645,46 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
       return;
     }
     Navigator.of(context).pop();
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete comment'),
+          content: const Text('This will permanently remove this comment.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final deleted = await widget.helpFeedService.deleteComment(commentId);
+    if (!mounted) {
+      return;
+    }
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete comment in cloud. Please retry.')),
+      );
+      return;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comment deleted.')),
+    );
   }
 }

@@ -158,6 +158,10 @@ class AuthService {
   }
 
   Future<AuthResult> _completeLogin(Member member) async {
+    if (member.isDeleted) {
+      return const AuthResult(
+          error: 'Your account has been deleted. Contact an admin.');
+    }
     if (member.isBlocked) {
       return const AuthResult(
           error: 'Your account has been blocked. Contact an admin.');
@@ -172,9 +176,15 @@ class AuthService {
     if (member.needsPasswordRefresh) {
       return const AuthResult(error: 'Password renewal required before login.');
     }
-    _activeUserId = member.id;
-    _lastMobile = member.mobileNumber;
-    return AuthResult(member: member);
+    final now = DateTime.now();
+    final updatedMember = member.copyWith(
+      lastLoginAt: now,
+      lastUpdated: now,
+    );
+    await _repository.saveMember(updatedMember);
+    _activeUserId = updatedMember.id;
+    _lastMobile = updatedMember.mobileNumber;
+    return AuthResult(member: updatedMember);
   }
 
   Future<Member?> _resolveMember(String mobileNumber) async {
