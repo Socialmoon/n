@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/member.dart';
 import '../services/email_otp_service.dart';
-import '../services/device_binding_service.dart';
 
 class DeviceVerificationScreen extends StatefulWidget {
   const DeviceVerificationScreen({
@@ -20,7 +19,6 @@ class DeviceVerificationScreen extends StatefulWidget {
 
 class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
   final EmailOtpService _emailOtpService = EmailOtpService();
-  final DeviceBindingService _deviceBindingService = DeviceBindingService();
   final _mpinController = TextEditingController();
   final _otpController = TextEditingController();
   bool _sendingOtp = false;

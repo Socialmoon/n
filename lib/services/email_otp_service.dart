@@ -39,8 +39,8 @@ class EmailOtpService {
       );
 
       // In production, call actual email service (SendGrid, AWS SES, etc.)
-      // For now, log it
-      print('📧 OTP for $email: $otp');
+      // For now, store in cache for demo
+      // print('📧 OTP for $email: $otp');
 
       return EmailOtpResult(
         success: true,
