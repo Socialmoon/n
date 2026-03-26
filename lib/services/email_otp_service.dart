@@ -1,3 +1,9 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../core/supabase_config.dart';
+
 class EmailOtpResult {
   const EmailOtpResult({
     this.success = false,
@@ -12,7 +18,6 @@ class EmailOtpResult {
 
 class EmailOtpService {
   static final EmailOtpService _instance = EmailOtpService._internal();
-  final Map<String, OtpCache> _cache = <String, OtpCache>{};
 
   EmailOtpService._internal();
 
@@ -20,85 +25,105 @@ class EmailOtpService {
     return _instance;
   }
 
-  /// Generate and send OTP to email
+  static final Uri _sendEmailOtpUri =
+      Uri.parse('${SupabaseConfig.url}/functions/v1/send-email-otp');
+  static final Uri _verifyEmailOtpUri =
+      Uri.parse('${SupabaseConfig.url}/functions/v1/verify-email-otp');
+
+  /// Send OTP to email using server-side Gmail SMTP.
   Future<EmailOtpResult> sendVerificationOtp(String email) async {
     if (!_isValidEmail(email)) {
       return const EmailOtpResult(error: 'Invalid email address.');
     }
 
-    try {
-      // Generate 6-digit OTP
-      final otp = _generateOtp();
-      final transactionId = DateTime.now().millisecondsSinceEpoch.toString();
+    if (!SupabaseConfig.isConfigured) {
+      return const EmailOtpResult(
+        error: 'Supabase is not configured for email OTP.',
+      );
+    }
 
-      // Cache OTP with 10-minute expiry
-      _cache[email] = OtpCache(
-        otp: otp,
-        createdAt: DateTime.now(),
-        expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+    try {
+      final response = await http.post(
+        _sendEmailOtpUri,
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'apikey': SupabaseConfig.anonKey,
+        },
+        body: jsonEncode(<String, dynamic>{
+          'email': email.trim(),
+        }),
       );
 
-      // In production, call actual email service (SendGrid, AWS SES, etc.)
-      // For now, store in cache for demo
-      // print('📧 OTP for $email: $otp');
+      final body = response.body.isEmpty
+          ? <String, dynamic>{}
+          : (jsonDecode(response.body) as Map<String, dynamic>);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return EmailOtpResult(
+          success: true,
+          transactionId: DateTime.now().millisecondsSinceEpoch.toString(),
+        );
+      }
+
+        final errorMessage = body['error'] as String?;
+        final detailsMessage = body['details'] as String?;
+        final serverMessage =
+          (errorMessage == 'Failed to send OTP email' &&
+            detailsMessage != null &&
+            detailsMessage.isNotEmpty)
+          ? 'Failed to send OTP email: $detailsMessage'
+          : errorMessage ??
+            (body['message'] as String?) ??
+            detailsMessage;
 
       return EmailOtpResult(
-        success: true,
-        transactionId: transactionId,
+        error: serverMessage ??
+            'Unable to send OTP email right now (HTTP ${response.statusCode}).',
       );
     } catch (e) {
       return EmailOtpResult(error: 'Failed to send OTP: $e');
     }
   }
 
-  /// Verify OTP for email
+  /// Verify OTP via server-side function.
   Future<bool> verifyOtp({
     required String email,
     required String otp,
   }) async {
-    if (!_isValidEmail(email)) {
+    if (!_isValidEmail(email) || otp.trim().length != 6) {
       return false;
     }
 
-    final cached = _cache[email];
-    if (cached == null) {
+    if (!SupabaseConfig.isConfigured) {
       return false;
     }
 
-    if (DateTime.now().isAfter(cached.expiresAt)) {
-      _cache.remove(email);
+    try {
+      final response = await http.post(
+        _verifyEmailOtpUri,
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'apikey': SupabaseConfig.anonKey,
+        },
+        body: jsonEncode(<String, dynamic>{
+          'email': email.trim(),
+          'otp': otp.trim(),
+        }),
+      );
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
       return false;
     }
-
-    if (cached.otp != otp.trim()) {
-      return false;
-    }
-
-    // OTP verified, remove from cache
-    _cache.remove(email);
-    return true;
   }
 
-  /// Check if email verification is pending
+  /// Pending state is managed server-side; this returns false by design.
   bool isPending(String email) {
-    if (!_isValidEmail(email)) {
-      return false;
-    }
-    final cached = _cache[email];
-    if (cached == null) {
-      return false;
-    }
-    return DateTime.now().isBefore(cached.expiresAt);
+    return false;
   }
 
-  /// Clear cached OTP
+  /// No local cache when using server-side OTP.
   void clearCache(String email) {
-    _cache.remove(email);
-  }
-
-  String _generateOtp() {
-    final random = DateTime.now().millisecond % 1000000;
-    return random.toString().padLeft(6, '0');
+    // no-op
   }
 
   bool _isValidEmail(String email) {
@@ -107,16 +132,4 @@ class EmailOtpService {
     );
     return regex.hasMatch(email.trim());
   }
-}
-
-class OtpCache {
-  OtpCache({
-    required this.otp,
-    required this.createdAt,
-    required this.expiresAt,
-  });
-
-  final String otp;
-  final DateTime createdAt;
-  final DateTime expiresAt;
 }

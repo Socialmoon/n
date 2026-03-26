@@ -7,12 +7,18 @@ import 'package:flutter/services.dart';
 import '../models/member.dart';
 import 'member_repository.dart';
 import 'otp_service.dart';
+import 'device_binding_service.dart';
 
 class AuthResult {
-  const AuthResult({this.member, this.error});
+  const AuthResult({
+    this.member,
+    this.error,
+    this.requiresDeviceVerification = false,
+  });
 
   final Member? member;
   final String? error;
+  final bool requiresDeviceVerification;
 
   bool get isSuccess => member != null;
 }
@@ -176,8 +182,36 @@ class AuthService {
     if (member.needsPasswordRefresh) {
       return const AuthResult(error: 'Password renewal required before login.');
     }
+
+    // Device binding check
+    final deviceBinding = DeviceBindingService();
+    final currentDeviceId = await deviceBinding.getDeviceId();
+    final payload = _decodePendingPayload(member.pendingUpdatePayload);
+    final storedDeviceId = payload['trustedDeviceId'] as String?;
+
+    Member memberToSave = member;
+    if (storedDeviceId == null || storedDeviceId.isEmpty) {
+      // First successful login binds the current device.
+      payload['trustedDeviceId'] = currentDeviceId;
+      payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
+      memberToSave = member.copyWith(
+        pendingUpdatePayload: jsonEncode(payload),
+      );
+    } else if (storedDeviceId != currentDeviceId) {
+      if (member.email?.isNotEmpty ?? false) {
+        return AuthResult(
+          member: member,
+          requiresDeviceVerification: true,
+        );
+      }
+      return const AuthResult(
+        error:
+            'New device detected, but no email is registered for verification.',
+      );
+    }
+
     final now = DateTime.now();
-    final updatedMember = member.copyWith(
+    final updatedMember = memberToSave.copyWith(
       lastLoginAt: now,
       lastUpdated: now,
     );
@@ -185,6 +219,43 @@ class AuthService {
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     return AuthResult(member: updatedMember);
+  }
+
+  Future<AuthResult> completeDeviceVerification(Member member) async {
+    final deviceBinding = DeviceBindingService();
+    final currentDeviceId = await deviceBinding.getDeviceId();
+    final payload = _decodePendingPayload(member.pendingUpdatePayload);
+    payload['trustedDeviceId'] = currentDeviceId;
+    payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
+
+    final now = DateTime.now();
+    final updatedMember = member.copyWith(
+      pendingUpdatePayload: jsonEncode(payload),
+      lastLoginAt: now,
+      lastUpdated: now,
+    );
+    await _repository.saveMember(updatedMember);
+    _activeUserId = updatedMember.id;
+    _lastMobile = updatedMember.mobileNumber;
+    return AuthResult(member: updatedMember);
+  }
+
+  Map<String, dynamic> _decodePendingPayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
   }
 
   Future<Member?> _resolveMember(String mobileNumber) async {

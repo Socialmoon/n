@@ -37,6 +37,7 @@ class DeviceBindingService {
   static final DeviceBindingService _instance = DeviceBindingService._internal();
   String? _cachedDeviceId;
   String? _cachedFingerprint;
+  final Map<String, Map<String, dynamic>> _memberBindings = {};
 
   DeviceBindingService._internal();
 
@@ -54,7 +55,7 @@ class DeviceBindingService {
       // Use timestamp and random hash as device ID
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = DateTime.now().microsecondsSinceEpoch % 100000;
-      final deviceId = 'device_' + timestamp.toString() + '_' + random.toString();
+      final deviceId = 'device_${timestamp}_$random';
       _cachedDeviceId = deviceId;
       return deviceId;
     } catch (e) {
@@ -112,4 +113,18 @@ class DeviceBindingService {
     _cachedDeviceId = null;
     _cachedFingerprint = null;
   }
+  
+  /// Store device binding for a member
+  Future<void> storeBinding(String memberId, String deviceId) async {
+    _memberBindings[memberId] = {
+      'deviceId': deviceId,
+      'boundAt': DateTime.now().toIso8601String(),
+    };
+  }
+  
+  /// Get stored binding for a member
+  Map<String, dynamic>? getStoredBinding(String memberId) {
+    return _memberBindings[memberId];
+  }
+  
 }

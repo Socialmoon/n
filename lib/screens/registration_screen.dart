@@ -8,6 +8,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../models/member.dart';
 import '../services/auth_service.dart';
+import '../services/email_otp_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 
@@ -33,7 +34,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   static const List<String> _steps = <String>[
     'Identity',
-    'Details',
+    'Verify Email',
+    'Home Details',
+    'Posting Details',
+    'Service Details',
     'Documents',
     'Review',
   ];
@@ -41,6 +45,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final PageController _pageController = PageController();
   final _nameController = TextEditingController();
   final _mobileController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _emailOtpController = TextEditingController();
   final _mpinController = TextEditingController();
   final _referenceController = TextEditingController();
   final _departmentController = TextEditingController();
@@ -78,8 +84,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   List<String> _allHomeStationOptions = <String>[];
   List<String> _allPostingStationOptions = <String>[];
   final LocalAuthentication _localAuthentication = LocalAuthentication();
+  final EmailOtpService _emailOtpService = EmailOtpService();
   bool _biometricSupported = false;
   bool _biometricVerified = false;
+  bool _emailVerified = false;
+  bool _emailOtpSent = false;
+  bool _sendingEmailOtp = false;
+  bool _verifyingEmailOtp = false;
   bool _checkingBiometric = false;
   bool _capturingPostingLocation = false;
   bool _willUploadPostingLocationLater = false;
@@ -158,6 +169,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _pageController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
+    _emailController.dispose();
+    _emailOtpController.dispose();
     _mpinController.dispose();
     _referenceController.dispose();
     _departmentController.dispose();
@@ -215,7 +228,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   children: <Widget>[
                     _buildIdentityStep(),
-                    _buildPostingStep(),
+                    _buildEmailVerificationStep(),
+                    _buildHomeDetailsStep(),
+                    _buildPostingDetailsStep(),
+                    _buildServiceDetailsStep(),
                     _buildDocumentsStep(),
                     _buildReviewStep(),
                   ],
@@ -352,6 +368,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             maxLength: 6,
             digitsOnly: true,
           ),
+          _buildTextField(
+            _emailController,
+            'Email address',
+            keyboardType: TextInputType.emailAddress,
+            onChanged: (_) {
+              if (_emailVerified || _emailOtpSent || _emailOtpController.text.isNotEmpty) {
+                setState(() {
+                  _emailVerified = false;
+                  _emailOtpSent = false;
+                  _emailOtpController.clear();
+                });
+              }
+            },
+          ),
           const SizedBox(height: 4),
           _buildFingerprintOption(),
           TextFormField(
@@ -408,15 +438,84 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildPostingStep() {
+  Widget _buildEmailVerificationStep() {
     return _buildStepPage(
-      title: 'Service, home and posting details',
-      subtitle:
-          'Fill details in chunks. Start with home details, then current posting.',
+      title: 'Verify your email',
+      subtitle: 'We will send a one-time passcode to your email address.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _buildSummaryRow('Email', _emailController.text.trim()),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _emailVerified
+                  ? const Color(0xFFE8F5ED)
+                  : const Color(0xFFFDF4E3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _emailVerified
+                    ? const Color(0xFF9CCDB0)
+                    : const Color(0xFFE0D0AE),
+              ),
+            ),
+            child: Text(
+              _emailVerified
+                  ? 'Email verified. You can continue.'
+                  : 'Email is not verified yet.',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _emailOtpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            decoration: const InputDecoration(
+              labelText: 'Email OTP',
+              hintText: 'Enter 6 digit OTP',
+              prefixIcon: Icon(Icons.verified_outlined),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              FilledButton.icon(
+                onPressed: (_submitting || _sendingEmailOtp)
+                    ? null
+                    : _sendRegistrationEmailOtp,
+                icon: const Icon(Icons.send_outlined),
+                label: Text(_emailOtpSent ? 'Resend OTP' : 'Send OTP'),
+              ),
+              OutlinedButton.icon(
+                onPressed: (_submitting || _verifyingEmailOtp || !_emailOtpSent)
+                    ? null
+                    : _verifyRegistrationEmail,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Verify OTP'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeDetailsStep() {
+    return _buildStepPage(
+      title: 'Home details',
+      subtitle: 'Fill your home address and station details.',
       child: Column(
         children: <Widget>[
           _buildChunkCard(
-            title: '1) Home details',
+            title: 'Home details',
             subtitle: 'For now state is fixed to Uttar Pradesh.',
             initiallyExpanded: true,
             children: <Widget>[
@@ -449,13 +548,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildTextField(_homePostOfficeController, 'Home Post Office'),
               _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
               _buildTextField(_homeGaliNoController, 'Gali No.'),
+              _buildTextField(_homeVillageLocationController, 'Home Village Location'),
             ],
           ),
-          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostingDetailsStep() {
+    return _buildStepPage(
+      title: 'Posting details',
+      subtitle: 'Provide your current district and posting station details.',
+      child: Column(
+        children: <Widget>[
           _buildChunkCard(
-            title: '2) Current posting details',
+            title: 'Current posting details',
             subtitle:
                 'Upload only police station (or near station) location for accurate member map.',
+            initiallyExpanded: true,
             children: <Widget>[
               _buildTextField(_postingStateController, 'Posting State', readOnly: true),
               _buildSelectionField(
@@ -508,6 +619,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   });
                 },
               ),
+              _buildTextField(
+                _postingPlaceLocationController,
+                'Posting Place Location Link/Coords',
+                readOnly: _willUploadPostingLocationLater,
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
@@ -526,10 +642,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceDetailsStep() {
+    return _buildStepPage(
+      title: 'Service details',
+      subtitle: 'These details are used in member cards and filters.',
+      child: Column(
+        children: <Widget>[
           _buildChunkCard(
-            title: '3) Service profile details',
+            title: 'Service profile details',
             subtitle: 'These details will be used in member cards and filters.',
+            initiallyExpanded: true,
             children: <Widget>[
               _buildDropdownField(
                 _departmentController,
@@ -621,6 +748,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         children: <Widget>[
           _buildSummaryRow('Full name', _nameController.text.trim()),
           _buildSummaryRow('Mobile', _mobileController.text.trim()),
+          _buildSummaryRow('Email', _emailController.text.trim()),
           _buildSummaryRow(
             'Fingerprint setup',
             _biometricVerified ? 'Verified on this device' : 'Not verified',
@@ -1184,13 +1312,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!_validateIdentityStep()) {
         return;
       }
-      // OTP flow disabled: proceed directly to posting details.
       await _goToStep(1);
       return;
     }
 
     if (_currentStep == 1) {
-      if (!await _validatePostingStep()) {
+      if (!_emailVerified) {
+        _showMessage('Please verify your email OTP before continuing.');
         return;
       }
       await _goToStep(2);
@@ -1198,10 +1326,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_currentStep == 2) {
-      if (!_validateDocumentsStep()) {
+      if (!await _validateHomeStep()) {
         return;
       }
       await _goToStep(3);
+      return;
+    }
+
+    if (_currentStep == 3) {
+      if (!await _validatePostingStep()) {
+        return;
+      }
+      await _goToStep(4);
+      return;
+    }
+
+    if (_currentStep == 4) {
+      if (!_validateServiceStep()) {
+        return;
+      }
+      await _goToStep(5);
+      return;
+    }
+
+    if (_currentStep == 5) {
+      if (!_validateDocumentsStep()) {
+        return;
+      }
+      await _goToStep(6);
       return;
     }
 
@@ -1230,10 +1382,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final name = _nameController.text.trim();
     final mobile = _mobileController.text.trim();
     final mpin = _mpinController.text.trim();
+    final email = _emailController.text.trim();
     final reference = _referenceController.text.trim();
-    if (name.isEmpty || mobile.isEmpty || reference.isEmpty || mpin.isEmpty) {
+    if (name.isEmpty || mobile.isEmpty || email.isEmpty || reference.isEmpty || mpin.isEmpty) {
       _showMessage(
-          'Enter full name, mobile number, M-PIN and reference mobile number.');
+          'Enter full name, mobile number, email, M-PIN and reference mobile number.');
       return false;
     }
     if (!_namePattern.hasMatch(name)) {
@@ -1242,6 +1395,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (!_mobilePattern.hasMatch(mobile) || !_mobilePattern.hasMatch(reference)) {
       _showMessage('Mobile numbers must be 10 digits.');
+      return false;
+    }
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (!emailRegex.hasMatch(email)) {
+      _showMessage('Enter a valid email address.');
       return false;
     }
     if (mpin.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(mpin)) {
@@ -1263,17 +1421,142 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return true;
   }
 
-  Future<bool> _validatePostingStep() async {
+  Future<bool> _verifyRegistrationEmail() async {
+    if (_emailVerified) {
+      return true;
+    }
+
+    if (!_emailOtpSent) {
+      _showMessage('Please send OTP first.');
+      return false;
+    }
+
+    final enteredOtp = _emailOtpController.text.trim();
+    if (enteredOtp.length != 6) {
+      _showMessage('Enter valid 6 digit OTP.');
+      return false;
+    }
+
+    final email = _emailController.text.trim();
+    setState(() {
+      _verifyingEmailOtp = true;
+    });
+
+    final verified = await _emailOtpService.verifyOtp(
+      email: email,
+      otp: enteredOtp,
+    );
+
+    if (!mounted) {
+      return false;
+    }
+
+    setState(() {
+      _verifyingEmailOtp = false;
+    });
+
+    if (!verified) {
+      _showMessage('Invalid or expired email OTP.');
+      return false;
+    }
+
+    setState(() {
+      _emailVerified = true;
+    });
+    _showMessage('Email verified successfully.');
+    return true;
+  }
+
+  Future<void> _sendRegistrationEmailOtp() async {
+    final email = _emailController.text.trim();
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (!emailRegex.hasMatch(email)) {
+      _showMessage('Enter a valid email address first.');
+      return;
+    }
+
+    setState(() {
+      _sendingEmailOtp = true;
+    });
+
+    final dispatch = await _emailOtpService.sendVerificationOtp(email);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _sendingEmailOtp = false;
+      if (dispatch.success) {
+        _emailOtpSent = true;
+      }
+    });
+
+    if (!dispatch.success) {
+      _showMessage(dispatch.error ?? 'Unable to send email OTP.');
+      return;
+    }
+
+    _showMessage('OTP sent to $email');
+  }
+
+  Future<bool> _validateHomeStep() async {
     final homeDistrict = _homeDistrictController.text.trim();
+    final homeVillageMohalla = _homeVillageMohallaController.text.trim();
+    final homeGaliNo = _homeGaliNoController.text.trim();
+    final homePostOffice = _homePostOfficeController.text.trim();
+    final homePoliceStation = _homePoliceStationController.text.trim();
+    final homeTehsil = _homeTehsilController.text.trim();
+
+    if (homeDistrict.isEmpty ||
+        homeVillageMohalla.isEmpty ||
+        homeGaliNo.isEmpty ||
+        homePostOffice.isEmpty ||
+        homePoliceStation.isEmpty ||
+        homeTehsil.isEmpty) {
+      _showMessage('Complete all home details.');
+      return false;
+    }
+
+    final homeDistrictValid =
+        await _locationSuggestions.isKnownDistrict(homeDistrict);
+    if (!homeDistrictValid) {
+      _showMessage('Choose a valid UP home district from suggestions.');
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<bool> _validatePostingStep() async {
     final postingDistrict = _postingDistrictController.text.trim();
     final postingStation = _postingLocationController.text.trim();
 
-    if (_homeDistrictController.text.trim().isEmpty ||
-        _postingDistrictController.text.trim().isEmpty ||
-        _postingLocationController.text.trim().isEmpty) {
+    if (postingDistrict.isEmpty || postingStation.isEmpty) {
       _showMessage('Complete all posting details.');
       return false;
     }
+
+    final postingDistrictValid =
+        await _locationSuggestions.isKnownDistrict(postingDistrict);
+    if (!postingDistrictValid) {
+      _showMessage('Choose a valid UP posting district from suggestions.');
+      return false;
+    }
+
+    final stationValid = await _locationSuggestions.isKnownStation(
+      station: postingStation,
+      district: postingDistrict,
+    );
+    if (!stationValid) {
+      _showMessage('Choose a valid police station from suggestions.');
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _validateServiceStep() {
 
     final department = _departmentController.text.trim();
     final postRank = _postRankController.text.trim();
@@ -1287,11 +1570,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final whatsapp = _whatsappController.text.trim();
     final callingContact = _callingNumberController.text.trim();
     final emergencyContact = _emergencyContactController.text.trim();
-    final homeVillageMohalla = _homeVillageMohallaController.text.trim();
-    final homeGaliNo = _homeGaliNoController.text.trim();
-    final homePostOffice = _homePostOfficeController.text.trim();
-    final homePoliceStation = _homePoliceStationController.text.trim();
-    final homeTehsil = _homeTehsilController.text.trim();
 
     if (department.isEmpty ||
         postRank.isEmpty ||
@@ -1335,38 +1613,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    if (homeVillageMohalla.isEmpty ||
-        homeGaliNo.isEmpty ||
-        homePostOffice.isEmpty ||
-        homePoliceStation.isEmpty ||
-        homeTehsil.isEmpty) {
-      _showMessage('Complete all home district details.');
-      return false;
-    }
-
-    final homeDistrictValid =
-        await _locationSuggestions.isKnownDistrict(homeDistrict);
-    if (!homeDistrictValid) {
-      _showMessage('Choose a valid UP home district from suggestions.');
-      return false;
-    }
-
-    final postingDistrictValid =
-        await _locationSuggestions.isKnownDistrict(postingDistrict);
-    if (!postingDistrictValid) {
-      _showMessage('Choose a valid UP posting district from suggestions.');
-      return false;
-    }
-
-    final stationValid = await _locationSuggestions.isKnownStation(
-      station: postingStation,
-      district: postingDistrict,
-    );
-    if (!stationValid) {
-      _showMessage('Choose a valid police station from suggestions.');
-      return false;
-    }
-
     return true;
   }
 
@@ -1384,8 +1630,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _submit() async {
+    final homeValid = await _validateHomeStep();
     final postingValid = await _validatePostingStep();
-    if (!_validateIdentityStep() || !postingValid || !_validateDocumentsStep()) {
+    final serviceValid = _validateServiceStep();
+    if (!_validateIdentityStep() ||
+        !_emailVerified ||
+        !homeValid ||
+        !postingValid ||
+        !serviceValid ||
+        !_validateDocumentsStep()) {
       return;
     }
 
@@ -1436,6 +1689,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       name: _nameController.text.trim(),
       mobileNumber: mobile,
       userId: 'u_$mobile',
+        email: _emailController.text.trim(),
       passwordHash: widget.authService.hashPassword(mobile),
       mpin: _mpinController.text.trim(),
       referenceMobileNumber: _referenceController.text.trim(),

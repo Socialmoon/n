@@ -8,6 +8,7 @@ import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/app_language_service.dart';
 import '../services/auth_service.dart';
+import 'device_verification_screen.dart';
 import '../services/member_repository.dart';
 import 'registration_screen.dart';
 
@@ -297,6 +298,36 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _submitting = false;
     });
+    if (result.requiresDeviceVerification && result.member != null) {
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => DeviceVerificationScreen(
+            member: result.member!,
+            onVerified: () async {
+              final completion =
+                  await widget.authService.completeDeviceVerification(
+                result.member!,
+              );
+              if (!mounted) {
+                return;
+              }
+              if (completion.isSuccess && completion.member != null) {
+                widget.onLoggedIn(completion.member!);
+              } else {
+                _showMessage(
+                  completion.error ??
+                      AppStrings.tr(languageCode, 'login_failed'),
+                );
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
     if (result.isSuccess) {
       widget.onLoggedIn(result.member!);
       return;
@@ -310,6 +341,33 @@ class _LoginScreenState extends State<LoginScreen> {
       mobileNumber: _mobileController.text.trim(),
     );
     if (!mounted) {
+      return;
+    }
+    if (result.requiresDeviceVerification && result.member != null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => DeviceVerificationScreen(
+            member: result.member!,
+            onVerified: () async {
+              final completion =
+                  await widget.authService.completeDeviceVerification(
+                result.member!,
+              );
+              if (!mounted) {
+                return;
+              }
+              if (completion.isSuccess && completion.member != null) {
+                widget.onLoggedIn(completion.member!);
+              } else {
+                _showMessage(
+                  completion.error ??
+                      AppStrings.tr(languageCode, 'biometric_login_failed'),
+                );
+              }
+            },
+          ),
+        ),
+      );
       return;
     }
     if (result.isSuccess) {

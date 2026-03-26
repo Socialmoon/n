@@ -10,7 +10,7 @@ class DeviceVerificationScreen extends StatefulWidget {
   });
 
   final Member member;
-  final VoidCallback onVerified;
+  final Future<void> Function() onVerified;
 
   @override
   State<DeviceVerificationScreen> createState() =>
@@ -24,7 +24,6 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
   bool _sendingOtp = false;
   bool _verifying = false;
   int _otpSentCount = 0;
-  bool _otpSent = false;
   int _remainingSeconds = 0;
 
   @override
@@ -75,7 +74,6 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
 
     setState(() {
       _sendingOtp = false;
-      _otpSent = true;
       _otpSentCount++;
       _remainingSeconds = 30;
     });
@@ -140,7 +138,11 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
     }
 
     // Device verified, proceed
-    widget.onVerified();
+    await widget.onVerified();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop(true);
     setState(() {
       _verifying = false;
     });
@@ -156,6 +158,9 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
     }
     final name = parts[0];
     final domain = parts[1];
+    if (name.length < 3) {
+      return '$name@$domain';
+    }
     final masked = name.replaceRange(1, name.length - 1, '*' * (name.length - 2));
     return '$masked@$domain';
   }

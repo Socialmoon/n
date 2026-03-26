@@ -13,6 +13,7 @@ This Flutter app now supports cloud sync through Supabase with local fallback.
    - [supabase/02_rls_policies.sql](supabase/02_rls_policies.sql)
   - [supabase/03_seed_admin.sql](supabase/03_seed_admin.sql) (after replacing placeholders)
   - [supabase/04_seed_test_member.sql](supabase/04_seed_test_member.sql) (optional, for non-admin test login)
+  - [supabase/13_member_email.sql](supabase/13_member_email.sql)
   - [supabase/05_help_feed.sql](supabase/05_help_feed.sql) (optional migration for existing databases)
   - [supabase/06_donations.sql](supabase/06_donations.sql) (optional migration for existing databases)
   - [supabase/07_help_feed_comments.sql](supabase/07_help_feed_comments.sql) (optional migration for existing databases)

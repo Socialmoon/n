@@ -9,6 +9,7 @@ insert into public.members (
   owner_id,
   name,
   mobile_number,
+  email,
   user_id,
   password_hash,
   mpin,
@@ -30,6 +31,7 @@ values (
   '6d1c8e08-a173-4171-ad20-0dc5e314bd69',
   'Control Room Admin',
   '9193410557',
+  'sainivaibhav742@gmail.com',
   'admin',
   '6d1a8c14a653079e16d4c1163f1231470c1958f6c728e5234f9db560e16a901a',
   '180000',
@@ -50,6 +52,7 @@ on conflict (id) do update
 set
   owner_id = excluded.owner_id,
   mobile_number = excluded.mobile_number,
+  email = excluded.email,
   password_hash = excluded.password_hash,
   mpin = excluded.mpin,
   is_admin = true,

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
@@ -171,6 +172,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.currentUser;
+    final needsPostingLocationUpdate =
+        (user.postingPlaceLocation?.trim().isEmpty ?? true);
     return Scaffold(
       appBar: AppBar(
         title: const BrandedScreenTitle('My Profile'),
@@ -209,6 +212,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          if (needsPostingLocationUpdate) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+              color: const Color(0xFFFFF3CD),
+              child: ListTile(
+                leading: const Icon(Icons.warning_amber_rounded),
+                title: const Text('Posting location not uploaded'),
+                subtitle: const Text(
+                  'Your posting place location is missing or marked as upload later. '
+                  'Please update it so members can locate you accurately.',
+                ),
+                trailing: FilledButton.tonal(
+                  onPressed: _openUpdateInfoPage,
+                  child: const Text('Update'),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Card(
             child: Padding(
@@ -362,10 +383,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user.emergencyContact ?? '-',
                   ),
                   _readOnlyRow(
-                    'Posting place location',
-                    user.postingPlaceLocation ?? '-',
-                  ),
-                  _readOnlyRow(
                     'Home village / mohalla',
                     user.homeVillageMohalla ?? '-',
                   ),
@@ -381,30 +398,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user.homeVillageLocation ?? '-',
                   ),
                   _readOnlyRow(
-                    'Live latitude',
-                    user.liveLatitude?.toStringAsFixed(6) ?? '-',
-                  ),
-                  _readOnlyRow(
-                    'Live longitude',
-                    user.liveLongitude?.toStringAsFixed(6) ?? '-',
-                  ),
-                  _readOnlyRow(
-                    'Live location updated',
-                    user.liveLocationUpdatedAt?.toString() ?? '-',
-                  ),
-                  _readOnlyRow(
                     'Appointment date',
                     '${user.appointmentDate.day}/${user.appointmentDate.month}/${user.appointmentDate.year}',
                   ),
                   _readOnlyRow(
                     'Status',
                     user.isBlocked ? 'Blocked' : 'Active',
-                  ),
-                  _readOnlyRow(
-                    'Pending update',
-                    (user.pendingUpdatePayload?.trim().isNotEmpty ?? false)
-                        ? 'Awaiting admin approval'
-                        : 'No',
                   ),
                 ],
               ),
@@ -633,7 +632,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final whatsappNumber = _whatsappController.text.trim();
     final callingContactNumber = _callingContactController.text.trim();
     final emergencyContact = _emergencyContactController.text.trim();
-    final postingPlaceLocation = _postingPlaceLocationController.text.trim();
     final currentProfile = _currentPublicProfileSnapshot(widget.currentUser);
     final currentPostingLocation =
         (currentProfile['postingLocation'] ?? '').toString().trim();
@@ -695,11 +693,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         !_isValidContactNumber(callingContactNumber) ||
         !_isValidContactNumber(emergencyContact)) {
       _showMessage('WhatsApp, Calling, and Emergency contact must be 10-digit numbers.');
-      return false;
-    }
-
-    if (!_isValidPostingPlaceLocation(postingPlaceLocation)) {
-      _showMessage('Posting place location must be empty, a valid URL, or lat,lng coordinates.');
       return false;
     }
 
@@ -854,17 +847,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return RegExp(r'^[0-9]{10}$').hasMatch(value);
   }
 
-  bool _isValidPostingPlaceLocation(String value) {
-    if (value.isEmpty) {
-      return true;
-    }
-    final uri = Uri.tryParse(value);
-    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty) {
-      return true;
-    }
-    return RegExp(r'^\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$').hasMatch(value);
-  }
-
   Map<String, dynamic> _currentPublicProfileSnapshot(Member member) {
     return <String, dynamic>{
       'name': member.name,
@@ -1008,6 +990,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   final LocationSuggestionService _locationSuggestions = LocationSuggestionService();
   List<String> _districtOptions = <String>[];
   List<String> _homeStationOptions = <String>[];
+  bool _fetchingPostingLocation = false;
 
   @override
   void initState() {
@@ -1143,6 +1126,57 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
     );
   }
 
+  Future<void> _fetchCurrentPostingLocation() async {
+    setState(() {
+      _fetchingPostingLocation = true;
+    });
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission is required.')),
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        widget.postingPlaceLocationController.text =
+            '${position.latitude},${position.longitude}';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Current location fetched successfully.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to fetch current location.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _fetchingPostingLocation = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1244,7 +1278,21 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: widget.postingPlaceLocationController,
-              decoration: const InputDecoration(labelText: 'Posting Place Location Link/Coords'),
+              decoration: const InputDecoration(labelText: 'Posting Place Location (GPS)'),
+              readOnly: true,
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _fetchingPostingLocation ? null : _fetchCurrentPostingLocation,
+                icon: const Icon(Icons.my_location_outlined),
+                label: Text(
+                  _fetchingPostingLocation
+                      ? 'Fetching current location...'
+                      : 'Fetch current location',
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
