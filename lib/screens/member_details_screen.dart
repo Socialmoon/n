@@ -269,16 +269,9 @@ class MemberDetailsScreen extends StatelessWidget {
 
   Future<void> _downloadMemberDetails(BuildContext context) async {
     final rows = _exportRows();
-    final lines = <String>[
-      'Member Details Export',
-      'Generated: ${DateTime.now().toLocal()}',
-      '',
-      ...rows.map((entry) => '${entry.key}: ${entry.value.isEmpty ? '-' : entry.value}'),
-    ];
-
-    final content = lines.join('\n');
+    final content = _buildExportHtml(rows);
     final fileName =
-        'member_${member.id}_details_${DateTime.now().millisecondsSinceEpoch}.txt';
+        'member_${member.id}_details_${DateTime.now().millisecondsSinceEpoch}.html';
 
     try {
       await SharePlus.instance.share(
@@ -287,7 +280,7 @@ class MemberDetailsScreen extends StatelessWidget {
           files: <XFile>[
             XFile.fromData(
               Uint8List.fromList(utf8.encode(content)),
-              mimeType: 'text/plain',
+              mimeType: 'text/html',
               name: fileName,
             ),
           ],
@@ -321,7 +314,6 @@ class MemberDetailsScreen extends StatelessWidget {
     ].join(' | ');
 
     final rows = <MapEntry<String, String>>[
-      MapEntry<String, String>('Profile Pic URL', member.selfiePath ?? ''),
       MapEntry<String, String>('Name', member.officialName ?? member.name),
       MapEntry<String, String>('Mobile Number', member.mobileNumber),
       MapEntry<String, String>('Sub Department', member.department ?? ''),
@@ -333,5 +325,83 @@ class MemberDetailsScreen extends StatelessWidget {
     ];
 
     return rows;
+  }
+
+  String _buildExportHtml(List<MapEntry<String, String>> rows) {
+    final details = rows
+        .map(
+          (entry) => '''
+            <div class="row">
+              <div class="label">${_escapeHtml(entry.key)}</div>
+              <div class="value">${entry.value.isEmpty ? '-' : _escapeHtml(entry.value)}</div>
+            </div>
+          ''',
+        )
+        .join();
+
+    final profileUrl = _safePhotoUrl(member.selfiePath);
+    final profileHtml = profileUrl == null
+        ? '<div class="avatar-fallback">No Photo</div>'
+        : '<img class="avatar" src="$profileUrl" alt="Member photo" />';
+
+    return '''
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Member Details Export</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f7fb; padding: 24px; color: #123; }
+    .card { max-width: 680px; margin: 0 auto; background: #fff; border: 1px solid #dde6ec; border-radius: 14px; overflow: hidden; }
+    .head { background: linear-gradient(135deg, #123c56, #266d7a); color: #fff; padding: 16px 18px; }
+    .head h1 { margin: 0; font-size: 20px; }
+    .head p { margin: 6px 0 0; font-size: 13px; color: #e2eef3; }
+    .photo-wrap { padding: 16px 16px 0; }
+    .avatar { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 2px solid #d6e2ea; }
+    .avatar-fallback { width: 84px; height: 84px; border-radius: 50%; border: 2px dashed #c4d2db; color: #5a6b74; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: #f7fbfd; }
+    .body { padding: 14px 16px; }
+    .row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #e6edf2; }
+    .row:last-child { border-bottom: none; }
+    .label { font-size: 12px; color: #5a6b74; font-weight: 600; }
+    .value { font-size: 13px; color: #1c2f38; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <h1>Member Details Export</h1>
+      <p>Generated: ${DateTime.now().toLocal()}</p>
+    </div>
+    <div class="photo-wrap">
+      $profileHtml
+    </div>
+    <div class="body">
+      $details
+    </div>
+  </div>
+</body>
+</html>
+''';
+  }
+
+  String? _safePhotoUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty) {
+      return null;
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return _escapeHtml(url);
+    }
+    return null;
+  }
+
+  String _escapeHtml(String value) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
   }
 }

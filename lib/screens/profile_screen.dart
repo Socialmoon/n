@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
 
@@ -314,6 +314,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: const Text('Open'),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(_saving ? 'Saving...' : 'Save Basic Changes'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -463,14 +472,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Home District': _homeDistrictController.text.trim(),
       'Posting State': _postingStateController.text.trim(),
       'Posting District': _postingDistrictController.text.trim(),
-      'Sub Department': _departmentController.text.trim(),
-      'Rank': _postRankController.text.trim(),
-      'Official Name': _officialNameController.text.trim(),
-      'Batch Year': _batchYearController.text.trim(),
-      'Gender': _genderController.text.trim(),
-      'Marital Status': _maritalStatusController.text.trim(),
-      'Posting Category': _postingCategoryController.text.trim(),
-      'Posting Work As': _postingWorkAsController.text.trim(),
       'Whatsapp Number': _whatsappController.text.trim(),
       'Calling Contact Number': _callingContactController.text.trim(),
       'Emergency Contact': _emergencyContactController.text.trim(),
@@ -490,14 +491,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           homeDistrictController: _homeDistrictController,
           postingStateController: _postingStateController,
           postingDistrictController: _postingDistrictController,
-          departmentController: _departmentController,
-          postRankController: _postRankController,
-          officialNameController: _officialNameController,
-          batchYearController: _batchYearController,
-          genderController: _genderController,
-          maritalStatusController: _maritalStatusController,
-          postingCategoryController: _postingCategoryController,
-          postingWorkAsController: _postingWorkAsController,
           whatsappController: _whatsappController,
           callingContactController: _callingContactController,
           emergencyContactController: _emergencyContactController,
@@ -631,9 +624,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {});
   }
 
-  Future<void> _save() async {
+  Future<bool> _save() async {
     final name = _nameController.text.trim();
     final postingLocation = _postingLocationController.text.trim();
+    final homeDistrict = _homeDistrictController.text.trim();
+    final postingDistrict = _postingDistrictController.text.trim();
+    final homePoliceStation = _homePoliceStationController.text.trim();
+    final whatsappNumber = _whatsappController.text.trim();
+    final callingContactNumber = _callingContactController.text.trim();
+    final emergencyContact = _emergencyContactController.text.trim();
+    final postingPlaceLocation = _postingPlaceLocationController.text.trim();
     final currentProfile = _currentPublicProfileSnapshot(widget.currentUser);
     final currentPostingLocation =
         (currentProfile['postingLocation'] ?? '').toString().trim();
@@ -642,16 +642,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (name.isEmpty) {
       _showMessage('Name cannot be empty.');
-      return;
+      return false;
     }
     if (!_namePattern.hasMatch(name)) {
       _showMessage('Enter a valid name (letters and spaces only).');
-      return;
+      return false;
     }
 
     if (postingLocation.isEmpty) {
       _showMessage('Posting location cannot be empty.');
-      return;
+      return false;
     }
 
     if (postingLocationChanged) {
@@ -661,8 +661,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       if (!validStation) {
         _showMessage('Choose a valid police station from suggestions.');
-        return;
+        return false;
       }
+    }
+
+    if (homeDistrict.isEmpty || postingDistrict.isEmpty || homePoliceStation.isEmpty) {
+      _showMessage('Home district, posting district, and home police station are required.');
+      return false;
+    }
+
+    final homeDistrictValid = await _locationSuggestions.isKnownDistrict(homeDistrict);
+    if (!homeDistrictValid) {
+      _showMessage('Choose a valid home district from options.');
+      return false;
+    }
+
+    final postingDistrictValid = await _locationSuggestions.isKnownDistrict(postingDistrict);
+    if (!postingDistrictValid) {
+      _showMessage('Choose a valid posting district from options.');
+      return false;
+    }
+
+    final homeStationValid = await _locationSuggestions.isKnownStation(
+      station: homePoliceStation,
+      district: homeDistrict,
+    );
+    if (!homeStationValid) {
+      _showMessage('Choose a valid home police station from options.');
+      return false;
+    }
+
+    if (!_isValidContactNumber(whatsappNumber) ||
+        !_isValidContactNumber(callingContactNumber) ||
+        !_isValidContactNumber(emergencyContact)) {
+      _showMessage('WhatsApp, Calling, and Emergency contact must be 10-digit numbers.');
+      return false;
+    }
+
+    if (!_isValidPostingPlaceLocation(postingPlaceLocation)) {
+      _showMessage('Posting place location must be empty, a valid URL, or lat,lng coordinates.');
+      return false;
     }
 
     setState(() {
@@ -680,7 +718,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       if (uploaded == null) {
         if (!mounted) {
-          return;
+          return false;
         }
         setState(() {
           _saving = false;
@@ -690,7 +728,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? 'Unable to upload profile photo to cloud. Please retry.'
             : 'Unable to upload profile photo to cloud: $uploadError';
         _showMessage(message);
-        return;
+        return false;
       }
       selfiePath = uploaded;
     }
@@ -734,14 +772,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'homeDistrict': _homeDistrictController.text.trim(),
         'postingState': _postingStateController.text.trim(),
         'postingDistrict': _postingDistrictController.text.trim(),
-        'department': _departmentController.text.trim(),
-        'postRank': _postRankController.text.trim(),
-        'officialName': _officialNameController.text.trim(),
-        'batchYear': _batchYearController.text.trim(),
-        'gender': _genderController.text.trim(),
-        'maritalStatus': _maritalStatusController.text.trim(),
-        'postingCategory': _postingCategoryController.text.trim(),
-        'postingWorkAs': _postingWorkAsController.text.trim(),
         'whatsappNumber': _whatsappController.text.trim(),
         'callingContactNumber': _callingContactController.text.trim(),
         'emergencyContact': _emergencyContactController.text.trim(),
@@ -769,7 +799,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _saving = false;
         });
         _showMessage('No changes detected. Update at least one field.');
-        return;
+        return false;
       }
 
       updated = widget.currentUser.copyWith(
@@ -781,7 +811,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final saved = await widget.repository.saveMember(updated);
 
     if (!mounted) {
-      return;
+      return false;
     }
 
     if (!saved) {
@@ -793,7 +823,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? 'Unable to save profile to cloud. Please retry.'
           : 'Unable to save profile to cloud: $writeError';
       _showMessage(message);
-      return;
+      return false;
     }
 
     widget.onProfileUpdated?.call(updated);
@@ -808,12 +838,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // In main tab flow it is embedded and should remain on screen.
     if (widget.onProfileUpdated == null) {
       Navigator.of(context).pop(updated);
-      return;
+      return true;
     }
 
     _showMessage(widget.currentUser.isAdmin
         ? 'Profile updated successfully.'
         : 'Update request sent to admin for approval.');
+    return true;
+  }
+
+  bool _isValidContactNumber(String value) {
+    if (value.isEmpty) {
+      return true;
+    }
+    return RegExp(r'^[0-9]{10}$').hasMatch(value);
+  }
+
+  bool _isValidPostingPlaceLocation(String value) {
+    if (value.isEmpty) {
+      return true;
+    }
+    final uri = Uri.tryParse(value);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty) {
+      return true;
+    }
+    return RegExp(r'^\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$').hasMatch(value);
   }
 
   Map<String, dynamic> _currentPublicProfileSnapshot(Member member) {
@@ -912,20 +961,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileUpdateInfoScreen extends StatelessWidget {
+class _ProfileUpdateInfoScreen extends StatefulWidget {
   const _ProfileUpdateInfoScreen({
     required this.homeStateController,
     required this.homeDistrictController,
     required this.postingStateController,
     required this.postingDistrictController,
-    required this.departmentController,
-    required this.postRankController,
-    required this.officialNameController,
-    required this.batchYearController,
-    required this.genderController,
-    required this.maritalStatusController,
-    required this.postingCategoryController,
-    required this.postingWorkAsController,
     required this.whatsappController,
     required this.callingContactController,
     required this.emergencyContactController,
@@ -945,14 +986,6 @@ class _ProfileUpdateInfoScreen extends StatelessWidget {
   final TextEditingController homeDistrictController;
   final TextEditingController postingStateController;
   final TextEditingController postingDistrictController;
-  final TextEditingController departmentController;
-  final TextEditingController postRankController;
-  final TextEditingController officialNameController;
-  final TextEditingController batchYearController;
-  final TextEditingController genderController;
-  final TextEditingController maritalStatusController;
-  final TextEditingController postingCategoryController;
-  final TextEditingController postingWorkAsController;
   final TextEditingController whatsappController;
   final TextEditingController callingContactController;
   final TextEditingController emergencyContactController;
@@ -965,7 +998,150 @@ class _ProfileUpdateInfoScreen extends StatelessWidget {
   final TextEditingController homeVillageLocationController;
   final Map<String, String> previousValues;
   final bool saving;
-  final Future<void> Function() onSave;
+  final Future<bool> Function() onSave;
+
+  @override
+  State<_ProfileUpdateInfoScreen> createState() => _ProfileUpdateInfoScreenState();
+}
+
+class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
+  final LocationSuggestionService _locationSuggestions = LocationSuggestionService();
+  List<String> _districtOptions = <String>[];
+  List<String> _homeStationOptions = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDistrictOptions());
+    unawaited(_loadHomeStationOptions());
+  }
+
+  Future<void> _loadDistrictOptions() async {
+    final districts = await _locationSuggestions.allDistricts();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _districtOptions = districts;
+    });
+  }
+
+  Future<void> _loadHomeStationOptions() async {
+    final stations = await _locationSuggestions.allPoliceStations(
+      district: widget.homeDistrictController.text.trim(),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _homeStationOptions = stations;
+    });
+  }
+
+  Future<void> _pickFromList({
+    required String title,
+    required List<String> options,
+    required TextEditingController controller,
+    ValueChanged<String>? onSelected,
+  }) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final searchController = TextEditingController();
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = query.trim().isEmpty
+                ? options
+                : options
+                    .where((item) => item.toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: searchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Search',
+                        suffixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (value) {
+                        setSheetState(() {
+                          query = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('No matches found.'))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final item = filtered[index];
+                                return ListTile(
+                                  title: Text(item),
+                                  onTap: () => Navigator.of(context).pop(item),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    final selected = (result ?? '').trim();
+    if (selected.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      controller.text = selected;
+    });
+    onSelected?.call(selected);
+  }
+
+  Widget _buildSelectionField(
+    TextEditingController controller,
+    String label, {
+    required VoidCallback onTap,
+    String? hint,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AbsorbPointer(
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -992,7 +1168,7 @@ class _ProfileUpdateInfoScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
-                  ...previousValues.entries.map(
+                  ...widget.previousValues.entries.map(
                     (entry) => _infoRow(entry.key, entry.value),
                   ),
                 ],
@@ -1005,130 +1181,119 @@ class _ProfileUpdateInfoScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeStateController,
+              controller: widget.homeStateController,
               decoration: const InputDecoration(labelText: 'Home State'),
+              readOnly: true,
+            ),
+            const SizedBox(height: 8),
+            _buildSelectionField(
+              widget.homeDistrictController,
+              'Home District',
+              hint: 'Tap to choose district',
+              onTap: () => _pickFromList(
+                title: 'Select Home District',
+                options: _districtOptions,
+                controller: widget.homeDistrictController,
+                onSelected: (_) {
+                  widget.homePoliceStationController.clear();
+                  unawaited(_loadHomeStationOptions());
+                },
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeDistrictController,
-              decoration: const InputDecoration(labelText: 'Home District'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: postingStateController,
+              controller: widget.postingStateController,
               decoration: const InputDecoration(labelText: 'Posting State'),
+              readOnly: true,
+            ),
+            const SizedBox(height: 8),
+            _buildSelectionField(
+              widget.postingDistrictController,
+              'Posting District',
+              hint: 'Tap to choose district',
+              onTap: () => _pickFromList(
+                title: 'Select Posting District',
+                options: _districtOptions,
+                controller: widget.postingDistrictController,
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: postingDistrictController,
-              decoration: const InputDecoration(labelText: 'Posting District'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: departmentController,
-              decoration: const InputDecoration(labelText: 'Sub Department'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: postRankController,
-              decoration: const InputDecoration(labelText: 'Rank'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: officialNameController,
-              decoration: const InputDecoration(labelText: 'Official Name'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: batchYearController,
-              decoration: const InputDecoration(labelText: 'Batch Year'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: genderController,
-              decoration: const InputDecoration(labelText: 'Gender'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: maritalStatusController,
-              decoration: const InputDecoration(labelText: 'Marital Status'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: postingCategoryController,
-              decoration: const InputDecoration(labelText: 'Posting Category'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: postingWorkAsController,
-              decoration: const InputDecoration(labelText: 'Posting Work As'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: whatsappController,
+              controller: widget.whatsappController,
               decoration: const InputDecoration(labelText: 'Whatsapp Number'),
               keyboardType: TextInputType.phone,
+              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+              maxLength: 10,
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: callingContactController,
+              controller: widget.callingContactController,
               decoration: const InputDecoration(labelText: 'Calling Contact Number'),
               keyboardType: TextInputType.phone,
+              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+              maxLength: 10,
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: emergencyContactController,
+              controller: widget.emergencyContactController,
               decoration: const InputDecoration(labelText: 'Emergency Contact'),
               keyboardType: TextInputType.phone,
+              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+              maxLength: 10,
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: postingPlaceLocationController,
+              controller: widget.postingPlaceLocationController,
               decoration: const InputDecoration(labelText: 'Posting Place Location Link/Coords'),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeVillageMohallaController,
+              controller: widget.homeVillageMohallaController,
               decoration: const InputDecoration(labelText: 'Home Village / Mohalla'),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeGaliNoController,
+              controller: widget.homeGaliNoController,
               decoration: const InputDecoration(labelText: 'Home Gali No'),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homePostOfficeController,
+              controller: widget.homePostOfficeController,
               decoration: const InputDecoration(labelText: 'Home Post Office'),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: homePoliceStationController,
-              decoration: const InputDecoration(labelText: 'Home Police Station'),
+            _buildSelectionField(
+              widget.homePoliceStationController,
+              'Home Police Station',
+              hint: 'Tap to choose station',
+              onTap: () => _pickFromList(
+                title: 'Select Home Police Station',
+                options: _homeStationOptions,
+                controller: widget.homePoliceStationController,
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeTehsilController,
+              controller: widget.homeTehsilController,
               decoration: const InputDecoration(labelText: 'Home Tehsil'),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: homeVillageLocationController,
+              controller: widget.homeVillageLocationController,
               decoration: const InputDecoration(labelText: 'Home Village Location'),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: saving
+              onPressed: widget.saving
                   ? null
                   : () async {
-                      await onSave();
-                      if (context.mounted) {
+                      final success = await widget.onSave();
+                      if (success && context.mounted) {
                         Navigator.of(context).pop();
                       }
                     },
               icon: const Icon(Icons.save_outlined),
-              label: Text(saving ? 'Saving...' : 'Submit Update Request'),
+              label: Text(widget.saving ? 'Saving...' : 'Submit Update Request'),
             ),
           ],
         ),

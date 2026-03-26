@@ -70,6 +70,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       HelpFeedScreen(
         currentUser: widget.currentUser,
         helpFeedService: widget.helpFeedService,
+        repository: widget.repository,
       ),
       DonationScreen(
         currentUser: widget.currentUser,

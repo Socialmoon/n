@@ -43,6 +43,11 @@ class Member {
     required this.passwordUpdatedAt,
     this.selfiePath,
     this.idCardPhotoPath,
+    this.email,
+    this.emailVerified = false,
+    this.deviceId,
+    this.deviceFingerprint,
+    this.deviceBindingUpdatedAt,
     this.isAdmin = false,
     this.isBlocked = false,
     this.isApproved = false,
@@ -64,6 +69,11 @@ class Member {
   final String? referenceMemberName;
   final String? selfiePath;
   final String? idCardPhotoPath;
+  final String? email;
+  final bool emailVerified;
+  final String? deviceId;
+  final String? deviceFingerprint;
+  final DateTime? deviceBindingUpdatedAt;
   final String homeDistrict;
   final String? homeState;
   final String postingDistrict;
@@ -165,7 +175,12 @@ class Member {
     String? pendingUpdatePayload,
     bool clearPendingUpdatePayload = false,
     String? previousPublicProfileSnapshot,
-  }) {
+    String? email,
+    bool? emailVerified,
+    String? deviceId,
+    String? deviceFingerprint,
+    DateTime? deviceBindingUpdatedAt,
+  ) {
     return Member(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -226,6 +241,11 @@ class Member {
           : (pendingUpdatePayload ?? this.pendingUpdatePayload),
       previousPublicProfileSnapshot:
           previousPublicProfileSnapshot ?? this.previousPublicProfileSnapshot,
+      email: email ?? this.email,
+      emailVerified: emailVerified ?? this.emailVerified,
+      deviceId: deviceId ?? this.deviceId,
+      deviceFingerprint: deviceFingerprint ?? this.deviceFingerprint,
+      deviceBindingUpdatedAt: deviceBindingUpdatedAt ?? this.deviceBindingUpdatedAt,
     );
   }
 
@@ -287,6 +307,11 @@ class Member {
       'deletedAt': deletedAt?.toIso8601String(),
       'pendingUpdatePayload': pendingUpdatePayload,
       'previousPublicProfileSnapshot': previousPublicProfileSnapshot,
+      'email': email,
+      'emailVerified': emailVerified,
+      'deviceId': deviceId,
+      'deviceFingerprint': deviceFingerprint,
+      'deviceBindingUpdatedAt': deviceBindingUpdatedAt?.toIso8601String(),
     };
   }
 
@@ -351,6 +376,13 @@ class Member {
         pendingUpdatePayload: map['pendingUpdatePayload'] as String?,
         previousPublicProfileSnapshot:
           map['previousPublicProfileSnapshot'] as String?,
+        email: map['email'] as String?,
+        emailVerified: map['emailVerified'] as bool? ?? false,
+        deviceId: map['deviceId'] as String?,
+        deviceFingerprint: map['deviceFingerprint'] as String?,
+        deviceBindingUpdatedAt: map['deviceBindingUpdatedAt'] == null
+          ? null
+          : DateTime.parse(map['deviceBindingUpdatedAt'] as String),
     );
   }
 

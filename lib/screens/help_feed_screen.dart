@@ -5,17 +5,20 @@ import '../core/brand.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
+import '../services/member_repository.dart';
 import 'post_new_request_screen.dart';
 
 class HelpFeedScreen extends StatefulWidget {
   const HelpFeedScreen({
     required this.currentUser,
     required this.helpFeedService,
+    required this.repository,
     super.key,
   });
 
   final Member currentUser;
   final HelpFeedService helpFeedService;
+  final MemberRepository repository;
 
   @override
   State<HelpFeedScreen> createState() => _HelpFeedScreenState();
@@ -31,37 +34,10 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     'Other',
   ];
 
-  final TextEditingController _feedSearchController = TextEditingController();
-  String _activeCategory = 'All';
-
-  @override
-  void dispose() {
-    _feedSearchController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
-    final allPosts = widget.helpFeedService.posts;
-    final emergencyCount =
-        allPosts.where((post) => post.category == 'Emergency').length;
-    final query = _feedSearchController.text.trim().toLowerCase();
-
-    final posts = allPosts.where((post) {
-      final matchesCategory =
-          _activeCategory == 'All' || post.category == _activeCategory;
-      if (!matchesCategory) {
-        return false;
-      }
-      if (query.isEmpty) {
-        return true;
-      }
-      return post.memberName.toLowerCase().contains(query) ||
-          post.location.toLowerCase().contains(query) ||
-          post.category.toLowerCase().contains(query) ||
-          post.message.toLowerCase().contains(query);
-    }).toList();
+    final posts = widget.helpFeedService.posts;
 
     return Scaffold(
       appBar: AppBar(
@@ -83,122 +59,21 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: const LinearGradient(
-                  colors: <Color>[Color(0xFF0B3140), Color(0xFF235E6E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x33092634),
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    isHindi ? 'समुदाय सहायता फीड' : 'Community Support Feed',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isHindi
-                        ? 'सभी रिक्वेस्ट, कमेंट और तेज़ संपर्क एक जगह।'
-                        : 'Requests, comments, and instant contact in one place.',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildMetricTile(
-                          icon: Icons.forum_outlined,
-                          label: isHindi ? 'कुल पोस्ट' : 'Total posts',
-                          value: '${posts.length}',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildMetricTile(
-                          icon: Icons.warning_amber_outlined,
-                          label: isHindi ? 'आपातकाल' : 'Emergency',
-                          value: '$emergencyCount',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                isHindi ? 'हाल की मदद रिक्वेस्ट' : 'Recent help requests',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _feedSearchController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: isHindi
-                    ? 'नाम, श्रेणी, स्थान या संदेश से खोजें'
-                    : 'Search by name, category, place, or message',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _feedSearchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _feedSearchController.clear();
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.close),
-                        tooltip: isHindi ? 'साफ करें' : 'Clear',
-                      ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _helpCategories.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final category = index == 0 ? 'All' : _helpCategories[index - 1];
-                  final count = category == 'All'
-                      ? allPosts.length
-                      : allPosts.where((post) => post.category == category).length;
-                  return FilterChip(
-                    selected: category == _activeCategory,
-                    onSelected: (_) {
-                      setState(() {
-                        _activeCategory = category;
-                      });
-                    },
-                    label: Text('$category ($count)'),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 14),
             if (posts.isEmpty)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Text(
-                    (query.isNotEmpty || _activeCategory != 'All')
-                        ? (isHindi
-                            ? 'मौजूदा फ़िल्टर में कोई रिक्वेस्ट नहीं मिली।'
-                            : 'No requests match the current search/filter.')
-                        : (isHindi
-                            ? 'अभी कोई रिक्वेस्ट नहीं है। पहली मदद पोस्ट करें।'
-                            : 'No requests yet. Share the first update to activate nearby support.'),
+                    isHindi
+                        ? 'अभी कोई रिक्वेस्ट नहीं है। पहली मदद पोस्ट करें।'
+                        : 'No requests yet. Share the first update to activate nearby support.',
                   ),
                 ),
               ),
@@ -209,44 +84,14 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     );
   }
 
-  Widget _buildMetricTile({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: const Color(0x2EFFFFFF),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 18, color: const Color(0xFF0F3A4A)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(label, style: const TextStyle(fontSize: 12)),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHelpPostCard(HelpPost post) {
     final comments = widget.helpFeedService.commentsFor(post.id);
     final commentCount = comments.length;
+    final member = widget.repository.findById(post.memberId);
+    final profileUrl = member?.selfiePath?.trim() ?? '';
+    final initial = post.memberName.isEmpty
+      ? '?'
+      : post.memberName.substring(0, 1).toUpperCase();
     final timestamp =
         '${post.createdAt.day}/${post.createdAt.month}/${post.createdAt.year} ${post.createdAt.hour.toString().padLeft(2, '0')}:${post.createdAt.minute.toString().padLeft(2, '0')}';
 
@@ -268,16 +113,31 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFFE8F0F5),
-                    child: Text(
-                      post.memberName.isEmpty
-                          ? '?'
-                          : post.memberName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
+                  profileUrl.isEmpty
+                      ? CircleAvatar(
+                          radius: 16,
+                          backgroundColor: const Color(0xFFE8F0F5),
+                          child: Text(
+                            initial,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        )
+                      : ClipOval(
+                          child: Image.network(
+                            profileUrl,
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFFE8F0F5),
+                              child: Text(
+                                initial,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                        ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -294,6 +154,12 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    onPressed: () => _openPhone(post.memberMobile),
+                    icon: const Icon(Icons.call_outlined, size: 18),
+                    tooltip: 'Call',
+                    visualDensity: VisualDensity.compact,
                   ),
                   Container(
                     padding:
@@ -353,44 +219,6 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openPhone(post.memberMobile),
-                      icon: const Icon(Icons.call_outlined, size: 16),
-                      label: const Text('Call'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openWhatsApp(post.memberMobile),
-                      icon: const Icon(Icons.chat_outlined, size: 16),
-                      label: const Text('WhatsApp'),
-                    ),
-                  ),
-                  if (widget.currentUser.isAdmin ||
-                      widget.currentUser.id == post.memberId) ...<Widget>[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => _deletePost(post),
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Delete feed post',
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => _openPostDetail(post),
-                  icon: const Icon(Icons.forum_outlined),
-                  label: const Text('Open Discussion'),
-                ),
-              ),
             ],
           ),
         ),
@@ -429,55 +257,9 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
         .showSnackBar(const SnackBar(content: Text('Help request posted.')));
   }
 
-  Future<void> _deletePost(HelpPost post) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete feed post'),
-          content: const Text('This will remove the post and related comments.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    final deleted = await widget.helpFeedService.deletePost(post.id);
-
-    if (!mounted) {
-      return;
-    }
-    if (!deleted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete post in cloud. Please retry.')),
-      );
-      return;
-    }
-    setState(() {});
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Feed post deleted.')));
-  }
-
   Future<void> _openPhone(String mobile) async {
     final uri = Uri.parse('tel:$mobile');
     await launchUrl(uri);
-  }
-
-  Future<void> _openWhatsApp(String mobile) async {
-    final uri = Uri.parse('https://wa.me/91$mobile');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openPostDetail(HelpPost post) async {
@@ -562,6 +344,23 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text('${widget.post.memberName} • ${widget.post.location}'),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            OutlinedButton.icon(
+                              onPressed: () => _openPhone(widget.post.memberMobile),
+                              icon: const Icon(Icons.call_outlined),
+                              label: const Text('Call'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => _openWhatsApp(widget.post.memberMobile),
+                              icon: const Icon(Icons.chat_outlined),
+                              label: const Text('WhatsApp'),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -737,5 +536,15 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Comment deleted.')),
     );
+  }
+
+  Future<void> _openPhone(String mobile) async {
+    final uri = Uri.parse('tel:$mobile');
+    await launchUrl(uri);
+  }
+
+  Future<void> _openWhatsApp(String mobile) async {
+    final uri = Uri.parse('https://wa.me/91$mobile');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }

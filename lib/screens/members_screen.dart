@@ -286,87 +286,87 @@ class _MembersScreenState extends State<MembersScreen> {
 
     final card = Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                _buildAvatar(member),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        member.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: member.isRetired ? const Color(0xFF8B6A29) : null,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openMemberDetails(member),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _buildAvatar(member),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          member.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: member.isRetired ? const Color(0xFF8B6A29) : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${member.postRank ?? '-'} • ${member.batchYear ?? '-'}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
-                      ),
-                      Text(
-                        member.postingLocation,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          '${member.postRank ?? '-'} • ${member.batchYear ?? '-'}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+                        ),
+                        Text(
+                          member.postingLocation,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (member.isRetired)
-                  const Chip(
-                    label: Text('Retired'),
-                    backgroundColor: Color(0xFFFFF4D6),
-                    visualDensity: VisualDensity.compact,
+                  if (member.isRetired)
+                    const Chip(
+                      label: Text('Retired'),
+                      backgroundColor: Color(0xFFFFF4D6),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      blocked ? 'Status: Blocked' : 'Last Login: $lastLogin',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    blocked ? 'Status: Blocked' : 'Last Login: $lastLogin',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
-                  ),
-                ),
-                if (!blocked)
-                  IconButton(
-                    onPressed: () => _openPhone(member.mobileNumber),
-                    icon: const Icon(Icons.call_outlined, size: 20),
-                    tooltip: 'Call',
-                  ),
-                FilledButton.tonal(
-                  onPressed: () => _openMemberDetails(member),
-                  child: const Text('Details'),
-                ),
-                if (widget.currentUser.isAdmin && !isCurrentUser)
-                  PopupMenuButton<String>(
-                    tooltip: 'Admin actions',
-                    onSelected: (value) => _handleAdminAction(member, value),
-                    itemBuilder: (context) => <PopupMenuEntry<String>>[
-                      PopupMenuItem<String>(
-                        value: member.isBlocked ? 'unblock' : 'block',
-                        child: Text(member.isBlocked ? 'Unblock' : 'Block'),
-                      ),
-                      PopupMenuItem<String>(
-                        value: member.isRetired ? 'unretire' : 'retire',
-                        child: Text(member.isRetired ? 'Mark Active' : 'Mark Retired'),
-                      ),
-                      PopupMenuItem<String>(
-                        value: member.isDeleted ? 'restore' : 'delete',
-                        child: Text(member.isDeleted ? 'Restore' : 'Delete'),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
+                  if (!blocked)
+                    IconButton(
+                      onPressed: () => _openPhone(member.mobileNumber),
+                      icon: const Icon(Icons.call_outlined, size: 20),
+                      tooltip: 'Call',
+                    ),
+                  if (widget.currentUser.isAdmin && !isCurrentUser)
+                    PopupMenuButton<String>(
+                      tooltip: 'Admin actions',
+                      onSelected: (value) => _handleAdminAction(member, value),
+                      itemBuilder: (context) => <PopupMenuEntry<String>>[
+                        PopupMenuItem<String>(
+                          value: member.isBlocked ? 'unblock' : 'block',
+                          child: Text(member.isBlocked ? 'Unblock' : 'Block'),
+                        ),
+                        PopupMenuItem<String>(
+                          value: member.isRetired ? 'unretire' : 'retire',
+                          child: Text(member.isRetired ? 'Mark Active' : 'Mark Retired'),
+                        ),
+                        PopupMenuItem<String>(
+                          value: member.isDeleted ? 'restore' : 'delete',
+                          child: Text(member.isDeleted ? 'Restore' : 'Delete'),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

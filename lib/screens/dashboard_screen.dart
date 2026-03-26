@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/brand.dart';
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
@@ -8,6 +7,7 @@ import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
 import '../services/member_repository.dart';
 import '../services/app_settings_service.dart';
+import '../core/brand.dart';
 import 'donation_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
@@ -145,7 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const BrandLogo(size: 42),
+                _buildHeaderAvatar(widget.currentUser),
                 const SizedBox(height: 12),
                 Text(
                   'Welcome, ${widget.currentUser.name}',
@@ -178,10 +178,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildQuickActions(),
           const SizedBox(height: 20),
-          const SizedBox(height: 4),
-          const Text('Visible member data excludes home district.'),
-          const Text('Admin accounts can see it in the cards below.'),
-          const SizedBox(height: 12),
           const SizedBox(height: 24),
           const Text(
             'Recent emergency alerts',
@@ -384,6 +380,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) => HelpFeedScreen(
           currentUser: widget.currentUser,
           helpFeedService: widget.helpFeedService,
+          repository: widget.repository,
         ),
       ),
     );
@@ -463,6 +460,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (action == 'profile') {
       await _openProfile();
     }
+  }
+
+  Widget _buildHeaderAvatar(Member member) {
+    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+    if (selfieUrl.isEmpty) {
+      return CircleAvatar(
+        radius: 24,
+        backgroundColor: const Color(0x33FFFFFF),
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+    return ClipOval(
+      child: Image.network(
+        selfieUrl,
+        width: 48,
+        height: 48,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          radius: 24,
+          backgroundColor: const Color(0x33FFFFFF),
+          child: Text(
+            initial,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openSettings() async {
