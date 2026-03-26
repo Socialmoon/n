@@ -299,51 +299,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Widget _buildStepStrip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9F5EB),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: Row(
-        children: List<Widget>.generate(_steps.length, (int index) {
-        final active = index == _currentStep;
-        final complete = index < _currentStep;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: index == _steps.length - 1 ? 0 : 8),
-            child: Column(
-              children: <Widget>[
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: complete
-                        ? _ink
-                        : active
-                            ? _accent
-                            : const Color(0xFFD5D0C3),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _steps[index],
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active
-                        ? _ink
-                        : const Color(0xFF5A6B74),
-                  ),
-                ),
-              ],
-            ),
+    final progress = (_currentStep + 1) / _steps.length;
+    return Column(
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: const Color(0xFFE0DDD5),
+            valueColor: AlwaysStoppedAnimation<Color>(_ink),
           ),
-        );
-      }),
-      ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Step ${_currentStep + 1} of ${_steps.length}: ${_steps[_currentStep]}',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF5A6B74),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 
