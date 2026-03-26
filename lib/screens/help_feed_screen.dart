@@ -269,7 +269,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   CircleAvatar(
-                    radius: 18,
+                    radius: 16,
                     backgroundColor: const Color(0xFFE8F0F5),
                     child: Text(
                       post.memberName.isEmpty
@@ -278,7 +278,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +312,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF7FAFC),
                   borderRadius: BorderRadius.circular(12),
@@ -320,10 +320,10 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                 ),
                 child: Text(
                   post.message,
-                  style: const TextStyle(fontSize: 15, height: 1.35),
+                  style: const TextStyle(fontSize: 14, height: 1.3),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: <Widget>[
                   const Icon(Icons.schedule, size: 15, color: Color(0xFF5A6B74)),
@@ -338,7 +338,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF4F8),
                       borderRadius: BorderRadius.circular(999),
@@ -346,20 +346,20 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                     child: Text(
                       '$commentCount comments',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: <Widget>[
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _openPhone(post.memberMobile),
-                      icon: const Icon(Icons.call_outlined, size: 18),
+                      icon: const Icon(Icons.call_outlined, size: 16),
                       label: const Text('Call'),
                     ),
                   ),
@@ -367,7 +367,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _openWhatsApp(post.memberMobile),
-                      icon: const Icon(Icons.chat_outlined, size: 18),
+                      icon: const Icon(Icons.chat_outlined, size: 16),
                       label: const Text('WhatsApp'),
                     ),
                   ),

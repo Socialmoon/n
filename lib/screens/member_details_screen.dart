@@ -268,12 +268,12 @@ class MemberDetailsScreen extends StatelessWidget {
   }
 
   Future<void> _downloadMemberDetails(BuildContext context) async {
+    final rows = _exportRows();
     final lines = <String>[
       'Member Details Export',
       'Generated: ${DateTime.now().toLocal()}',
       '',
-      ..._exportRows()
-          .map((entry) => '${entry.key}: ${entry.value.isEmpty ? '-' : entry.value}'),
+      ...rows.map((entry) => '${entry.key}: ${entry.value.isEmpty ? '-' : entry.value}'),
     ];
 
     final content = lines.join('\n');
@@ -305,56 +305,31 @@ class MemberDetailsScreen extends StatelessWidget {
   }
 
   List<MapEntry<String, String>> _exportRows() {
+    final postingDetails = <String>[
+      member.postingDistrict,
+      member.postingLocation,
+      if ((member.postingCategory ?? '').trim().isNotEmpty)
+        'Category: ${member.postingCategory}',
+      if ((member.postingWorkAs ?? '').trim().isNotEmpty)
+        'Work As: ${member.postingWorkAs}',
+    ].where((item) => item.trim().isNotEmpty).join(' | ');
+
+    final contactDetails = <String>[
+      'Whatsapp: ${member.whatsappNumber ?? ''}',
+      'Calling: ${member.callingContactNumber ?? ''}',
+      'Emergency: ${member.emergencyContact ?? ''}',
+    ].join(' | ');
+
     final rows = <MapEntry<String, String>>[
-      MapEntry<String, String>('Member ID', member.id),
-      MapEntry<String, String>('Name', member.name),
-      MapEntry<String, String>('Official Name', member.officialName ?? ''),
+      MapEntry<String, String>('Profile Pic URL', member.selfiePath ?? ''),
+      MapEntry<String, String>('Name', member.officialName ?? member.name),
       MapEntry<String, String>('Mobile Number', member.mobileNumber),
-      MapEntry<String, String>('Role', member.role),
       MapEntry<String, String>('Sub Department', member.department ?? ''),
       MapEntry<String, String>('Rank', member.postRank ?? ''),
       MapEntry<String, String>('Batch Year', member.batchYear ?? ''),
       MapEntry<String, String>('Gender', member.gender ?? ''),
-      MapEntry<String, String>('Marital Status', member.maritalStatus ?? ''),
-      MapEntry<String, String>('Posting District', member.postingDistrict),
-      MapEntry<String, String>('Posting Place', member.postingLocation),
-      MapEntry<String, String>('Posting Category', member.postingCategory ?? ''),
-      MapEntry<String, String>('Posting Work As', member.postingWorkAs ?? ''),
-      MapEntry<String, String>(
-        'Posting Location Link/Coords',
-        member.postingPlaceLocation ?? '',
-      ),
-      MapEntry<String, String>('Whatsapp Number', member.whatsappNumber ?? ''),
-      MapEntry<String, String>(
-        'Calling Contact Number',
-        member.callingContactNumber ?? '',
-      ),
-      MapEntry<String, String>('Emergency Contact', member.emergencyContact ?? ''),
-      MapEntry<String, String>('Is Approved', member.isApproved ? 'Yes' : 'No'),
-      MapEntry<String, String>('Is Blocked', member.isBlocked ? 'Yes' : 'No'),
-      MapEntry<String, String>('Is Retired', member.isRetired ? 'Yes' : 'No'),
-      MapEntry<String, String>('Is Deleted', member.isDeleted ? 'Yes' : 'No'),
-      MapEntry<String, String>('Last Updated', member.lastUpdated.toLocal().toString()),
-      MapEntry<String, String>(
-        'Last Login',
-        member.lastLoginAt?.toLocal().toString() ?? '',
-      ),
-      MapEntry<String, String>(
-        'Live Latitude',
-        member.liveLatitude?.toString() ?? '',
-      ),
-      MapEntry<String, String>(
-        'Live Longitude',
-        member.liveLongitude?.toString() ?? '',
-      ),
-      MapEntry<String, String>(
-        'Live Location Updated At',
-        member.liveLocationUpdatedAt?.toLocal().toString() ?? '',
-      ),
-      MapEntry<String, String>(
-        'Previous Public Snapshot',
-        (member.previousPublicProfileSnapshot ?? '').trim(),
-      ),
+      MapEntry<String, String>('Posting Details', postingDetails),
+      MapEntry<String, String>('Calling Contacts', contactDetails),
     ];
 
     return rows;

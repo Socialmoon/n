@@ -129,13 +129,18 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
           theme: ThemeData(
             colorScheme: colorScheme,
             useMaterial3: true,
-            textTheme: GoogleFonts.manropeTextTheme(),
+            visualDensity: VisualDensity.compact,
+            textTheme: GoogleFonts.manropeTextTheme().copyWith(
+              bodyLarge: GoogleFonts.manrope(fontSize: 14.5),
+              bodyMedium: GoogleFonts.manrope(fontSize: 13.5),
+              titleMedium: GoogleFonts.manrope(fontSize: 15),
+            ),
             scaffoldBackgroundColor: const Color(0xFFF1F5F8),
             cardTheme: CardThemeData(
               elevation: 0,
               color: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 side: const BorderSide(color: Color(0xFFE2E9EE)),
               ),
             ),
@@ -146,7 +151,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
               backgroundColor: const Color(0xFFF1F5F8),
               foregroundColor: const Color(0xFF0D2D39),
               titleTextStyle: GoogleFonts.manrope(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF0D2D39),
               ),
@@ -154,23 +159,25 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
             filledButtonTheme: FilledButtonThemeData(
               style: FilledButton.styleFrom(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                textStyle: GoogleFonts.manrope(fontSize: 13.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                textStyle: GoogleFonts.manrope(fontSize: 13.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
             navigationBarTheme: NavigationBarThemeData(
-              height: 78,
+              height: 70,
               backgroundColor: Colors.white,
               indicatorColor: const Color(0x220F3A4A),
               elevation: 14,
@@ -247,9 +254,14 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                       },
                     ),
           builder: (context, child) {
+            final media = MediaQuery.of(context);
+            final compactScale = media.size.width < 420 ? 0.94 : 1.0;
             return Listener(
               onPointerDown: (_) => _handleUserActivity(),
-              child: child ?? const SizedBox.shrink(),
+              child: MediaQuery(
+                data: media.copyWith(textScaler: TextScaler.linear(compactScale)),
+                child: child ?? const SizedBox.shrink(),
+              ),
             );
           },
         );
