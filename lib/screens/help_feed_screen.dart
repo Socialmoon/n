@@ -266,12 +266,15 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   CircleAvatar(
                     radius: 18,
                     backgroundColor: const Color(0xFFE8F0F5),
                     child: Text(
-                      post.memberName.isEmpty ? '?' : post.memberName.substring(0, 1).toUpperCase(),
+                      post.memberName.isEmpty
+                          ? '?'
+                          : post.memberName.substring(0, 1).toUpperCase(),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -284,6 +287,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                           post.memberName,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           post.location,
                           style: const TextStyle(color: Color(0xFF5A6B74)),
@@ -291,54 +295,101 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                       ],
                     ),
                   ),
-                  Chip(
-                    label: Text(post.category),
-                    backgroundColor: const Color(0xFFEAF3F6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF3F6),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      post.category,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              Text(
-                post.message,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                timestamp,
-                style: const TextStyle(color: Color(0xFF5A6B74)),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2EAF0)),
+                ),
+                child: Text(
+                  post.message,
+                  style: const TextStyle(fontSize: 15, height: 1.35),
+                ),
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
                 children: <Widget>[
-                  Chip(
-                    avatar: const Icon(Icons.mode_comment_outlined, size: 16),
-                    label: Text('$commentCount comments'),
+                  const Icon(Icons.schedule, size: 15, color: Color(0xFF5A6B74)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      timestamp,
+                      style: const TextStyle(
+                        color: Color(0xFF5A6B74),
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _openPhone(post.memberMobile),
-                    icon: const Icon(Icons.call_outlined),
-                    label: const Text('Call'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF4F8),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$commentCount comments',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _openWhatsApp(post.memberMobile),
-                    icon: const Icon(Icons.chat_outlined),
-                    label: const Text('WhatsApp'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openPhone(post.memberMobile),
+                      icon: const Icon(Icons.call_outlined, size: 18),
+                      label: const Text('Call'),
+                    ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => _openPostDetail(post),
-                    icon: const Icon(Icons.forum_outlined),
-                    label: const Text('Discuss'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openWhatsApp(post.memberMobile),
+                      icon: const Icon(Icons.chat_outlined, size: 18),
+                      label: const Text('WhatsApp'),
+                    ),
                   ),
                   if (widget.currentUser.isAdmin ||
-                      widget.currentUser.id == post.memberId)
+                      widget.currentUser.id == post.memberId) ...<Widget>[
+                    const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => _deletePost(post),
                       icon: const Icon(Icons.delete_outline),
                       tooltip: 'Delete feed post',
                     ),
+                  ],
                 ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _openPostDetail(post),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Open Discussion'),
+                ),
               ),
             ],
           ),

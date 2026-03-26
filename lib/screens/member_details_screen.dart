@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/member.dart';
@@ -16,11 +18,23 @@ class MemberDetailsScreen extends StatelessWidget {
   final Member member;
 
   bool get _showHomeDetails => currentUser.isAdmin;
+  bool get _hasPreviousDetails =>
+      (member.previousPublicProfileSnapshot ?? '').trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Member Details')),
+      appBar: AppBar(
+        title: const Text('Member Details'),
+        actions: <Widget>[
+          if (currentUser.isAdmin)
+            IconButton(
+              onPressed: () => _downloadMemberDetails(context),
+              icon: const Icon(Icons.download_outlined),
+              tooltip: 'Download member details',
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -64,12 +78,9 @@ class MemberDetailsScreen extends StatelessWidget {
                 _row('Current Location Updated', member.liveLocationUpdatedAt!.toLocal().toString()),
             ],
           ),
-          if ((member.previousPublicProfileSnapshot ?? '').trim().isNotEmpty) ...<Widget>[
+          if (_hasPreviousDetails) ...<Widget>[
             const SizedBox(height: 12),
-            _section(
-              title: 'Previous Public Info',
-              children: _previousInfoRows(),
-            ),
+            _buildPreviousDetailsOption(),
           ],
           if (_showHomeDetails) ...<Widget>[
             const SizedBox(height: 12),
@@ -100,20 +111,48 @@ class MemberDetailsScreen extends StatelessWidget {
     try {
       final parsed = jsonDecode(raw) as Map<String, dynamic>;
       return <Widget>[
-        _row('Name', parsed['name'] as String?),
-        _row('Sub Department', parsed['department'] as String?),
-        _row('Rank', parsed['postRank'] as String?),
-        _row('Batch Year', parsed['batchYear'] as String?),
-        _row('Posting Place Name', parsed['postingLocation'] as String?),
-        _row('Whatsapp Mob. No.', parsed['whatsappNumber'] as String?),
-        _row('Calling Contact', parsed['callingContactNumber'] as String?),
-        _row('Posting Place Location', parsed['postingPlaceLocation'] as String?),
+        _row('Name', _snapshotValue(parsed, 'name')),
+        _row('Sub Department', _snapshotValue(parsed, 'department')),
+        _row('Rank', _snapshotValue(parsed, 'postRank')),
+        _row('Batch Year', _snapshotValue(parsed, 'batchYear')),
+        _row('Posting Place Name', _snapshotValue(parsed, 'postingLocation')),
+        _row('Posting District', _snapshotValue(parsed, 'postingDistrict')),
+        _row('Whatsapp Mob. No.', _snapshotValue(parsed, 'whatsappNumber')),
+        _row('Calling Contact', _snapshotValue(parsed, 'callingContactNumber')),
+        _row('Emergency Contact', _snapshotValue(parsed, 'emergencyContact')),
       ];
     } catch (_) {
       return <Widget>[
         _row('Snapshot', raw),
       ];
     }
+  }
+
+  Widget _buildPreviousDetailsOption() {
+    return Card(
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        title: const Text(
+          'Previous Details',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text(
+          'Visible to all members. View details before the latest profile update.',
+          style: TextStyle(color: Color(0xFF5A6B74)),
+        ),
+        leading: const Icon(Icons.history_toggle_off_outlined),
+        children: _previousInfoRows(),
+      ),
+    );
+  }
+
+  String? _snapshotValue(Map<String, dynamic> data, String key) {
+    final raw = data[key];
+    if (raw == null) {
+      return null;
+    }
+    return raw.toString();
   }
 
   Widget _section({required String title, required List<Widget> children}) {
@@ -226,5 +265,98 @@ class MemberDetailsScreen extends StatelessWidget {
 
   Future<void> _openUri(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _downloadMemberDetails(BuildContext context) async {
+    final lines = <String>[
+      'Member Details Export',
+      'Generated: ${DateTime.now().toLocal()}',
+      '',
+      ..._exportRows()
+          .map((entry) => '${entry.key}: ${entry.value.isEmpty ? '-' : entry.value}'),
+    ];
+
+    final content = lines.join('\n');
+    final fileName =
+        'member_${member.id}_details_${DateTime.now().millisecondsSinceEpoch}.txt';
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: 'Member details export (home details excluded).',
+          files: <XFile>[
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(content)),
+              mimeType: 'text/plain',
+              name: fileName,
+            ),
+          ],
+          fileNameOverrides: <String>[fileName],
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to export member details. Please retry.')),
+      );
+    }
+  }
+
+  List<MapEntry<String, String>> _exportRows() {
+    final rows = <MapEntry<String, String>>[
+      MapEntry<String, String>('Member ID', member.id),
+      MapEntry<String, String>('Name', member.name),
+      MapEntry<String, String>('Official Name', member.officialName ?? ''),
+      MapEntry<String, String>('Mobile Number', member.mobileNumber),
+      MapEntry<String, String>('Role', member.role),
+      MapEntry<String, String>('Sub Department', member.department ?? ''),
+      MapEntry<String, String>('Rank', member.postRank ?? ''),
+      MapEntry<String, String>('Batch Year', member.batchYear ?? ''),
+      MapEntry<String, String>('Gender', member.gender ?? ''),
+      MapEntry<String, String>('Marital Status', member.maritalStatus ?? ''),
+      MapEntry<String, String>('Posting District', member.postingDistrict),
+      MapEntry<String, String>('Posting Place', member.postingLocation),
+      MapEntry<String, String>('Posting Category', member.postingCategory ?? ''),
+      MapEntry<String, String>('Posting Work As', member.postingWorkAs ?? ''),
+      MapEntry<String, String>(
+        'Posting Location Link/Coords',
+        member.postingPlaceLocation ?? '',
+      ),
+      MapEntry<String, String>('Whatsapp Number', member.whatsappNumber ?? ''),
+      MapEntry<String, String>(
+        'Calling Contact Number',
+        member.callingContactNumber ?? '',
+      ),
+      MapEntry<String, String>('Emergency Contact', member.emergencyContact ?? ''),
+      MapEntry<String, String>('Is Approved', member.isApproved ? 'Yes' : 'No'),
+      MapEntry<String, String>('Is Blocked', member.isBlocked ? 'Yes' : 'No'),
+      MapEntry<String, String>('Is Retired', member.isRetired ? 'Yes' : 'No'),
+      MapEntry<String, String>('Is Deleted', member.isDeleted ? 'Yes' : 'No'),
+      MapEntry<String, String>('Last Updated', member.lastUpdated.toLocal().toString()),
+      MapEntry<String, String>(
+        'Last Login',
+        member.lastLoginAt?.toLocal().toString() ?? '',
+      ),
+      MapEntry<String, String>(
+        'Live Latitude',
+        member.liveLatitude?.toString() ?? '',
+      ),
+      MapEntry<String, String>(
+        'Live Longitude',
+        member.liveLongitude?.toString() ?? '',
+      ),
+      MapEntry<String, String>(
+        'Live Location Updated At',
+        member.liveLocationUpdatedAt?.toLocal().toString() ?? '',
+      ),
+      MapEntry<String, String>(
+        'Previous Public Snapshot',
+        (member.previousPublicProfileSnapshot ?? '').trim(),
+      ),
+    ];
+
+    return rows;
   }
 }
