@@ -5,6 +5,98 @@ import 'package:flutter/services.dart';
 class LocationSuggestionService {
   static const String _dataAssetPath = 'police_station_list.csv';
   static const int _defaultSuggestionLimit = 8;
+  static const List<String> _upDistricts = <String>[
+    'Agra',
+    'Aligarh',
+    'Amethi',
+    'Amroha',
+    'Ambedkar Nagar',
+    'Auraiya',
+    'Ayodhya',
+    'Azamgarh',
+    'Bagpat',
+    'Bahraich',
+    'Ballia',
+    'Balrampur',
+    'Banda',
+    'Barabanki',
+    'Bareilly',
+    'Basti',
+    'Bijnor',
+    'Budaun',
+    'Bulandshahr',
+    'Chandauli',
+    'Chitrakoot',
+    'Deoria',
+    'Etah',
+    'Etawah',
+    'Farrukhabad',
+    'Fatehpur',
+    'Firozabad',
+    'Gautam Buddha Nagar',
+    'Ghaziabad',
+    'Ghazipur',
+    'Gonda',
+    'Gorakhpur',
+    'Hamirpur',
+    'Hapur',
+    'Hardoi',
+    'Hathras',
+    'Jalaun',
+    'Jaunpur',
+    'Jhansi',
+    'Kannauj',
+    'Kanpur Dehat',
+    'Kanpur Nagar',
+    'Kasganj',
+    'Kaushambi',
+    'Kushinagar',
+    'Lakhimpur Kheri',
+    'Lalitpur',
+    'Lucknow',
+    'Maharajganj',
+    'Mahoba',
+    'Mainpuri',
+    'Mathura',
+    'Mau',
+    'Meerut',
+    'Mirzapur',
+    'Moradabad',
+    'Muzaffarnagar',
+    'Pilibhit',
+    'Pratapgarh',
+    'Prayagraj',
+    'Rae Bareli',
+    'Rampur',
+    'Saharanpur',
+    'Sambhal',
+    'Sant Kabir Nagar',
+    'Sant Ravidas Nagar (Bhadohi)',
+    'Shahjahanpur',
+    'Shamli',
+    'Shravasti',
+    'Siddharthnagar',
+    'Sitapur',
+    'Sonbhadra',
+    'Sultanpur',
+    'Unnao',
+    'Varanasi',
+  ];
+  static const Map<String, String> _districtAliases = <String, String>{
+    'allahabad': 'Prayagraj',
+    'faizabad': 'Ayodhya',
+    'jyotiba phule nagar (amroha)': 'Amroha',
+    'amroha': 'Amroha',
+    'bhadohi': 'Sant Ravidas Nagar (Bhadohi)',
+    'sant ravidas nagar': 'Sant Ravidas Nagar (Bhadohi)',
+    'sant ravidas nagar bhadohi': 'Sant Ravidas Nagar (Bhadohi)',
+    'kushi nagar': 'Kushinagar',
+    'kushinagar': 'Kushinagar',
+    'bulandshahar': 'Bulandshahr',
+    'baghpat': 'Bagpat',
+    'badaun': 'Budaun',
+    'budaun': 'Budaun',
+  };
 
   final Map<String, List<String>> _districtCache = <String, List<String>>{};
   final Map<String, List<String>> _stationCache = <String, List<String>>{};
@@ -121,17 +213,7 @@ class LocationSuggestionService {
 
   Future<bool> isKnownDistrict(String district) async {
     await _ensureLoaded();
-    final normalized = district.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-
-    for (final entry in _districtStations.keys) {
-      if (entry.toLowerCase() == normalized) {
-        return true;
-      }
-    }
-    return false;
+    return _resolveDistrict(district) != null;
   }
 
   Future<bool> isKnownStation({
@@ -180,7 +262,7 @@ class LocationSuggestionService {
         continue;
       }
 
-      final district = columns[1].trim();
+      final district = _canonicalDistrictName(columns[1].trim());
       final station = columns[2].trim();
       if (district.isEmpty || station.isEmpty) {
         continue;
@@ -196,6 +278,11 @@ class LocationSuggestionService {
     for (final entry in _districtStations.entries) {
       entry.value.sort();
     }
+
+    for (final district in _upDistricts) {
+      _districtStations.putIfAbsent(district, () => <String>[]);
+    }
+
     _loaded = true;
   }
 
@@ -231,23 +318,60 @@ class LocationSuggestionService {
   }
 
   String? _resolveDistrict(String district) {
-    final normalized = district.trim().toLowerCase();
-    if (normalized.isEmpty) {
+    final canonical = _canonicalDistrictName(district);
+    if (canonical.isEmpty) {
       return null;
     }
 
     final districts = _districtStations.keys;
     for (final entry in districts) {
-      if (entry.toLowerCase() == normalized) {
+      if (entry.toLowerCase() == canonical.toLowerCase()) {
         return entry;
       }
     }
     for (final entry in districts) {
-      if (entry.toLowerCase().contains(normalized)) {
+      if (entry.toLowerCase().contains(canonical.toLowerCase())) {
+        return entry;
+      }
+    }
+    for (final entry in districts) {
+      if (canonical.toLowerCase().contains(entry.toLowerCase())) {
         return entry;
       }
     }
     return null;
+  }
+
+  String _canonicalDistrictName(String district) {
+    final trimmed = district.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+
+    final lower = trimmed.toLowerCase();
+    final directAlias = _districtAliases[lower];
+    if (directAlias != null) {
+      return directAlias;
+    }
+
+    final normalized = lower.replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+    final normalizedAlias = _districtAliases[normalized];
+    if (normalizedAlias != null) {
+      return normalizedAlias;
+    }
+
+    for (final districtName in _upDistricts) {
+      if (districtName.toLowerCase() == lower) {
+        return districtName;
+      }
+      if (
+          districtName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim() ==
+              normalized) {
+        return districtName;
+      }
+    }
+
+    return trimmed;
   }
 
   List<String> _allDistricts() {
