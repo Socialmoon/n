@@ -1,5 +1,10 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class DeviceBinding {
   const DeviceBinding({
     required this.deviceId,
@@ -35,6 +40,8 @@ class DeviceBinding {
 
 class DeviceBindingService {
   static final DeviceBindingService _instance = DeviceBindingService._internal();
+  static const String _deviceIdKey = 'bound_device_id_v1';
+  static const String _fingerprintKey = 'bound_device_fingerprint_v1';
   String? _cachedDeviceId;
   String? _cachedFingerprint;
   final Map<String, Map<String, dynamic>> _memberBindings = {};
@@ -45,37 +52,53 @@ class DeviceBindingService {
     return _instance;
   }
 
-  /// Generate unique device ID using timestamp + random
+  /// Returns a stable device ID persisted on the device.
   Future<String> getDeviceId() async {
     if (_cachedDeviceId != null) {
       return _cachedDeviceId!;
     }
 
     try {
-      // Use timestamp and random hash as device ID
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = DateTime.now().microsecondsSinceEpoch % 100000;
-      final deviceId = 'device_${timestamp}_$random';
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_deviceIdKey)?.trim() ?? '';
+      if (stored.isNotEmpty) {
+        _cachedDeviceId = stored;
+        return stored;
+      }
+
+      final stableSeed = await _stableDeviceSeed();
+      final digest = sha256.convert(utf8.encode(stableSeed)).toString();
+      final deviceId = 'device_${digest.substring(0, 24)}';
+      await prefs.setString(_deviceIdKey, deviceId);
       _cachedDeviceId = deviceId;
       return deviceId;
-    } catch (e) {
+    } catch (_) {
       return 'device_unknown';
     }
   }
 
-  /// Generate device fingerprint using available runtime info
+  /// Returns a stable device fingerprint.
   Future<String> generateFingerprint() async {
     if (_cachedFingerprint != null) {
       return _cachedFingerprint!;
     }
 
     try {
-      // Create fingerprint from app runtime info
-      final timestamp = DateTime.now().millisecond.toString();
-      final fingerprint = 'flutter|app|1.0|$timestamp';
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_fingerprintKey)?.trim() ?? '';
+      if (stored.isNotEmpty) {
+        _cachedFingerprint = stored;
+        return stored;
+      }
+
+      final deviceId = await getDeviceId();
+      final seed = await _stableDeviceSeed();
+      final digest = sha256.convert(utf8.encode('$seed|$deviceId')).toString();
+      final fingerprint = 'flutter|app|$digest';
+      await prefs.setString(_fingerprintKey, fingerprint);
       _cachedFingerprint = fingerprint;
       return fingerprint;
-    } catch (e) {
+    } catch (_) {
       return 'flutter|app|1.0|unknown';
     }
   }
@@ -126,5 +149,38 @@ class DeviceBindingService {
   Map<String, dynamic>? getStoredBinding(String memberId) {
     return _memberBindings[memberId];
   }
-  
+
+  Future<String> _stableDeviceSeed() async {
+    final deviceInfo = DeviceInfoPlugin();
+
+    if (kIsWeb) {
+      final info = await deviceInfo.webBrowserInfo;
+      return 'web|${info.vendor}|${info.userAgent}|${info.hardwareConcurrency}|${info.platform}';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        final info = await deviceInfo.androidInfo;
+        final androidId = info.id.trim();
+        if (androidId.isNotEmpty) {
+          return 'android|$androidId|${info.brand}|${info.model}|${info.hardware}';
+        }
+        return 'android|${info.brand}|${info.model}|${info.hardware}|${info.fingerprint}';
+      case TargetPlatform.iOS:
+        final info = await deviceInfo.iosInfo;
+        final identifier = info.identifierForVendor?.trim() ?? '';
+        return 'ios|$identifier|${info.name}|${info.model}|${info.systemVersion}';
+      case TargetPlatform.windows:
+        final info = await deviceInfo.windowsInfo;
+        return 'windows|${info.computerName}|${info.numberOfCores}|${info.systemMemoryInMegabytes}';
+      case TargetPlatform.macOS:
+        final info = await deviceInfo.macOsInfo;
+        return 'macos|${info.systemGUID}|${info.model}|${info.osRelease}';
+      case TargetPlatform.linux:
+        final info = await deviceInfo.linuxInfo;
+        return 'linux|${info.machineId}|${info.name}|${info.version}';
+      case TargetPlatform.fuchsia:
+        return 'fuchsia|unsupported';
+    }
+  }
 }

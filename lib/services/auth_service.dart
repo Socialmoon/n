@@ -30,6 +30,10 @@ class AuthService {
   final LocalAuthentication _localAuthentication = LocalAuthentication();
   String? _activeUserId;
   String? _lastMobile;
+  static const int _maxLoginFailures = 5;
+  static const Duration _loginLockDuration = Duration(minutes: 5);
+  final Map<String, int> _mpinFailuresByMobile = <String, int>{};
+  final Map<String, DateTime> _loginLockedUntilByMobile = <String, DateTime>{};
 
   Future<void> initialize() async {}
 
@@ -88,6 +92,9 @@ class AuthService {
     if (member == null) {
       return false;
     }
+    if (!_isBiometricEnabled(member)) {
+      return false;
+    }
 
     try {
       final canCheck = await _localAuthentication.canCheckBiometrics;
@@ -109,13 +116,24 @@ class AuthService {
     required String mpin,
   }) async {
     final normalized = _normalizeMobile(mobileNumber);
+    final lock = _loginLockedUntilByMobile[normalized];
+    if (lock != null && DateTime.now().isBefore(lock)) {
+      final waitMinutes = lock.difference(DateTime.now()).inMinutes + 1;
+      return AuthResult(
+        error: 'Too many failed attempts. Try again in $waitMinutes minute(s).',
+      );
+    }
+
     final member = await _resolveMember(normalized);
     if (member == null) {
-      return const AuthResult(error: 'Member not found.');
+      _recordMpinFailure(normalized);
+      return const AuthResult(error: 'Invalid mobile number or M-PIN.');
     }
     if (member.mpin != mpin) {
-      return const AuthResult(error: 'Incorrect M-PIN.');
+      _recordMpinFailure(normalized);
+      return const AuthResult(error: 'Invalid mobile number or M-PIN.');
     }
+    _clearMpinFailures(normalized);
     return _completeLogin(member);
   }
 
@@ -129,6 +147,12 @@ class AuthService {
     if (member == null) {
       return const AuthResult(
           error: 'Member not found for this mobile number.');
+    }
+    if (!_isBiometricEnabled(member)) {
+      return const AuthResult(
+        error:
+            'Biometric login is not enabled for this account. Register fingerprint in Account page first.',
+      );
     }
     try {
       final canCheck = await _localAuthentication.canCheckBiometrics;
@@ -186,18 +210,24 @@ class AuthService {
     // Device binding check
     final deviceBinding = DeviceBindingService();
     final currentDeviceId = await deviceBinding.getDeviceId();
+    final currentFingerprint = await deviceBinding.generateFingerprint();
     final payload = _decodePendingPayload(member.pendingUpdatePayload);
     final storedDeviceId = payload['trustedDeviceId'] as String?;
+    final storedFingerprint = payload['trustedDeviceFingerprint'] as String?;
 
     Member memberToSave = member;
     if (storedDeviceId == null || storedDeviceId.isEmpty) {
       // First successful login binds the current device.
       payload['trustedDeviceId'] = currentDeviceId;
+      payload['trustedDeviceFingerprint'] = currentFingerprint;
       payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
       memberToSave = member.copyWith(
         pendingUpdatePayload: jsonEncode(payload),
       );
-    } else if (storedDeviceId != currentDeviceId) {
+    } else if (storedDeviceId != currentDeviceId ||
+        (storedFingerprint != null &&
+            storedFingerprint.isNotEmpty &&
+            storedFingerprint != currentFingerprint)) {
       if (member.email?.isNotEmpty ?? false) {
         return AuthResult(
           member: member,
@@ -224,8 +254,10 @@ class AuthService {
   Future<AuthResult> completeDeviceVerification(Member member) async {
     final deviceBinding = DeviceBindingService();
     final currentDeviceId = await deviceBinding.getDeviceId();
+    final currentFingerprint = await deviceBinding.generateFingerprint();
     final payload = _decodePendingPayload(member.pendingUpdatePayload);
     payload['trustedDeviceId'] = currentDeviceId;
+    payload['trustedDeviceFingerprint'] = currentFingerprint;
     payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
 
     final now = DateTime.now();
@@ -238,6 +270,64 @@ class AuthService {
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     return AuthResult(member: updatedMember);
+  }
+
+  Future<AuthResult> registerOrUpdateBiometric(Member member) async {
+    try {
+      final canCheck = await _localAuthentication.canCheckBiometrics;
+      final isSupported = await _localAuthentication.isDeviceSupported();
+      if (!canCheck && !isSupported) {
+        return const AuthResult(
+          error: 'Biometric authentication is not available on this device.',
+        );
+      }
+
+      final available = await _localAuthentication.getAvailableBiometrics();
+      if (available.isEmpty) {
+        return const AuthResult(
+          error: 'No biometric credentials are enrolled on this device.',
+        );
+      }
+
+      final authenticated = await _localAuthentication.authenticate(
+        localizedReason: 'Verify fingerprint to enable biometric login',
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
+      );
+      if (!authenticated) {
+        return const AuthResult(
+          error: 'Biometric verification was cancelled.',
+        );
+      }
+
+      final payload = _decodePendingPayload(member.pendingUpdatePayload);
+      payload['biometricEnabled'] = true;
+      payload['biometricEnrolledAt'] = DateTime.now().toIso8601String();
+
+      final updated = member.copyWith(
+        pendingUpdatePayload: jsonEncode(payload),
+        lastUpdated: DateTime.now(),
+      );
+      final saved = await _repository.saveMember(updated);
+      if (!saved) {
+        return const AuthResult(
+          error: 'Unable to save biometric preference to cloud.',
+        );
+      }
+      return AuthResult(member: updated);
+    } on PlatformException {
+      return const AuthResult(
+        error: 'Biometric authentication is unavailable on this platform.',
+      );
+    } catch (_) {
+      return const AuthResult(
+        error: 'Unable to verify biometric right now.',
+      );
+    }
+  }
+
+  bool isBiometricEnabledForMember(Member member) {
+    return _isBiometricEnabled(member);
   }
 
   Map<String, dynamic> _decodePendingPayload(String? payload) {
@@ -274,11 +364,48 @@ class AuthService {
     return _repository.fetchByMobileFromCloud(normalized);
   }
 
+  bool _isBiometricEnabled(Member member) {
+    final payload = _decodePendingPayload(member.pendingUpdatePayload);
+    final raw = payload['biometricEnabled'];
+    if (raw is bool) {
+      return raw;
+    }
+    if (raw is String) {
+      final normalized = raw.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    }
+    if (raw is num) {
+      return raw != 0;
+    }
+    return false;
+  }
+
   String _normalizeMobile(String value) {
     final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length > 10) {
       return digits.substring(digits.length - 10);
     }
     return digits;
+  }
+
+  void _recordMpinFailure(String mobile) {
+    if (mobile.isEmpty) {
+      return;
+    }
+    final current = _mpinFailuresByMobile[mobile] ?? 0;
+    final next = current + 1;
+    _mpinFailuresByMobile[mobile] = next;
+    if (next >= _maxLoginFailures) {
+      _loginLockedUntilByMobile[mobile] = DateTime.now().add(_loginLockDuration);
+      _mpinFailuresByMobile[mobile] = 0;
+    }
+  }
+
+  void _clearMpinFailures(String mobile) {
+    if (mobile.isEmpty) {
+      return;
+    }
+    _mpinFailuresByMobile.remove(mobile);
+    _loginLockedUntilByMobile.remove(mobile);
   }
 }

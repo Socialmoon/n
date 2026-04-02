@@ -6,20 +6,24 @@ import 'package:vibration/vibration.dart';
 import '../core/app_strings.dart';
 import '../core/brand.dart';
 import '../models/member.dart';
+import '../services/auth_service.dart';
 import '../services/app_language_service.dart';
 import '../services/app_settings_service.dart';
+import '../services/local_notification_service.dart';
 import '../services/member_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.currentUser,
     required this.repository,
+    required this.authService,
     required this.onLogout,
     super.key,
   });
 
   final Member currentUser;
   final MemberRepository repository;
+  final AuthService authService;
   final VoidCallback onLogout;
 
   @override
@@ -32,10 +36,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _confirmMpinController = TextEditingController();
   final AppLanguageService _languageService = AppLanguageService();
   final AppSettingsService _settingsService = AppSettingsService();
+  final LocalNotificationService _notificationService =
+      LocalNotificationService();
   bool _notificationsEnabled = true;
   bool _vibrationEnabled = true;
   bool _loadingPrefs = true;
   bool _saving = false;
+  bool _updatingBiometric = false;
 
   @override
   void initState() {
@@ -195,9 +202,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       ListTile(
                         leading: const Icon(Icons.bug_report_outlined),
-                        title: const Text('Report a bug'),
-                        subtitle: const Text('Send issue details to support team.'),
+                        title: Text(
+                          languageCode == 'hi' ? 'बग रिपोर्ट करें' : 'Report a bug',
+                        ),
+                        subtitle: Text(
+                          languageCode == 'hi'
+                              ? 'समस्या की जानकारी सपोर्ट टीम को भेजें।'
+                              : 'Send issue details to support team.',
+                        ),
                         onTap: _reportBug,
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.fingerprint_outlined),
+                        title: Text(languageCode == 'hi'
+                            ? 'फिंगरप्रिंट लॉगिन प्रबंधित करें'
+                            : 'Manage fingerprint login'),
+                        subtitle: Text(languageCode == 'hi'
+                            ? 'इस खाते के लिए बायोमेट्रिक लॉगिन सक्षम/अपडेट करें।'
+                            : 'Enable or update biometric login for this account.'),
+                        trailing: FilledButton.tonal(
+                          onPressed:
+                              _updatingBiometric ? null : _registerOrUpdateBiometric,
+                          child: Text(_updatingBiometric
+                              ? (languageCode == 'hi' ? 'जांच...' : 'Checking...')
+                              : (languageCode == 'hi' ? 'अपडेट' : 'Update')),
+                        ),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.notifications_active_outlined),
+                        title: Text(languageCode == 'hi'
+                            ? 'आपातकालीन नोटिफिकेशन जांचें'
+                            : 'Test emergency notification'),
+                        subtitle: Text(languageCode == 'hi'
+                            ? 'डिवाइस नोटिफिकेशन और वाइब्रेशन की जांच करें।'
+                            : 'Verify device notification and vibration behavior.'),
+                        onTap: _sendTestEmergencyNotification,
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -247,6 +286,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notificationsEnabled = enabled;
     });
     await _settingsService.setNotificationsEnabled(enabled);
+    if (enabled) {
+      await _notificationService.requestPermissionsIfNeeded();
+    }
     _showMessage(
       enabled
           ? AppStrings.tr(languageCode, 'notifications_enabled')
@@ -362,6 +404,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!opened && mounted) {
       _showMessage('Unable to open bug report channel. Please retry.');
     }
+  }
+
+  Future<void> _registerOrUpdateBiometric() async {
+    setState(() {
+      _updatingBiometric = true;
+    });
+
+    final result = await widget.authService.registerOrUpdateBiometric(widget.currentUser);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _updatingBiometric = false;
+    });
+
+    if (!result.isSuccess) {
+      _showMessage(result.error ?? 'Unable to update fingerprint login.');
+      return;
+    }
+    _showMessage(
+      _languageService.currentLanguageCode == 'hi'
+          ? 'फिंगरप्रिंट लॉगिन सफलतापूर्वक अपडेट हो गया।'
+          : 'Fingerprint login updated successfully.',
+    );
+  }
+
+  Future<void> _sendTestEmergencyNotification() async {
+    final languageCode = _languageService.currentLanguageCode;
+    await _notificationService.requestPermissionsIfNeeded();
+    await _notificationService.showEmergencyAlertNotification(
+      title: languageCode == 'hi'
+          ? 'अपना साथी आपातकालीन अलर्ट'
+          : 'Apne Saathi Emergency Alert',
+      body: languageCode == 'hi'
+          ? 'यह एक टेस्ट नोटिफिकेशन है।'
+          : 'This is a test emergency notification.',
+    );
+    if (_vibrationEnabled && await Vibration.hasVibrator()) {
+      await Vibration.vibrate(pattern: <int>[0, 200, 100, 300]);
+    }
+    _showMessage(
+      languageCode == 'hi'
+          ? 'टेस्ट नोटिफिकेशन भेज दिया गया।'
+          : 'Test notification sent.',
+    );
   }
 
   void _showMessage(String message) {

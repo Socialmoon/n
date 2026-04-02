@@ -87,7 +87,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   Widget _buildHelpPostCard(HelpPost post) {
     final comments = widget.helpFeedService.commentsFor(post.id);
     final commentCount = comments.length;
-    final member = widget.repository.findById(post.memberId);
+    final member = _resolvePostMember(post);
     final profileUrl = member?.selfiePath?.trim() ?? '';
     final initial = post.memberName.isEmpty
       ? '?'
@@ -224,6 +224,14 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
         ),
       ),
     );
+  }
+
+  Member? _resolvePostMember(HelpPost post) {
+    final byId = widget.repository.findById(post.memberId);
+    if (byId != null) {
+      return byId;
+    }
+    return widget.repository.findByMobile(post.memberMobile);
   }
 
   Future<void> _createHelpPost() async {

@@ -52,7 +52,7 @@ class MemberDetailsScreen extends StatelessWidget {
               _row('Posting District', member.postingDistrict),
               _row('Posting Category', member.postingCategory),
               _row('Posting Place Name', member.postingLocation),
-              _row('Posting Work As', member.postingWorkAs),
+              _row('Posting Work As', _displayValue(member.postingWorkAs)),
               _row('Whatsapp Mob. No.', member.whatsappNumber),
               Wrap(
                 spacing: 8,
@@ -119,7 +119,6 @@ class MemberDetailsScreen extends StatelessWidget {
         _row('Posting District', _snapshotValue(parsed, 'postingDistrict')),
         _row('Whatsapp Mob. No.', _snapshotValue(parsed, 'whatsappNumber')),
         _row('Calling Contact', _snapshotValue(parsed, 'callingContactNumber')),
-        _row('Emergency Contact', _snapshotValue(parsed, 'emergencyContact')),
       ];
     } catch (_) {
       return <Widget>[
@@ -304,13 +303,12 @@ class MemberDetailsScreen extends StatelessWidget {
       if ((member.postingCategory ?? '').trim().isNotEmpty)
         'Category: ${member.postingCategory}',
       if ((member.postingWorkAs ?? '').trim().isNotEmpty)
-        'Work As: ${member.postingWorkAs}',
+        'Work As: ${_displayValue(member.postingWorkAs)}',
     ].where((item) => item.trim().isNotEmpty).join(' | ');
 
     final contactDetails = <String>[
       'Whatsapp: ${member.whatsappNumber ?? ''}',
       'Calling: ${member.callingContactNumber ?? ''}',
-      'Emergency: ${member.emergencyContact ?? ''}',
     ].join(' | ');
 
     final rows = <MapEntry<String, String>>[
@@ -352,32 +350,44 @@ class MemberDetailsScreen extends StatelessWidget {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Member Details Export</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f7fb; padding: 24px; color: #123; }
-    .card { max-width: 680px; margin: 0 auto; background: #fff; border: 1px solid #dde6ec; border-radius: 14px; overflow: hidden; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7fb; color: #123; }
+    .page { padding: 14px; }
+    .card { width: 100%; max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid #dde6ec; border-radius: 14px; overflow: hidden; }
     .head { background: linear-gradient(135deg, #123c56, #266d7a); color: #fff; padding: 16px 18px; }
     .head h1 { margin: 0; font-size: 20px; }
     .head p { margin: 6px 0 0; font-size: 13px; color: #e2eef3; }
-    .photo-wrap { padding: 16px 16px 0; }
-    .avatar { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 2px solid #d6e2ea; }
-    .avatar-fallback { width: 84px; height: 84px; border-radius: 50%; border: 2px dashed #c4d2db; color: #5a6b74; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: #f7fbfd; }
+    .photo-wrap { padding: 16px 16px 0; display: flex; justify-content: center; }
+    .avatar { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; object-position: center; border: 2px solid #d6e2ea; image-rendering: auto; }
+    .avatar-fallback { width: 120px; height: 120px; border-radius: 50%; border: 2px dashed #c4d2db; color: #5a6b74; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: #f7fbfd; }
     .body { padding: 14px 16px; }
     .row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #e6edf2; }
     .row:last-child { border-bottom: none; }
     .label { font-size: 12px; color: #5a6b74; font-weight: 600; }
     .value { font-size: 13px; color: #1c2f38; }
+    @media (max-width: 560px) {
+      .page { padding: 8px; }
+      .head h1 { font-size: 18px; }
+      .row { grid-template-columns: 1fr; gap: 4px; }
+      .label { font-size: 11px; }
+      .value { font-size: 14px; word-break: break-word; }
+      .avatar, .avatar-fallback { width: 96px; height: 96px; }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="head">
-      <h1>Member Details Export</h1>
-      <p>Generated: ${DateTime.now().toLocal()}</p>
-    </div>
-    <div class="photo-wrap">
-      $profileHtml
-    </div>
-    <div class="body">
-      $details
+  <div class="page">
+    <div class="card">
+      <div class="head">
+        <h1>Member Details Export</h1>
+        <p>Generated: ${DateTime.now().toLocal()}</p>
+      </div>
+      <div class="photo-wrap">
+        $profileHtml
+      </div>
+      <div class="body">
+        $details
+      </div>
     </div>
   </div>
 </body>
@@ -403,5 +413,17 @@ class MemberDetailsScreen extends StatelessWidget {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+  }
+
+  String? _displayValue(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) {
+      return value;
+    }
+    final normalized = raw.toLowerCase();
+    if (normalized == 'n/a' || normalized == 'na') {
+      return 'Others';
+    }
+    return value;
   }
 }

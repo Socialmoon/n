@@ -228,6 +228,9 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
 
       final rows = <Widget>[];
       payload.forEach((key, value) {
+        if (key == 'emergencyContact') {
+          return;
+        }
         final nextValue = (value ?? '').toString().trim();
         if (nextValue.isEmpty) {
           return;
@@ -288,7 +291,6 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
       'postingWorkAs': 'Posting Work As',
       'whatsappNumber': 'Whatsapp Number',
       'callingContactNumber': 'Calling Contact Number',
-      'emergencyContact': 'Emergency Contact',
       'postingPlaceLocation': 'Posting Place Location',
       'homeVillageMohalla': 'Home Village / Mohalla',
       'homeGaliNo': 'Home Gali No',

@@ -8,7 +8,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
 import '../models/member.dart';
+import '../services/auth_service.dart';
 import '../services/donation_service.dart';
+import '../services/email_otp_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
 import 'admin_approvals_screen.dart';
@@ -20,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.currentUser,
     required this.repository,
+    required this.authService,
     required this.donationService,
     this.onOpenSettings,
     this.onProfileUpdated,
@@ -28,6 +31,7 @@ class ProfileScreen extends StatefulWidget {
 
   final Member currentUser;
   final MemberRepository repository;
+  final AuthService authService;
   final DonationService donationService;
   final Future<void> Function()? onOpenSettings;
   final ValueChanged<Member>? onProfileUpdated;
@@ -38,6 +42,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _emailOtpController;
   late final TextEditingController _postingLocationController;
   late final TextEditingController _homeStateController;
   late final TextEditingController _homeDistrictController;
@@ -53,7 +59,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _postingWorkAsController;
   late final TextEditingController _whatsappController;
   late final TextEditingController _callingContactController;
-  late final TextEditingController _emergencyContactController;
   late final TextEditingController _postingPlaceLocationController;
   late final TextEditingController _homeVillageMohallaController;
   late final TextEditingController _homeGaliNoController;
@@ -64,18 +69,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
+  final EmailOtpService _emailOtpService = EmailOtpService();
   List<String> _stationSuggestions = <String>[];
   Timer? _stationDebounce;
   int _stationRequest = 0;
   String? _selfiePath;
   Uint8List? _selfiePreviewBytes;
   bool _saving = false;
+  bool _updatingBiometric = false;
+  bool _sendingEmailOtp = false;
+  bool _verifyingEmailOtp = false;
+  bool _emailOtpSent = false;
   static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
+  static final RegExp _emailPattern = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.currentUser.name);
+    _emailController = TextEditingController(text: widget.currentUser.email ?? '');
+    _emailOtpController = TextEditingController();
     _postingLocationController =
         TextEditingController(text: widget.currentUser.postingLocation);
     _homeStateController = TextEditingController(text: widget.currentUser.homeState ?? '');
@@ -92,7 +105,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _postingWorkAsController = TextEditingController(text: widget.currentUser.postingWorkAs ?? '');
     _whatsappController = TextEditingController(text: widget.currentUser.whatsappNumber ?? '');
     _callingContactController = TextEditingController(text: widget.currentUser.callingContactNumber ?? '');
-    _emergencyContactController = TextEditingController(text: widget.currentUser.emergencyContact ?? '');
     _postingPlaceLocationController = TextEditingController(text: widget.currentUser.postingPlaceLocation ?? '');
     _homeVillageMohallaController = TextEditingController(text: widget.currentUser.homeVillageMohalla ?? '');
     _homeGaliNoController = TextEditingController(text: widget.currentUser.homeGaliNo ?? '');
@@ -107,6 +119,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _stationDebounce?.cancel();
     _nameController.dispose();
+    _emailController.dispose();
+    _emailOtpController.dispose();
     _postingLocationController.dispose();
     _homeStateController.dispose();
     _homeDistrictController.dispose();
@@ -122,7 +136,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _postingWorkAsController.dispose();
     _whatsappController.dispose();
     _callingContactController.dispose();
-    _emergencyContactController.dispose();
     _postingPlaceLocationController.dispose();
     _homeVillageMohallaController.dispose();
     _homeGaliNoController.dispose();
@@ -139,6 +152,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (widget.currentUser.id != oldWidget.currentUser.id ||
         widget.currentUser.lastUpdated != oldWidget.currentUser.lastUpdated) {
       _nameController.text = widget.currentUser.name;
+      _emailController.text = widget.currentUser.email ?? '';
+      _emailOtpController.clear();
+      _emailOtpSent = false;
       _postingLocationController.text = widget.currentUser.postingLocation;
       _homeStateController.text = widget.currentUser.homeState ?? '';
       _homeDistrictController.text = widget.currentUser.homeDistrict;
@@ -154,7 +170,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _postingWorkAsController.text = widget.currentUser.postingWorkAs ?? '';
       _whatsappController.text = widget.currentUser.whatsappNumber ?? '';
       _callingContactController.text = widget.currentUser.callingContactNumber ?? '';
-      _emergencyContactController.text = widget.currentUser.emergencyContact ?? '';
       _postingPlaceLocationController.text = widget.currentUser.postingPlaceLocation ?? '';
       _homeVillageMohallaController.text = widget.currentUser.homeVillageMohalla ?? '';
       _homeGaliNoController.text = widget.currentUser.homeGaliNo ?? '';
@@ -172,6 +187,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.currentUser;
+    final biometricEnabled = widget.authService.isBiometricEnabledForMember(user);
+    final hasEmail = (user.email?.trim().isNotEmpty ?? false);
     final needsPostingLocationUpdate =
         (user.postingPlaceLocation?.trim().isEmpty ?? true);
     return Scaffold(
@@ -209,6 +226,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: const Text('Settings'),
                     ),
                 ],
+              ),
+            ),
+          ),
+          if (!hasEmail) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+              color: const Color(0xFFFFE9E9),
+              child: ListTile(
+                leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFB3261E)),
+                title: const Text(
+                  'Urgent: Add your email',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Your account has no email. Add and verify it now to enable OTP on new-device login.',
+                ),
+                trailing: FilledButton.tonal(
+                  onPressed: _openEmailVerificationSheet,
+                  child: const Text('Add Email'),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                biometricEnabled ? Icons.fingerprint_rounded : Icons.fingerprint_outlined,
+              ),
+              title: const Text('Fingerprint Login'),
+              subtitle: Text(
+                biometricEnabled
+                    ? 'Fingerprint is enabled for this account. You can update it any time.'
+                    : 'Enable fingerprint for this account to use biometric login.',
+              ),
+              trailing: FilledButton.tonal(
+                onPressed: _updatingBiometric ? null : _registerOrUpdateFingerprint,
+                child: Text(
+                  _updatingBiometric
+                      ? 'Please wait...'
+                      : (biometricEnabled ? 'Update' : 'Enable'),
+                ),
               ),
             ),
           ),
@@ -361,6 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   _readOnlyRow('Mobile number', user.mobileNumber),
+                  _readOnlyRow('Email', user.email?.trim().isEmpty ?? true ? '-' : user.email!),
                   _readOnlyRow('Role', user.role),
                   _readOnlyRow('Reference mobile', user.referenceMobileNumber),
                   _readOnlyRow(
@@ -377,10 +437,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _readOnlyRow(
                     'Calling contact',
                     user.callingContactNumber ?? '-',
-                  ),
-                  _readOnlyRow(
-                    'Emergency contact',
-                    user.emergencyContact ?? '-',
                   ),
                   _readOnlyRow(
                     'Home village / mohalla',
@@ -473,7 +529,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Posting District': _postingDistrictController.text.trim(),
       'Whatsapp Number': _whatsappController.text.trim(),
       'Calling Contact Number': _callingContactController.text.trim(),
-      'Emergency Contact': _emergencyContactController.text.trim(),
       'Posting Place Location': _postingPlaceLocationController.text.trim(),
       'Home Village / Mohalla': _homeVillageMohallaController.text.trim(),
       'Home Gali No': _homeGaliNoController.text.trim(),
@@ -492,7 +547,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           postingDistrictController: _postingDistrictController,
           whatsappController: _whatsappController,
           callingContactController: _callingContactController,
-          emergencyContactController: _emergencyContactController,
           postingPlaceLocationController: _postingPlaceLocationController,
           homeVillageMohallaController: _homeVillageMohallaController,
           homeGaliNoController: _homeGaliNoController,
@@ -631,7 +685,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final homePoliceStation = _homePoliceStationController.text.trim();
     final whatsappNumber = _whatsappController.text.trim();
     final callingContactNumber = _callingContactController.text.trim();
-    final emergencyContact = _emergencyContactController.text.trim();
     final currentProfile = _currentPublicProfileSnapshot(widget.currentUser);
     final currentPostingLocation =
         (currentProfile['postingLocation'] ?? '').toString().trim();
@@ -690,9 +743,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (!_isValidContactNumber(whatsappNumber) ||
-        !_isValidContactNumber(callingContactNumber) ||
-        !_isValidContactNumber(emergencyContact)) {
-      _showMessage('WhatsApp, Calling, and Emergency contact must be 10-digit numbers.');
+        !_isValidContactNumber(callingContactNumber)) {
+      _showMessage('WhatsApp and Calling contact must be 10-digit numbers.');
       return false;
     }
 
@@ -745,7 +797,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         postingWorkAs: _postingWorkAsController.text.trim(),
         whatsappNumber: _whatsappController.text.trim(),
         callingContactNumber: _callingContactController.text.trim(),
-        emergencyContact: _emergencyContactController.text.trim(),
         postingPlaceLocation: _postingPlaceLocationController.text.trim(),
         homeVillageMohalla: _homeVillageMohallaController.text.trim(),
         homeGaliNo: _homeGaliNoController.text.trim(),
@@ -767,7 +818,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'postingDistrict': _postingDistrictController.text.trim(),
         'whatsappNumber': _whatsappController.text.trim(),
         'callingContactNumber': _callingContactController.text.trim(),
-        'emergencyContact': _emergencyContactController.text.trim(),
         'postingPlaceLocation': _postingPlaceLocationController.text.trim(),
         'homeVillageMohalla': _homeVillageMohallaController.text.trim(),
         'homeGaliNo': _homeGaliNoController.text.trim(),
@@ -865,7 +915,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'postingWorkAs': member.postingWorkAs,
       'whatsappNumber': member.whatsappNumber,
       'callingContactNumber': member.callingContactNumber,
-      'emergencyContact': member.emergencyContact,
       'postingPlaceLocation': member.postingPlaceLocation,
       'homeVillageMohalla': member.homeVillageMohalla,
       'homeGaliNo': member.homeGaliNo,
@@ -916,6 +965,195 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Future<void> _registerOrUpdateFingerprint() async {
+    setState(() {
+      _updatingBiometric = true;
+    });
+    final result = await widget.authService.registerOrUpdateBiometric(widget.currentUser);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _updatingBiometric = false;
+    });
+
+    if (!result.isSuccess || result.member == null) {
+      _showMessage(result.error ?? 'Unable to update fingerprint preference.');
+      return;
+    }
+
+    widget.onProfileUpdated?.call(result.member!);
+    _showMessage('Fingerprint login updated successfully.');
+  }
+
+  Future<void> _openEmailVerificationSheet() async {
+    _emailController.text = widget.currentUser.email ?? _emailController.text;
+    _emailOtpController.clear();
+    _emailOtpSent = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                10,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Add and verify email',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email address',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _sendingEmailOtp
+                              ? null
+                              : () => _sendEmailOtpFromSheet(setSheetState),
+                          icon: const Icon(Icons.mark_email_read_outlined),
+                          label: Text(_sendingEmailOtp ? 'Sending...' : 'Send OTP'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _emailOtpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter OTP',
+                      prefixIcon: Icon(Icons.password_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _verifyingEmailOtp
+                          ? null
+                          : () => _verifyEmailOtpAndSave(setSheetState),
+                      icon: const Icon(Icons.verified_outlined),
+                      label: Text(
+                        _verifyingEmailOtp ? 'Verifying...' : 'Verify OTP and Save Email',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _sendEmailOtpFromSheet(StateSetter setSheetState) async {
+    final email = _emailController.text.trim();
+    if (!_emailPattern.hasMatch(email)) {
+      _showMessage('Enter a valid email address first.');
+      return;
+    }
+
+    setSheetState(() {
+      _sendingEmailOtp = true;
+    });
+
+    final result = await _emailOtpService.sendVerificationOtp(email);
+
+    if (!mounted) {
+      return;
+    }
+
+    setSheetState(() {
+      _sendingEmailOtp = false;
+      _emailOtpSent = result.success;
+    });
+
+    if (!result.success) {
+      _showMessage(result.error ?? 'Unable to send OTP.');
+      return;
+    }
+    _showMessage('OTP sent to $email');
+  }
+
+  Future<void> _verifyEmailOtpAndSave(StateSetter setSheetState) async {
+    final email = _emailController.text.trim();
+    final otp = _emailOtpController.text.trim();
+    if (!_emailPattern.hasMatch(email)) {
+      _showMessage('Enter a valid email address.');
+      return;
+    }
+    if (!_emailOtpSent) {
+      _showMessage('Send OTP first.');
+      return;
+    }
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
+      _showMessage('Enter valid 6 digit OTP.');
+      return;
+    }
+
+    setSheetState(() {
+      _verifyingEmailOtp = true;
+    });
+
+    final verified = await _emailOtpService.verifyOtp(email: email, otp: otp);
+    if (!mounted) {
+      return;
+    }
+    if (!verified) {
+      setSheetState(() {
+        _verifyingEmailOtp = false;
+      });
+      _showMessage('Invalid or expired OTP.');
+      return;
+    }
+
+    final updated = widget.currentUser.copyWith(
+      email: email,
+      lastUpdated: DateTime.now(),
+    );
+    final saved = await widget.repository.saveMember(updated);
+    if (!mounted) {
+      return;
+    }
+
+    setSheetState(() {
+      _verifyingEmailOtp = false;
+    });
+
+    if (!saved) {
+      _showMessage('Unable to save email. Please retry.');
+      return;
+    }
+
+    widget.onProfileUpdated?.call(updated);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+    _showMessage('Email verified and added successfully.');
+  }
+
   Future<void> _pickProfilePhoto() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -951,7 +1189,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.postingDistrictController,
     required this.whatsappController,
     required this.callingContactController,
-    required this.emergencyContactController,
     required this.postingPlaceLocationController,
     required this.homeVillageMohallaController,
     required this.homeGaliNoController,
@@ -970,7 +1207,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
   final TextEditingController postingDistrictController;
   final TextEditingController whatsappController;
   final TextEditingController callingContactController;
-  final TextEditingController emergencyContactController;
   final TextEditingController postingPlaceLocationController;
   final TextEditingController homeVillageMohallaController;
   final TextEditingController homeGaliNoController;
@@ -1263,14 +1499,6 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             TextField(
               controller: widget.callingContactController,
               decoration: const InputDecoration(labelText: 'Calling Contact Number'),
-              keyboardType: TextInputType.phone,
-              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-              maxLength: 10,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: widget.emergencyContactController,
-              decoration: const InputDecoration(labelText: 'Emergency Contact'),
               keyboardType: TextInputType.phone,
               inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
               maxLength: 10,

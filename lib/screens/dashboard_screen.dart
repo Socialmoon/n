@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
+import '../services/auth_service.dart';
 import '../services/donation_service.dart';
 import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
@@ -24,6 +25,7 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.currentUser,
     required this.repository,
+    required this.authService,
     required this.donationService,
     required this.emergencyService,
     required this.helpFeedService,
@@ -35,6 +37,7 @@ class DashboardScreen extends StatefulWidget {
 
   final Member currentUser;
   final MemberRepository repository;
+  final AuthService authService;
   final DonationService donationService;
   final EmergencyService emergencyService;
   final HelpFeedService helpFeedService;
@@ -56,10 +59,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     if (!widget.currentUser.isApproved) {
+      final isHindi = Localizations.localeOf(context).languageCode == 'hi';
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Approval Pending'),
+          title: Text(isHindi ? 'स्वीकृति लंबित' : 'Approval Pending'),
           actions: <Widget>[
             IconButton(
               onPressed: widget.onLogout,
@@ -79,20 +84,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      'Your account is pending admin approval.',
+                    Text(
+                      isHindi
+                          ? 'आपका खाता एडमिन स्वीकृति के लिए लंबित है।'
+                          : 'Your account is pending admin approval.',
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'You can access the full app immediately after admin approval.',
+                    Text(
+                      isHindi
+                          ? 'एडमिन स्वीकृति के बाद आपको तुरंत पूरे ऐप का एक्सेस मिल जाएगा।'
+                          : 'You can access the full app immediately after admin approval.',
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: _refreshApprovalStatus,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Check Approval Status'),
+                      label: Text(isHindi
+                          ? 'स्वीकृति स्थिति जांचें'
+                          : 'Check Approval Status'),
                     ),
                   ],
                 ),
@@ -105,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const BrandedScreenTitle('Dashboard'),
+        title: BrandedScreenTitle(isHindi ? 'डैशबोर्ड' : 'Dashboard'),
         actions: <Widget>[
           IconButton(
             onPressed: _openMembersSearch,
@@ -180,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 20),
           const SizedBox(height: 24),
           const Text(
-            'Recent emergency alerts',
+            isHindi ? 'हाल के आपातकालीन अलर्ट' : 'Recent emergency alerts',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
@@ -189,14 +200,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text('No emergency alerts have been triggered yet.'),
+                child: Text(isHindi
+                  ? 'अभी तक कोई आपातकालीन अलर्ट ट्रिगर नहीं हुआ है।'
+                  : 'No emergency alerts have been triggered yet.'),
               ),
             ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
             icon: const Icon(Icons.forum_outlined),
-            label: const Text('Open Help Feed'),
+            label: Text(isHindi ? 'हेल्प फीड खोलें' : 'Open Help Feed'),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -208,7 +221,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _triggerAlert,
         icon: const Icon(Icons.sos_outlined),
-        label: const Text('Emergency'),
+        label: Text(isHindi ? 'आपातकाल' : 'Emergency'),
       ),
     );
   }
@@ -316,26 +329,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
   Future<void> _triggerAlert() async {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final controller =
-        TextEditingController(text: 'Immediate assistance required');
+      TextEditingController(text: isHindi ? 'तुरंत सहायता आवश्यक' : 'Immediate assistance required');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Trigger emergency alert'),
+          title: Text(isHindi ? 'आपातकालीन अलर्ट भेजें' : 'Trigger emergency alert'),
           content: TextField(
             controller: controller,
             maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Alert message'),
+            decoration: InputDecoration(
+              labelText: isHindi ? 'अलर्ट संदेश' : 'Alert message',
+            ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(isHindi ? 'रद्द करें' : 'Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Send alert'),
+              child: Text(isHindi ? 'अलर्ट भेजें' : 'Send alert'),
             ),
           ],
         );
@@ -348,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final sent = await widget.emergencyService.triggerAlert(
       member: widget.currentUser,
       message: controller.text.trim().isEmpty
-          ? 'Immediate assistance required'
+          ? (isHindi ? 'तुरंत सहायता आवश्यक' : 'Immediate assistance required')
           : controller.text.trim(),
     );
     controller.dispose();
@@ -363,7 +379,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     if (!sent) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to send alert to cloud. Please retry.')),
+        SnackBar(
+          content: Text(isHindi
+              ? 'क्लाउड पर अलर्ट भेजने में समस्या हुई। कृपया फिर प्रयास करें।'
+              : 'Unable to send alert to cloud. Please retry.'),
+        ),
       );
       return;
     }
@@ -371,7 +391,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Emergency alert triggered.')));
+        .showSnackBar(
+          SnackBar(
+            content: Text(isHindi
+                ? 'आपातकालीन अलर्ट भेज दिया गया।'
+                : 'Emergency alert triggered.'),
+          ),
+        );
   }
 
   Future<void> _openHelpFeed() async {
@@ -411,6 +437,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) => ProfileScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
+          authService: widget.authService,
           donationService: widget.donationService,
           onOpenSettings: () => _openSettings(),
         ),
@@ -430,21 +457,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       showDragHandle: true,
       builder: (context) {
+        final isHindi = Localizations.localeOf(context).languageCode == 'hi';
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
                 leading: const Icon(Icons.person_outline),
-                title: const Text('My Profile'),
-                subtitle: const Text('Edit your basic details'),
+                title: Text(isHindi ? 'मेरा प्रोफाइल' : 'My Profile'),
+                subtitle: Text(isHindi
+                    ? 'अपनी बेसिक जानकारी अपडेट करें'
+                    : 'Edit your basic details'),
                 onTap: () => Navigator.of(context).pop('profile'),
               ),
               ListTile(
                 leading: const Icon(Icons.settings_outlined),
-                title: const Text('Settings'),
-                subtitle:
-                    const Text('Security, notifications, and account controls'),
+                title: Text(isHindi ? 'सेटिंग्स' : 'Settings'),
+                subtitle: Text(isHindi
+                    ? 'सुरक्षा, नोटिफिकेशन और अकाउंट नियंत्रण'
+                    : 'Security, notifications, and account controls'),
                 onTap: () => Navigator.of(context).pop('settings'),
               ),
             ],
@@ -507,6 +538,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) => SettingsScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
+          authService: widget.authService,
           onLogout: widget.onLogout,
         ),
       ),
@@ -571,19 +603,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     if (updated == null) {
+      final isHindi = Localizations.localeOf(context).languageCode == 'hi';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to refresh approval status.')),
+        SnackBar(
+          content: Text(isHindi
+              ? 'स्वीकृति स्थिति अपडेट नहीं हो सकी।'
+              : 'Unable to refresh approval status.'),
+        ),
       );
       return;
     }
 
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     widget.onCurrentUserUpdated(updated);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           updated.isApproved
-              ? 'Approved. You now have full access.'
-              : 'Still pending admin approval.',
+              ? (isHindi
+                  ? 'स्वीकृत। अब आपके पास पूरा एक्सेस है।'
+                  : 'Approved. You now have full access.')
+              : (isHindi
+                  ? 'अब भी एडमिन स्वीकृति लंबित है।'
+                  : 'Still pending admin approval.'),
         ),
       ),
     );

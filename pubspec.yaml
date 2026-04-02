@@ -1,4 +1,4 @@
-name: police_network_app
+name: apne_saathi_app
 description: Secure member directory MVP for Android-first internal distribution.
 publish_to: 'none'
 
@@ -24,6 +24,9 @@ dependencies:
   qr_flutter: ^4.1.0
   share_plus: ^12.0.1
   geolocator: ^14.0.2
+  shared_preferences: ^2.3.2
+  device_info_plus: ^10.1.2
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.3

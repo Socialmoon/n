@@ -15,6 +15,7 @@ import 'services/app_language_service.dart';
 import 'services/donation_service.dart';
 import 'services/emergency_service.dart';
 import 'services/help_feed_service.dart';
+import 'services/local_notification_service.dart';
 import 'services/member_repository.dart';
 import 'services/supabase_service.dart';
 
@@ -45,6 +46,8 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
   late final HelpFeedService _helpFeedService =
       HelpFeedService(cloudService: _supabaseService);
   final AppLanguageService _languageService = AppLanguageService();
+  final LocalNotificationService _notificationService =
+      LocalNotificationService();
 
   bool _loading = true;
   Member? _currentUser;
@@ -75,6 +78,10 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
       await _donationService.load().timeout(_startupTimeout);
       await _emergencyService.load().timeout(_startupTimeout);
       await _helpFeedService.load().timeout(_startupTimeout);
+        await _notificationService.initialize().timeout(_startupTimeout);
+        await _notificationService
+          .requestPermissionsIfNeeded()
+          .timeout(_startupTimeout);
       sessionUser = await _authService
           .loadSession()
           .timeout(_startupTimeout, onTimeout: () => null);
@@ -233,6 +240,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                   : MainShellScreen(
                       currentUser: _currentUser!,
                       repository: _repository,
+                      authService: _authService,
                       donationService: _donationService,
                       emergencyService: _emergencyService,
                       helpFeedService: _helpFeedService,

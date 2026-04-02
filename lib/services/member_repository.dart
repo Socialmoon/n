@@ -354,8 +354,6 @@ class MemberRepository {
           'callingContactNumber',
           current.callingContactNumber,
         ),
-        emergencyContact:
-            _stringOrCurrent(map, 'emergencyContact', current.emergencyContact),
         postingPlaceLocation: _stringOrCurrent(
           map,
           'postingPlaceLocation',

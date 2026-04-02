@@ -37,6 +37,7 @@ const corsHeaders = {
 };
 
 const RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_SLOT_MS = 5 * 60 * 1000;
 const lastOtpSentAt = new Map<string, number>();
 
 function jsonResponse(status: number, payload: Record<string, unknown>) {
@@ -54,7 +55,7 @@ function isValidEmail(email: string): boolean {
 }
 
 async function computeOtp(email: string, secret: string, slotOffset = 0): Promise<string> {
-  const slot = Math.floor(Date.now() / 600000) + slotOffset;
+  const slot = Math.floor(Date.now() / OTP_SLOT_MS) + slotOffset;
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secret);
   const messageData = encoder.encode(`${email.toLowerCase().trim()}|${slot}`);
@@ -134,9 +135,30 @@ Deno.serve(async (req: Request) => {
     await client.send({
       from: smtpUser,
       to: email,
-      subject: "Police Network OTP Verification",
-      content: `Your OTP is ${otp}. It is valid for 10 minutes.`,
-      html: `<p>Your OTP is <strong>${otp}</strong>.</p><p>It is valid for 10 minutes.</p>`,
+      subject: "Apne Saathi Support | OTP Verification",
+      content:
+        `Hello,\n\n` +
+        `Your Apne Saathi verification OTP is: ${otp}\n` +
+        `This OTP is valid for 5 minutes.\n\n` +
+        `If you did not request this, please ignore this email.\n\n` +
+        `Regards,\nApne Saathi Support`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f8fb;padding:18px;">
+          <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ea;border-radius:12px;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#10394b,#2f7982);padding:14px 16px;color:#ffffff;">
+              <h2 style="margin:0;font-size:18px;">Apne Saathi Support</h2>
+              <p style="margin:4px 0 0;font-size:12px;opacity:0.92;">Secure OTP Verification</p>
+            </div>
+            <div style="padding:16px;color:#1f2d36;">
+              <p style="margin:0 0 10px;">Hello,</p>
+              <p style="margin:0 0 12px;">Use the OTP below to verify your login:</p>
+              <div style="display:inline-block;padding:10px 14px;border:1px dashed #b7c5cf;border-radius:8px;background:#f7fbfd;font-size:24px;font-weight:700;letter-spacing:4px;">${otp}</div>
+              <p style="margin:12px 0 0;font-size:13px;color:#4a5e6c;">This OTP is valid for <strong>5 minutes</strong>.</p>
+              <p style="margin:10px 0 0;font-size:12px;color:#6b7d88;">If you did not request this OTP, you can safely ignore this email.</p>
+            </div>
+          </div>
+        </div>
+      `,
     });
 
     await client.close();

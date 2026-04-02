@@ -25,6 +25,8 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
   bool _verifying = false;
   int _otpSentCount = 0;
   int _remainingSeconds = 0;
+  int _failedVerifyAttempts = 0;
+  DateTime? _verifyLockedUntil;
 
   @override
   void initState() {
@@ -40,8 +42,11 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
   }
 
   Future<void> _sendOtp() async {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     if (_otpSentCount >= 3) {
-      _showMessage('Too many OTP requests. Please try again later.');
+      _showMessage(isHindi
+          ? 'बहुत अधिक OTP अनुरोध हो चुके हैं। कृपया बाद में प्रयास करें।'
+          : 'Too many OTP requests. Please try again later.');
       return;
     }
 
@@ -51,7 +56,9 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
 
     final email = widget.member.email ?? '';
     if (email.isEmpty) {
-      _showMessage('Email not registered for this account.');
+      _showMessage(isHindi
+          ? 'इस खाते में ईमेल दर्ज नहीं है।'
+          : 'Email not registered for this account.');
       setState(() {
         _sendingOtp = false;
       });
@@ -65,7 +72,7 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
     }
 
     if (!result.success) {
-      _showMessage(result.error ?? 'Failed to send OTP.');
+      _showMessage(result.error ?? (isHindi ? 'OTP भेजने में विफल।' : 'Failed to send OTP.'));
       setState(() {
         _sendingOtp = false;
       });
@@ -79,7 +86,9 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
     });
 
     _startCountdown();
-    _showMessage('OTP sent to ${_maskEmail(email)}');
+    _showMessage(isHindi
+      ? 'OTP भेज दिया गया: ${_maskEmail(email)}'
+      : 'OTP sent to ${_maskEmail(email)}');
   }
 
   void _startCountdown() {
@@ -97,21 +106,33 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
   }
 
   Future<void> _verify() async {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
+    if (_verifyLockedUntil != null && DateTime.now().isBefore(_verifyLockedUntil!)) {
+      final waitMinutes = _verifyLockedUntil!.difference(DateTime.now()).inMinutes + 1;
+      _showMessage(isHindi
+          ? 'बहुत अधिक गलत प्रयास। $waitMinutes मिनट बाद पुनः प्रयास करें।'
+          : 'Too many invalid attempts. Try again in $waitMinutes minute(s).');
+      return;
+    }
     final mpin = _mpinController.text.trim();
     final otp = _otpController.text.trim();
 
     if (mpin.isEmpty || otp.isEmpty) {
-      _showMessage('Enter both M-PIN and OTP.');
+      _showMessage(isHindi
+          ? 'M-PIN और OTP दोनों दर्ज करें।'
+          : 'Enter both M-PIN and OTP.');
       return;
     }
 
     if (mpin != widget.member.mpin) {
-      _showMessage('Incorrect M-PIN.');
+      _showMessage(isHindi ? 'गलत M-PIN।' : 'Incorrect M-PIN.');
       return;
     }
 
     if (mpin.length != 6) {
-      _showMessage('M-PIN must be 6 digits.');
+      _showMessage(isHindi
+          ? 'M-PIN 6 अंकों का होना चाहिए।'
+          : 'M-PIN must be 6 digits.');
       return;
     }
 
@@ -130,12 +151,22 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
     }
 
     if (!isOtpValid) {
-      _showMessage('Invalid or expired OTP.');
+      _failedVerifyAttempts += 1;
+      if (_failedVerifyAttempts >= 5) {
+        _verifyLockedUntil = DateTime.now().add(const Duration(minutes: 10));
+        _failedVerifyAttempts = 0;
+      }
+      _showMessage(isHindi
+          ? 'OTP अमान्य है या समय समाप्त हो गया है।'
+          : 'Invalid or expired OTP.');
       setState(() {
         _verifying = false;
       });
       return;
     }
+
+    _failedVerifyAttempts = 0;
+    _verifyLockedUntil = null;
 
     // Device verified, proceed
     await widget.onVerified();
@@ -174,9 +205,10 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Verify New Device'),
+        title: Text(isHindi ? 'नया डिवाइस सत्यापित करें' : 'Verify New Device'),
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -193,7 +225,9 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'New device detected. Verify your identity to continue.',
+                        isHindi
+                            ? 'नया डिवाइस मिला है। जारी रखने के लिए अपनी पहचान सत्यापित करें।'
+                            : 'New device detected. Verify your identity to continue.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
@@ -203,7 +237,7 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Step 1: Enter your M-PIN',
+              isHindi ? 'चरण 1: अपना M-PIN दर्ज करें' : 'Step 1: Enter your M-PIN',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -220,12 +254,14 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Step 2: Verify with OTP',
+              isHindi ? 'चरण 2: OTP से सत्यापित करें' : 'Step 2: Verify with OTP',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'An OTP has been sent to your registered email. Enter it below.',
+              isHindi
+                  ? 'आपके रजिस्टर्ड ईमेल पर OTP भेजा गया है। नीचे दर्ज करें। OTP 5 मिनट तक मान्य है।'
+                  : 'An OTP has been sent to your registered email. Enter it below. OTP is valid for 5 minutes.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -250,8 +286,10 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
                         : _sendOtp,
                 child: Text(
                   _remainingSeconds > 0
-                      ? 'Resend OTP in $_remainingSeconds s'
-                      : 'Resend OTP',
+                      ? (isHindi
+                          ? '$_remainingSeconds सेकंड में OTP दोबारा भेजें'
+                          : 'Resend OTP in $_remainingSeconds s')
+                      : (isHindi ? 'OTP फिर से भेजें' : 'Resend OTP'),
                 ),
               ),
             ),
@@ -261,7 +299,9 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
               child: FilledButton.icon(
                 onPressed: _verifying ? null : _verify,
                 icon: const Icon(Icons.verified_user_outlined),
-                label: Text(_verifying ? 'Verifying...' : 'Verify Device'),
+                label: Text(_verifying
+                    ? (isHindi ? 'सत्यापित हो रहा है...' : 'Verifying...')
+                    : (isHindi ? 'डिवाइस सत्यापित करें' : 'Verify Device')),
               ),
             ),
           ],

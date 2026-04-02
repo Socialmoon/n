@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,7 +64,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _whatsappController = TextEditingController();
   final _callingNumberController = TextEditingController();
   final _postingPlaceLocationController = TextEditingController();
-  final _emergencyContactController = TextEditingController();
   final _homeDistrictController = TextEditingController();
   final _postingDistrictController = TextEditingController();
   final _postingLocationController = TextEditingController();
@@ -150,7 +150,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     'Field Work',
     'Office Work',
     'Court Work',
-    'N/A',
+    'Others',
   ];
 
   static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
@@ -187,7 +187,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _whatsappController.dispose();
     _callingNumberController.dispose();
     _postingPlaceLocationController.dispose();
-    _emergencyContactController.dispose();
     _homeDistrictController.dispose();
     _postingDistrictController.dispose();
     _postingLocationController.dispose();
@@ -677,13 +676,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 maxLength: 10,
                 digitsOnly: true,
               ),
-              _buildTextField(
-                _emergencyContactController,
-                'Emergency Contact',
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                digitsOnly: true,
-              ),
             ],
           ),
         ],
@@ -766,7 +758,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _buildSummaryRow('Posting Work As', _postingWorkAsController.text.trim()),
             _buildSummaryRow('Whatsapp', _whatsappController.text.trim()),
             _buildSummaryRow('Calling Contact', _callingNumberController.text.trim()),
-            _buildSummaryRow('Emergency Contact', _emergencyContactController.text.trim()),
             _buildSummaryRow(
               'Posting location upload plan',
               _willUploadPostingLocationLater
@@ -1548,7 +1539,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final postingWorkAs = _postingWorkAsController.text.trim();
     final whatsapp = _whatsappController.text.trim();
     final callingContact = _callingNumberController.text.trim();
-    final emergencyContact = _emergencyContactController.text.trim();
 
     if (department.isEmpty ||
         postRank.isEmpty ||
@@ -1559,8 +1549,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         postingCategory.isEmpty ||
         postingWorkAs.isEmpty ||
         whatsapp.isEmpty ||
-        callingContact.isEmpty ||
-        emergencyContact.isEmpty) {
+        callingContact.isEmpty) {
       _showMessage('Complete all posting details.');
       return false;
     }
@@ -1586,8 +1575,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (!_mobilePattern.hasMatch(whatsapp) ||
-        !_mobilePattern.hasMatch(callingContact) ||
-        !_mobilePattern.hasMatch(emergencyContact)) {
+        !_mobilePattern.hasMatch(callingContact)) {
       _showMessage('Complete all posting details with valid phone numbers.');
       return false;
     }
@@ -1691,7 +1679,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       whatsappNumber: _whatsappController.text.trim(),
       callingContactNumber: _callingNumberController.text.trim(),
       postingPlaceLocation: _postingPlaceLocationController.text.trim(),
-      emergencyContact: _emergencyContactController.text.trim(),
+      pendingUpdatePayload: jsonEncode(<String, dynamic>{
+        'biometricEnabled': _biometricVerified,
+      }),
       homeVillageMohalla: _homeVillageMohallaController.text.trim(),
       homeGaliNo: _homeGaliNoController.text.trim(),
       homePostOffice: _homePostOfficeController.text.trim(),

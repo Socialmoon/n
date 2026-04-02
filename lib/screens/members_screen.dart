@@ -35,12 +35,22 @@ class _MembersScreenState extends State<MembersScreen> {
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
   String? _selectedPostingLocation;
+  String? _optionalDistrict;
+  String? _optionalDepartment;
+  String? _optionalCategory;
+  final TextEditingController _searchController = TextEditingController();
   final double _radiusKm = 100;
 
   @override
   void initState() {
     super.initState();
     _refreshMembers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   List<Member> get _allVisibleMembers {
@@ -50,9 +60,7 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   List<Member> get _filteredMembers {
-    final members = _allVisibleMembers
-        .where((member) => member.id != widget.currentUser.id)
-        .toList();
+    final members = _allVisibleMembers.toList();
 
     if (_filterMode == null) {
       return const <Member>[];
@@ -63,9 +71,10 @@ class _MembersScreenState extends State<MembersScreen> {
       if (district.isEmpty) {
         return const <Member>[];
       }
-      return members
+      final filtered = members
           .where((member) => member.postingDistrict.trim().toLowerCase() == district)
           .toList();
+      return _applyOptionalFilters(filtered);
     }
 
     if (_filterMode == _MemberFilterMode.postingLocation) {
@@ -73,17 +82,18 @@ class _MembersScreenState extends State<MembersScreen> {
       if (location.isEmpty) {
         return const <Member>[];
       }
-      return members
+      final filtered = members
           .where((member) => member.postingLocation.trim().toLowerCase() == location)
           .toList();
+      return _applyOptionalFilters(filtered);
     }
 
-    final currentCoords = _currentFilterCoordinates();
+    final currentCoords = _currentSharedCoordinates();
     if (currentCoords == null) {
       return const <Member>[];
     }
 
-    return members.where((member) {
+    final filtered = members.where((member) {
       final postingCoords = _memberPostingCoordinates(member);
       if (postingCoords == null) {
         return false;
@@ -96,12 +106,70 @@ class _MembersScreenState extends State<MembersScreen> {
       );
       return distanceMeters <= _radiusKm * 1000;
     }).toList();
+    return _applyOptionalFilters(filtered);
+  }
+
+  List<Member> _applyOptionalFilters(List<Member> members) {
+    final district = (_optionalDistrict ?? '').trim().toLowerCase();
+    final department = (_optionalDepartment ?? '').trim().toLowerCase();
+    final category = (_optionalCategory ?? '').trim().toLowerCase();
+    final query = _searchController.text.trim().toLowerCase();
+
+    final filtered = members.where((member) {
+      final districtMatch = district.isEmpty ||
+          member.postingDistrict.trim().toLowerCase() == district;
+      final departmentValue = (member.department ?? '').trim().toLowerCase();
+      final departmentMatch = department.isEmpty || departmentValue == department;
+      final categoryValue = (member.postingCategory ?? '').trim().toLowerCase();
+      final categoryMatch = category.isEmpty || categoryValue == category;
+
+      if (!districtMatch || !departmentMatch || !categoryMatch) {
+        return false;
+      }
+
+      if (query.isEmpty) {
+        return true;
+      }
+
+      return member.name.toLowerCase().contains(query) ||
+          member.postingLocation.toLowerCase().contains(query) ||
+          member.postingDistrict.toLowerCase().contains(query) ||
+          (member.department ?? '').toLowerCase().contains(query) ||
+          (member.postingCategory ?? '').toLowerCase().contains(query);
+    }).toList();
+
+    return _sortByDistanceIfAvailable(filtered);
+  }
+
+  List<Member> _sortByDistanceIfAvailable(List<Member> members) {
+    final current = _currentSharedCoordinates();
+    if (current == null) {
+      return members;
+    }
+
+    final sorted = List<Member>.from(members);
+    sorted.sort((a, b) {
+      final da = _distanceKmFromCurrent(a, current);
+      final db = _distanceKmFromCurrent(b, current);
+      if (da == null && db == null) {
+        return a.name.compareTo(b.name);
+      }
+      if (da == null) {
+        return 1;
+      }
+      if (db == null) {
+        return -1;
+      }
+      return da.compareTo(db);
+    });
+    return sorted;
   }
 
   @override
   Widget build(BuildContext context) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final filtered = _filteredMembers;
+    final hasSharedLocation = _currentSharedCoordinates() != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -127,22 +195,43 @@ class _MembersScreenState extends State<MembersScreen> {
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(),
             ),
+          if (_filterMode != null && !hasSharedLocation)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3CD),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5D4A1)),
+              ),
+              child: Text(
+                isHindi
+                    ? 'दूसरे सदस्यों की अनुमानित दूरी देखने के लिए कृपया अपनी वर्तमान लोकेशन साझा करें।'
+                    : 'Please share your current location to see approximate distance of other members.',
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
           _buildFilterPanel(filtered),
           const SizedBox(height: 12),
           if (_filterMode == null)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Select a filter first. Member data is locked until you filter by district, posting location, or 100 km radius.',
+                  isHindi
+                      ? 'पहले फ़िल्टर चुनें। जिला, पोस्टिंग लोकेशन या रेडियस फ़िल्टर लगाने के बाद सदस्य दिखेंगे।'
+                      : 'Select a filter first. Member data is visible after applying district, posting location, or radius filter.',
                 ),
               ),
             )
           else if (filtered.isEmpty)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No members found for the selected filter.'),
+                padding: const EdgeInsets.all(16),
+                child: Text(isHindi
+                    ? 'चुने गए फ़िल्टर के लिए कोई सदस्य नहीं मिला।'
+                    : 'No members found for the selected filters.'),
               ),
             )
           else
@@ -153,8 +242,21 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   Widget _buildFilterPanel(List<Member> filteredMembers) {
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final districts = _allVisibleMembers
         .map((member) => member.postingDistrict.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final departments = _allVisibleMembers
+        .map((member) => (member.department ?? '').trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final categories = _allVisibleMembers
+        .map((member) => (member.postingCategory ?? '').trim())
         .where((value) => value.isNotEmpty)
         .toSet()
         .toList()
@@ -172,14 +274,27 @@ class _MembersScreenState extends State<MembersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
-              'Member Filters',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            Text(
+              isHindi ? 'सदस्य फ़िल्टर' : 'Member Filters',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Members are visible only after applying one filter.',
-              style: TextStyle(color: Color(0xFF5A6B74)),
+            Text(
+              isHindi
+                  ? 'कम से कम एक फ़िल्टर लगाने के बाद ही सदस्य दिखेंगे।'
+                  : 'Members are visible only after applying one filter.',
+              style: const TextStyle(color: Color(0xFF5A6B74)),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: isHindi
+                    ? 'नाम / जिला / कैटेगरी / विभाग से खोजें'
+                    : 'Search name / district / category / department',
+                prefixIcon: const Icon(Icons.search),
+              ),
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -187,7 +302,7 @@ class _MembersScreenState extends State<MembersScreen> {
               runSpacing: 8,
               children: <Widget>[
                 ChoiceChip(
-                  label: const Text('By District'),
+                  label: Text(isHindi ? 'जिले से' : 'By District'),
                   selected: _filterMode == _MemberFilterMode.district,
                   onSelected: (_) {
                     setState(() {
@@ -196,7 +311,7 @@ class _MembersScreenState extends State<MembersScreen> {
                   },
                 ),
                 ChoiceChip(
-                  label: const Text('By Posting Location'),
+                  label: Text(isHindi ? 'पोस्टिंग लोकेशन से' : 'By Posting Location'),
                   selected: _filterMode == _MemberFilterMode.postingLocation,
                   onSelected: (_) {
                     setState(() {
@@ -205,7 +320,7 @@ class _MembersScreenState extends State<MembersScreen> {
                   },
                 ),
                 ChoiceChip(
-                  label: const Text('By 100 km Radius'),
+                  label: Text(isHindi ? '100 किमी रेडियस' : 'By 100 km Radius'),
                   selected: _filterMode == _MemberFilterMode.currentLocation,
                   onSelected: (_) {
                     setState(() {
@@ -222,7 +337,9 @@ class _MembersScreenState extends State<MembersScreen> {
                 initialValue: districts.contains(_selectedDistrict)
                     ? _selectedDistrict
                     : null,
-                decoration: const InputDecoration(labelText: 'Posting District'),
+                decoration: InputDecoration(
+                  labelText: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
+                ),
                 items: districts
                     .map(
                       (district) => DropdownMenuItem<String>(
@@ -243,7 +360,9 @@ class _MembersScreenState extends State<MembersScreen> {
                 initialValue: postingLocations.contains(_selectedPostingLocation)
                     ? _selectedPostingLocation
                     : null,
-                decoration: const InputDecoration(labelText: 'Posting Place Name'),
+                decoration: InputDecoration(
+                  labelText: isHindi ? 'पोस्टिंग स्थान नाम' : 'Posting Place Name',
+                ),
                 items: postingLocations
                     .map(
                       (postingLocation) => DropdownMenuItem<String>(
@@ -259,18 +378,136 @@ class _MembersScreenState extends State<MembersScreen> {
                 },
               ),
             if (_filterMode == _MemberFilterMode.currentLocation) ...<Widget>[
-              Text(
-                'Showing members whose posting station coordinates are within ${_radiusKm.toInt()} km of your current shared location.',
-              ),
+              if (_currentSharedCoordinates() == null)
+                Text(
+                  isHindi
+                      ? 'रेडियस फ़िल्टर के लिए पहले अपनी वर्तमान लोकेशन साझा करें।'
+                      : 'Share your current location first to use radius filter.',
+                )
+              else
+                Text(
+                  isHindi
+                      ? 'आपकी वर्तमान साझा लोकेशन से ${_radiusKm.toInt()} किमी के भीतर पोस्टिंग स्थान वाले सदस्य दिख रहे हैं।'
+                      : 'Showing members whose posting station coordinates are within ${_radiusKm.toInt()} km of your current shared location.',
+                ),
               const SizedBox(height: 4),
-              Text('Members in range: ${filteredMembers.length}'),
+              Text(isHindi
+                  ? 'रेडियस में सदस्य: ${filteredMembers.length}'
+                  : 'Members in range: ${filteredMembers.length}'),
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
                 onPressed: () => _openRadiusMap(filteredMembers),
                 icon: const Icon(Icons.map_outlined),
-                label: const Text('Show All In-Range Members on Map'),
+                label: Text(isHindi
+                    ? 'मैप पर सभी सदस्य दिखाएं'
+                    : 'Show All In-Range Members on Map'),
               ),
             ],
+            const SizedBox(height: 12),
+            Text(
+              isHindi ? 'अतिरिक्त वैकल्पिक फ़िल्टर' : 'Additional optional filters',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: districts.contains(_optionalDistrict)
+                  ? _optionalDistrict
+                  : null,
+              decoration: InputDecoration(
+                labelText:
+                    isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
+              ),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: '',
+                  child: Text(isHindi ? 'सभी जिले' : 'All Districts'),
+                ),
+                ...districts.map(
+                  (district) => DropdownMenuItem<String>(
+                    value: district,
+                    child: Text(district),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _optionalDistrict = (value ?? '').trim().isEmpty ? null : value;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: departments.contains(_optionalDepartment)
+                  ? _optionalDepartment
+                  : null,
+              decoration: InputDecoration(
+                labelText: isHindi ? 'विभाग (वैकल्पिक)' : 'Department (Optional)',
+              ),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: '',
+                  child: Text(isHindi ? 'सभी विभाग' : 'All Departments'),
+                ),
+                ...departments.map(
+                  (department) => DropdownMenuItem<String>(
+                    value: department,
+                    child: Text(department),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _optionalDepartment = (value ?? '').trim().isEmpty ? null : value;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: categories.contains(_optionalCategory)
+                  ? _optionalCategory
+                  : null,
+              decoration: InputDecoration(
+                labelText: isHindi
+                    ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
+                    : 'Posting Category (Optional)',
+              ),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: '',
+                  child: Text(isHindi ? 'सभी कैटेगरी' : 'All Categories'),
+                ),
+                ...categories.map(
+                  (category) => DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(_displayValue(category)),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _optionalCategory = (value ?? '').trim().isEmpty ? null : value;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _optionalDistrict = null;
+                    _optionalDepartment = null;
+                    _optionalCategory = null;
+                    _searchController.clear();
+                  });
+                },
+                icon: const Icon(Icons.restart_alt_outlined),
+                label: Text(isHindi ? 'फ़िल्टर साफ़ करें' : 'Clear Optional Filters'),
+              ),
+            ),
           ],
         ),
       ),
@@ -280,6 +517,8 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget _buildMemberCard(Member member) {
     final isCurrentUser = member.id == widget.currentUser.id;
     final blocked = member.isBlocked;
+    final currentCoords = _currentSharedCoordinates();
+    final distanceKm = _distanceKmFromCurrent(member, currentCoords);
     final lastLogin = member.lastLoginAt == null
         ? 'Never'
         : _formatDateTime(member.lastLoginAt!);
@@ -311,16 +550,26 @@ class _MembersScreenState extends State<MembersScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${member.postRank ?? '-'} • ${member.batchYear ?? '-'}',
+                          '${_displayValue(member.postRank ?? '-')} • ${member.batchYear ?? '-'}',
                           style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
                         ),
                         Text(
                           member.postingLocation,
                           style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
                         ),
+                        if (distanceKm != null)
+                          Text(
+                            'Approx distance: ${distanceKm.toStringAsFixed(1)} km',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF0F5C6E), fontWeight: FontWeight.w600),
+                          ),
                       ],
                     ),
                   ),
+                  if (isCurrentUser)
+                    const Chip(
+                      label: Text('You'),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   if (member.isRetired)
                     const Chip(
                       label: Text('Retired'),
@@ -343,6 +592,12 @@ class _MembersScreenState extends State<MembersScreen> {
                       onPressed: () => _openPhone(member.mobileNumber),
                       icon: const Icon(Icons.call_outlined, size: 20),
                       tooltip: 'Call',
+                    ),
+                  if (!blocked)
+                    IconButton(
+                      onPressed: () => _openWhatsApp(member.whatsappNumber ?? member.mobileNumber),
+                      icon: const Icon(Icons.chat_outlined, size: 20),
+                      tooltip: 'WhatsApp',
                     ),
                   if (widget.currentUser.isAdmin && !isCurrentUser)
                     PopupMenuButton<String>(
@@ -439,6 +694,17 @@ class _MembersScreenState extends State<MembersScreen> {
     await launchUrl(uri);
   }
 
+  Future<void> _openWhatsApp(String mobile) async {
+    final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      _showMessage('WhatsApp number not available.');
+      return;
+    }
+    final normalized = digits.length > 10 ? digits : '91$digits';
+    final uri = Uri.parse('https://wa.me/$normalized');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Future<void> _openMemberDetails(Member member) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -511,7 +777,7 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   Future<void> _openRadiusMap(List<Member> filteredMembers) async {
-    final coords = _currentFilterCoordinates();
+    final coords = _currentSharedCoordinates();
     if (coords == null) {
       _showMessage('Share your live location first to use radius filter.');
       return;
@@ -544,12 +810,37 @@ class _MembersScreenState extends State<MembersScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  _LatLng? _currentFilterCoordinates() {
+  _LatLng? _currentSharedCoordinates() {
     final current = widget.repository.findById(widget.currentUser.id);
     if (current?.liveLatitude != null && current?.liveLongitude != null) {
       return _LatLng(current!.liveLatitude!, current.liveLongitude!);
     }
-    return _memberPostingCoordinates(current ?? widget.currentUser);
+    return null;
+  }
+
+  double? _distanceKmFromCurrent(Member member, _LatLng? currentCoords) {
+    if (currentCoords == null) {
+      return null;
+    }
+    final posting = _memberPostingCoordinates(member);
+    if (posting == null) {
+      return null;
+    }
+    final meters = Geolocator.distanceBetween(
+      currentCoords.latitude,
+      currentCoords.longitude,
+      posting.latitude,
+      posting.longitude,
+    );
+    return meters / 1000;
+  }
+
+  String _displayValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'n/a' || normalized == 'na') {
+      return 'Others';
+    }
+    return value;
   }
 
   _LatLng? _memberPostingCoordinates(Member member) {

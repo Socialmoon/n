@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/member.dart';
+import '../services/auth_service.dart';
 import '../services/donation_service.dart';
 import '../services/emergency_service.dart';
 import '../services/help_feed_service.dart';
@@ -17,6 +18,7 @@ class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
     required this.currentUser,
     required this.repository,
+    required this.authService,
     required this.donationService,
     required this.emergencyService,
     required this.helpFeedService,
@@ -28,6 +30,7 @@ class MainShellScreen extends StatefulWidget {
 
   final Member currentUser;
   final MemberRepository repository;
+  final AuthService authService;
   final DonationService donationService;
   final EmergencyService emergencyService;
   final HelpFeedService helpFeedService;
@@ -56,6 +59,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       DashboardScreen(
         currentUser: widget.currentUser,
         repository: widget.repository,
+        authService: widget.authService,
         donationService: widget.donationService,
         emergencyService: widget.emergencyService,
         helpFeedService: widget.helpFeedService,
@@ -79,6 +83,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       ProfileScreen(
         currentUser: widget.currentUser,
         repository: widget.repository,
+        authService: widget.authService,
         donationService: widget.donationService,
         onOpenSettings: _openSettings,
         onProfileUpdated: widget.onCurrentUserUpdated,
@@ -162,6 +167,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         builder: (context) => SettingsScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
+          authService: widget.authService,
           onLogout: widget.onLogout,
         ),
       ),
