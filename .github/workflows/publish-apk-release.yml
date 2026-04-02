@@ -39,13 +39,16 @@ jobs:
         run: |
           TAG="apk-$(date +%Y%m%d-%H%M%S)"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
-          RELEASE_APK="app-release-${TAG}.apk"
+          APP_VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          SAFE_VERSION="$(echo "$APP_VERSION" | tr '+' '-')"
+          RELEASE_APK="apne-saathi-v${SAFE_VERSION}.apk"
 
           test -f "$APK_PATH"
           cp "$APK_PATH" "$RELEASE_APK"
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "asset=$RELEASE_APK" >> "$GITHUB_OUTPUT"
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Verify APK artifact exists
         run: |
@@ -57,6 +60,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.meta.outputs.tag }}" "${{ steps.meta.outputs.asset }}" \
-            --title "APK ${{ steps.meta.outputs.tag }}" \
+            --title "Apne Saathi v${{ steps.meta.outputs.version }}" \
             --generate-notes \
             --latest
