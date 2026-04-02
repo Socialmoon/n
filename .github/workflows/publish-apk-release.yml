@@ -1,14 +1,6 @@
 name: Publish APK Release
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - 'lib/**'
-      - 'android/**'
-      - 'pubspec.yaml'
-      - 'pubspec.lock'
   workflow_dispatch:
 
 permissions:
