@@ -26,6 +26,12 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
   int _tabIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!widget.currentUser.isAdmin) {
       return Scaffold(

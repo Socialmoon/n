@@ -1079,7 +1079,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _sendingEmailOtp = true;
     });
 
-    final result = await _emailOtpService.sendVerificationOtp(email);
+    final result = await _emailOtpService.sendVerificationOtp(
+      email,
+      purpose: EmailOtpPurpose.profileUpdate,
+      memberName: widget.currentUser.name,
+    );
 
     if (!mounted) {
       return;

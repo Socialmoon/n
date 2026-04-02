@@ -197,6 +197,73 @@ class SupabaseService {
     }
   }
 
+  Future<Member?> fetchMemberByEmail(String email) async {
+    if (!isConfigured) {
+      return null;
+    }
+    if (!_initialized) {
+      await initialize();
+    }
+
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      return null;
+    }
+
+    Member? latestMatch;
+
+    if (_initialized) {
+      try {
+        final rows = await Supabase.instance.client
+            .from('members')
+            .select()
+            .ilike('email', normalizedEmail)
+            .order('last_updated', ascending: false)
+            .limit(1) as List<dynamic>;
+        if (rows.isNotEmpty) {
+          final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
+          if (member != null) {
+            latestMatch = member;
+          }
+        }
+      } catch (error) {
+        debugPrint('Supabase SDK fetchMemberByEmail failed: $error');
+      }
+    }
+
+    if (latestMatch != null) {
+      return latestMatch;
+    }
+
+    try {
+      final encoded = Uri.encodeQueryComponent(normalizedEmail);
+      final uri = Uri.parse(
+        '${SupabaseConfig.url}/rest/v1/members?select=*&email=ilike.$encoded&order=last_updated.desc&limit=1',
+      );
+      final response = await http.get(
+        uri,
+        headers: <String, String>{
+          'apikey': SupabaseConfig.anonKey,
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+        },
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint('Supabase REST fallback fetchMemberByEmail failed: HTTP ${response.statusCode}');
+        return null;
+      }
+      final rows = (response.body.isEmpty
+          ? <dynamic>[]
+          : (jsonDecode(response.body) as List<dynamic>));
+      if (rows.isEmpty) {
+        return null;
+      }
+      return _tryMemberFromRow(rows.first as Map<String, dynamic>);
+    } catch (error) {
+      debugPrint('Supabase REST fallback fetchMemberByEmail failed: $error');
+      return null;
+    }
+  }
+
   Future<bool> upsertMember(Member member) async {
     _lastWriteError = null;
     if (!await _ensureWriteSession()) {

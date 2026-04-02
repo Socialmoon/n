@@ -32,24 +32,25 @@ class MembersScreen extends StatefulWidget {
 class _MembersScreenState extends State<MembersScreen> {
   bool _refreshing = false;
   bool _updatingLiveLocation = false;
+  bool _locatingDevice = false;
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
   String? _selectedPostingLocation;
   String? _optionalDistrict;
   String? _optionalDepartment;
   String? _optionalCategory;
-  final TextEditingController _searchController = TextEditingController();
+  _LatLng? _deviceCoordinates;
   final double _radiusKm = 100;
 
   @override
   void initState() {
     super.initState();
     _refreshMembers();
+    _refreshDeviceLocation(showFeedback: false, requestPermissionIfNeeded: false);
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -88,7 +89,7 @@ class _MembersScreenState extends State<MembersScreen> {
       return _applyOptionalFilters(filtered);
     }
 
-    final currentCoords = _currentSharedCoordinates();
+    final currentCoords = _distanceOriginCoordinates();
     if (currentCoords == null) {
       return const <Member>[];
     }
@@ -113,36 +114,25 @@ class _MembersScreenState extends State<MembersScreen> {
     final district = (_optionalDistrict ?? '').trim().toLowerCase();
     final department = (_optionalDepartment ?? '').trim().toLowerCase();
     final category = (_optionalCategory ?? '').trim().toLowerCase();
-    final query = _searchController.text.trim().toLowerCase();
 
     final filtered = members.where((member) {
       final districtMatch = district.isEmpty ||
           member.postingDistrict.trim().toLowerCase() == district;
       final departmentValue = (member.department ?? '').trim().toLowerCase();
       final departmentMatch = department.isEmpty || departmentValue == department;
-      final categoryValue = (member.postingCategory ?? '').trim().toLowerCase();
+      final categoryValue = _displayValue(member.postingCategory ?? '')
+        .trim()
+        .toLowerCase();
       final categoryMatch = category.isEmpty || categoryValue == category;
 
-      if (!districtMatch || !departmentMatch || !categoryMatch) {
-        return false;
-      }
-
-      if (query.isEmpty) {
-        return true;
-      }
-
-      return member.name.toLowerCase().contains(query) ||
-          member.postingLocation.toLowerCase().contains(query) ||
-          member.postingDistrict.toLowerCase().contains(query) ||
-          (member.department ?? '').toLowerCase().contains(query) ||
-          (member.postingCategory ?? '').toLowerCase().contains(query);
+      return districtMatch && departmentMatch && categoryMatch;
     }).toList();
 
     return _sortByDistanceIfAvailable(filtered);
   }
 
   List<Member> _sortByDistanceIfAvailable(List<Member> members) {
-    final current = _currentSharedCoordinates();
+    final current = _distanceOriginCoordinates();
     if (current == null) {
       return members;
     }
@@ -169,16 +159,19 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget build(BuildContext context) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final filtered = _filteredMembers;
-    final hasSharedLocation = _currentSharedCoordinates() != null;
+    final distanceOrigin = _distanceOriginCoordinates();
+    final minDistanceKm = _minimumDistanceKm(filtered, distanceOrigin);
 
     return Scaffold(
       appBar: AppBar(
         title: BrandedScreenTitle(isHindi ? 'सभी सदस्य' : 'All Members'),
         actions: <Widget>[
           IconButton(
-            onPressed: _updatingLiveLocation ? null : _shareMyLiveLocation,
+            onPressed: (_locatingDevice || _updatingLiveLocation)
+                ? null
+                : _useAndShareCurrentLocation,
             icon: const Icon(Icons.my_location_outlined),
-            tooltip: 'Share my current location',
+            tooltip: 'Use and share my current location',
           ),
           IconButton(
             onPressed: _refreshing ? null : _refreshMembers,
@@ -195,7 +188,7 @@ class _MembersScreenState extends State<MembersScreen> {
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(),
             ),
-          if (_filterMode != null && !hasSharedLocation)
+          if (_filterMode != null && distanceOrigin == null)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 12),
@@ -205,14 +198,39 @@ class _MembersScreenState extends State<MembersScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE5D4A1)),
               ),
-              child: Text(
-                isHindi
-                    ? 'दूसरे सदस्यों की अनुमानित दूरी देखने के लिए कृपया अपनी वर्तमान लोकेशन साझा करें।'
-                    : 'Please share your current location to see approximate distance of other members.',
-                style: const TextStyle(fontSize: 12.5),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.location_off_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isHindi
+                          ? 'दूरी और निकटतम सदस्य देखने के लिए कृपया डिवाइस की वर्तमान लोकेशन सक्षम करें।'
+                          : 'Enable current location to calculate nearest member distance.',
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
+                ],
               ),
             ),
           _buildFilterPanel(filtered),
+          if (minDistanceKm != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F5EE),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFB7DDBF)),
+              ),
+              child: Text(
+                isHindi
+                    ? 'आपसे न्यूनतम दूरी: ${minDistanceKm.toStringAsFixed(1)} किमी'
+                    : 'Minimum distance from your current location: ${minDistanceKm.toStringAsFixed(1)} km',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
           const SizedBox(height: 12),
           if (_filterMode == null)
             Card(
@@ -286,17 +304,6 @@ class _MembersScreenState extends State<MembersScreen> {
               style: const TextStyle(color: Color(0xFF5A6B74)),
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: isHindi
-                    ? 'नाम / जिला / कैटेगरी / विभाग से खोजें'
-                    : 'Search name / district / category / department',
-                prefixIcon: const Icon(Icons.search),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -332,22 +339,10 @@ class _MembersScreenState extends State<MembersScreen> {
             ),
             const SizedBox(height: 12),
             if (_filterMode == _MemberFilterMode.district)
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: districts.contains(_selectedDistrict)
-                    ? _selectedDistrict
-                    : null,
-                decoration: InputDecoration(
-                  labelText: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
-                ),
-                items: districts
-                    .map(
-                      (district) => DropdownMenuItem<String>(
-                        value: district,
-                        child: Text(district),
-                      ),
-                    )
-                    .toList(),
+              _buildTypeablePickerField(
+                labelText: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
+                value: _selectedDistrict,
+                options: districts,
                 onChanged: (value) {
                   setState(() {
                     _selectedDistrict = value;
@@ -355,22 +350,10 @@ class _MembersScreenState extends State<MembersScreen> {
                 },
               ),
             if (_filterMode == _MemberFilterMode.postingLocation)
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: postingLocations.contains(_selectedPostingLocation)
-                    ? _selectedPostingLocation
-                    : null,
-                decoration: InputDecoration(
-                  labelText: isHindi ? 'पोस्टिंग स्थान नाम' : 'Posting Place Name',
-                ),
-                items: postingLocations
-                    .map(
-                      (postingLocation) => DropdownMenuItem<String>(
-                        value: postingLocation,
-                        child: Text(postingLocation),
-                      ),
-                    )
-                    .toList(),
+              _buildTypeablePickerField(
+                labelText: isHindi ? 'पोस्टिंग स्थान नाम' : 'Posting Place Name',
+                value: _selectedPostingLocation,
+                options: postingLocations,
                 onChanged: (value) {
                   setState(() {
                     _selectedPostingLocation = value;
@@ -378,17 +361,17 @@ class _MembersScreenState extends State<MembersScreen> {
                 },
               ),
             if (_filterMode == _MemberFilterMode.currentLocation) ...<Widget>[
-              if (_currentSharedCoordinates() == null)
+              if (_distanceOriginCoordinates() == null)
                 Text(
                   isHindi
-                      ? 'रेडियस फ़िल्टर के लिए पहले अपनी वर्तमान लोकेशन साझा करें।'
-                      : 'Share your current location first to use radius filter.',
+                      ? 'रेडियस फ़िल्टर के लिए डिवाइस लोकेशन चालू करें।'
+                      : 'Enable device location first to use radius filter.',
                 )
               else
                 Text(
                   isHindi
-                      ? 'आपकी वर्तमान साझा लोकेशन से ${_radiusKm.toInt()} किमी के भीतर पोस्टिंग स्थान वाले सदस्य दिख रहे हैं।'
-                      : 'Showing members whose posting station coordinates are within ${_radiusKm.toInt()} km of your current shared location.',
+                      ? 'आपकी वर्तमान लोकेशन से ${_radiusKm.toInt()} किमी के भीतर पोस्टिंग स्थान वाले सदस्य दिख रहे हैं।'
+                      : 'Showing members whose posting station coordinates are within ${_radiusKm.toInt()} km of your current location.',
                 ),
               const SizedBox(height: 4),
               Text(isHindi
@@ -409,88 +392,43 @@ class _MembersScreenState extends State<MembersScreen> {
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: districts.contains(_optionalDistrict)
-                  ? _optionalDistrict
-                  : null,
-              decoration: InputDecoration(
-                labelText:
-                    isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(
-                  value: '',
-                  child: Text(isHindi ? 'सभी जिले' : 'All Districts'),
-                ),
-                ...districts.map(
-                  (district) => DropdownMenuItem<String>(
-                    value: district,
-                    child: Text(district),
-                  ),
-                ),
-              ],
+            _buildTypeablePickerField(
+              labelText:
+                  isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
+              value: _optionalDistrict,
+              options: districts,
               onChanged: (value) {
                 setState(() {
-                  _optionalDistrict = (value ?? '').trim().isEmpty ? null : value;
+                  _optionalDistrict = value;
                 });
               },
+              emptyLabel: isHindi ? 'सभी जिले' : 'All Districts',
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: departments.contains(_optionalDepartment)
-                  ? _optionalDepartment
-                  : null,
-              decoration: InputDecoration(
-                labelText: isHindi ? 'विभाग (वैकल्पिक)' : 'Department (Optional)',
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(
-                  value: '',
-                  child: Text(isHindi ? 'सभी विभाग' : 'All Departments'),
-                ),
-                ...departments.map(
-                  (department) => DropdownMenuItem<String>(
-                    value: department,
-                    child: Text(department),
-                  ),
-                ),
-              ],
+            _buildTypeablePickerField(
+              labelText: isHindi ? 'विभाग (वैकल्पिक)' : 'Department (Optional)',
+              value: _optionalDepartment,
+              options: departments,
               onChanged: (value) {
                 setState(() {
-                  _optionalDepartment = (value ?? '').trim().isEmpty ? null : value;
+                  _optionalDepartment = value;
                 });
               },
+              emptyLabel: isHindi ? 'सभी विभाग' : 'All Departments',
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: categories.contains(_optionalCategory)
-                  ? _optionalCategory
-                  : null,
-              decoration: InputDecoration(
-                labelText: isHindi
-                    ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
-                    : 'Posting Category (Optional)',
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(
-                  value: '',
-                  child: Text(isHindi ? 'सभी कैटेगरी' : 'All Categories'),
-                ),
-                ...categories.map(
-                  (category) => DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(_displayValue(category)),
-                  ),
-                ),
-              ],
+            _buildTypeablePickerField(
+              labelText: isHindi
+                  ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
+                  : 'Posting Category (Optional)',
+              value: _optionalCategory,
+              options: categories.map(_displayValue).toList(),
               onChanged: (value) {
                 setState(() {
-                  _optionalCategory = (value ?? '').trim().isEmpty ? null : value;
+                  _optionalCategory = value;
                 });
               },
+              emptyLabel: isHindi ? 'सभी कैटेगरी' : 'All Categories',
             ),
             const SizedBox(height: 8),
             Align(
@@ -501,7 +439,6 @@ class _MembersScreenState extends State<MembersScreen> {
                     _optionalDistrict = null;
                     _optionalDepartment = null;
                     _optionalCategory = null;
-                    _searchController.clear();
                   });
                 },
                 icon: const Icon(Icons.restart_alt_outlined),
@@ -517,7 +454,7 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget _buildMemberCard(Member member) {
     final isCurrentUser = member.id == widget.currentUser.id;
     final blocked = member.isBlocked;
-    final currentCoords = _currentSharedCoordinates();
+    final currentCoords = _distanceOriginCoordinates();
     final distanceKm = _distanceKmFromCurrent(member, currentCoords);
     final lastLogin = member.lastLoginAt == null
         ? 'Never'
@@ -550,16 +487,20 @@ class _MembersScreenState extends State<MembersScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${_displayValue(member.postRank ?? '-')} • ${member.batchYear ?? '-'}',
+                          'Rank: ${_displayValue(member.postRank ?? '-')}   Batch: ${member.batchYear ?? '-'}',
                           style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
                         ),
                         Text(
-                          member.postingLocation,
+                          'Posting district: ${_displayValue(member.postingDistrict)}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
+                        ),
+                        Text(
+                          'Posting location: ${_displayValue(member.postingLocation)}',
                           style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
                         ),
                         if (distanceKm != null)
                           Text(
-                            'Approx distance: ${distanceKm.toStringAsFixed(1)} km',
+                            'Distance from you: ${distanceKm.toStringAsFixed(1)} km',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF0F5C6E), fontWeight: FontWeight.w600),
                           ),
                       ],
@@ -716,8 +657,9 @@ class _MembersScreenState extends State<MembersScreen> {
     );
   }
 
-  Future<void> _shareMyLiveLocation() async {
+  Future<void> _useAndShareCurrentLocation() async {
     setState(() {
+      _locatingDevice = true;
       _updatingLiveLocation = true;
     });
 
@@ -734,13 +676,19 @@ class _MembersScreenState extends State<MembersScreen> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _showMessage('Location permission is required to share live location.');
+        _showMessage('Location permission is required to use and share current location.');
         return;
       }
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
+
+      if (mounted) {
+        setState(() {
+          _deviceCoordinates = _LatLng(position.latitude, position.longitude);
+        });
+      }
 
       final current = widget.repository.findById(widget.currentUser.id);
       if (current == null) {
@@ -764,12 +712,13 @@ class _MembersScreenState extends State<MembersScreen> {
         return;
       }
       setState(() {});
-      _showMessage('Live location shared successfully.');
+      _showMessage('Current location enabled and shared successfully.');
     } catch (error) {
-      _showMessage('Unable to fetch live location: $error');
+      _showMessage('Unable to fetch current location: $error');
     } finally {
       if (mounted) {
         setState(() {
+          _locatingDevice = false;
           _updatingLiveLocation = false;
         });
       }
@@ -777,9 +726,9 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   Future<void> _openRadiusMap(List<Member> filteredMembers) async {
-    final coords = _currentSharedCoordinates();
+    final coords = _distanceOriginCoordinates();
     if (coords == null) {
-      _showMessage('Share your live location first to use radius filter.');
+      _showMessage('Enable current location first to use radius filter.');
       return;
     }
 
@@ -816,6 +765,215 @@ class _MembersScreenState extends State<MembersScreen> {
       return _LatLng(current!.liveLatitude!, current.liveLongitude!);
     }
     return null;
+  }
+
+  _LatLng? _distanceOriginCoordinates() {
+    return _deviceCoordinates ?? _currentSharedCoordinates();
+  }
+
+  double? _minimumDistanceKm(List<Member> members, _LatLng? origin) {
+    if (origin == null || members.isEmpty) {
+      return null;
+    }
+
+    double? minDistance;
+    for (final member in members) {
+      final distance = _distanceKmFromCurrent(member, origin);
+      if (distance == null) {
+        continue;
+      }
+      if (minDistance == null || distance < minDistance) {
+        minDistance = distance;
+      }
+    }
+    return minDistance;
+  }
+
+  Future<void> _refreshDeviceLocation({
+    required bool showFeedback,
+    required bool requestPermissionIfNeeded,
+  }) async {
+    setState(() {
+      _locatingDevice = true;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (showFeedback) {
+          _showMessage('Location services are disabled on this device.');
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && requestPermissionIfNeeded) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (showFeedback) {
+          _showMessage('Location permission is required for distance calculation.');
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _deviceCoordinates = _LatLng(position.latitude, position.longitude);
+      });
+      if (showFeedback) {
+        _showMessage('Current location enabled for distance calculation.');
+      }
+    } catch (error) {
+      if (showFeedback) {
+        _showMessage('Unable to fetch current location: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _locatingDevice = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildTypeablePickerField({
+    required String labelText,
+    required String? value,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+    String? emptyLabel,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: () async {
+          final picked = await _pickTypedValue(
+            title: labelText,
+            options: options,
+            initialValue: value,
+            emptyLabel: emptyLabel,
+          );
+          onChanged(picked);
+        },
+        child: AbsorbPointer(
+          child: TextFormField(
+            initialValue: value ?? '',
+            decoration: InputDecoration(
+              labelText: labelText,
+              hintText: emptyLabel,
+              suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pickTypedValue({
+    required String title,
+    required List<String> options,
+    required String? initialValue,
+    String? emptyLabel,
+  }) async {
+    return showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final textController = TextEditingController(text: initialValue ?? '');
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = query.trim().isEmpty
+                ? options
+                : options
+                    .where((item) => item.toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.72,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: textController,
+                      decoration: InputDecoration(
+                        labelText: 'Type or search',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            textController.clear();
+                            setSheetState(() {
+                              query = '';
+                            });
+                          },
+                          icon: const Icon(Icons.clear),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setSheetState(() {
+                          query = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    if (emptyLabel != null)
+                      ListTile(
+                        title: Text(emptyLabel),
+                        leading: const Icon(Icons.filter_alt_off_outlined),
+                        onTap: () => Navigator.of(context).pop(null),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final value = filtered[index];
+                          return ListTile(
+                            title: Text(value),
+                            onTap: () => Navigator.of(context).pop(value),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonal(
+                        onPressed: () {
+                          final typed = textController.text.trim();
+                          if (typed.isEmpty) {
+                            Navigator.of(context).pop(null);
+                            return;
+                          }
+                          Navigator.of(context).pop(typed);
+                        },
+                        child: const Text('Use typed value'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   double? _distanceKmFromCurrent(Member member, _LatLng? currentCoords) {

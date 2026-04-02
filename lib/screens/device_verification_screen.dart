@@ -65,7 +65,11 @@ class _DeviceVerificationScreenState extends State<DeviceVerificationScreen> {
       return;
     }
 
-    final result = await _emailOtpService.sendVerificationOtp(email);
+    final result = await _emailOtpService.sendVerificationOtp(
+      email,
+      purpose: EmailOtpPurpose.deviceBinding,
+      memberName: widget.member.name,
+    );
 
     if (!mounted) {
       return;

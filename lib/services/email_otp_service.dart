@@ -16,6 +16,13 @@ class EmailOtpResult {
   final String? transactionId;
 }
 
+enum EmailOtpPurpose {
+  loginVerification,
+  registration,
+  deviceBinding,
+  profileUpdate,
+}
+
 class EmailOtpService {
   static final EmailOtpService _instance = EmailOtpService._internal();
 
@@ -31,7 +38,11 @@ class EmailOtpService {
       Uri.parse('${SupabaseConfig.url}/functions/v1/verify-email-otp');
 
   /// Send OTP to email using server-side Gmail SMTP.
-  Future<EmailOtpResult> sendVerificationOtp(String email) async {
+  Future<EmailOtpResult> sendVerificationOtp(
+    String email, {
+    EmailOtpPurpose purpose = EmailOtpPurpose.loginVerification,
+    String? memberName,
+  }) async {
     if (!_isValidEmail(email)) {
       return const EmailOtpResult(error: 'Invalid email address.');
     }
@@ -51,6 +62,9 @@ class EmailOtpService {
         },
         body: jsonEncode(<String, dynamic>{
           'email': email.trim(),
+          'purpose': _purposeToApiValue(purpose),
+          if (memberName != null && memberName.trim().isNotEmpty)
+            'memberName': memberName.trim(),
         }),
       );
 
@@ -131,5 +145,18 @@ class EmailOtpService {
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     );
     return regex.hasMatch(email.trim());
+  }
+
+  String _purposeToApiValue(EmailOtpPurpose purpose) {
+    switch (purpose) {
+      case EmailOtpPurpose.registration:
+        return 'registration';
+      case EmailOtpPurpose.deviceBinding:
+        return 'device_binding';
+      case EmailOtpPurpose.profileUpdate:
+        return 'profile_update';
+      case EmailOtpPurpose.loginVerification:
+        return 'login_verification';
+    }
   }
 }

@@ -33,6 +33,8 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     'Travel',
     'Other',
   ];
+  final Map<String, String> _avatarUrlByMobile = <String, String>{};
+  final Set<String> _avatarLookupInFlight = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
         title: BrandedScreenTitle(isHindi ? 'मदद फीड' : 'Help Feed'),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'help-feed-post-fab',
         onPressed: _createHelpPost,
         icon: const Icon(Icons.add_comment_outlined),
         label: Text(isHindi ? 'नई रिक्वेस्ट' : 'Post Request'),
@@ -88,7 +91,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     final comments = widget.helpFeedService.commentsFor(post.id);
     final commentCount = comments.length;
     final member = _resolvePostMember(post);
-    final profileUrl = member?.selfiePath?.trim() ?? '';
+    final profileUrl = _resolveProfileUrl(post, member);
     final initial = post.memberName.isEmpty
       ? '?'
       : post.memberName.substring(0, 1).toUpperCase();
@@ -232,6 +235,52 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
       return byId;
     }
     return widget.repository.findByMobile(post.memberMobile);
+  }
+
+  String _resolveProfileUrl(HelpPost post, Member? member) {
+    final local = member?.selfiePath?.trim() ?? '';
+    if (local.isNotEmpty) {
+      return local;
+    }
+
+    final normalizedMobile = _normalizeMobile(post.memberMobile);
+    final cached = _avatarUrlByMobile[normalizedMobile]?.trim() ?? '';
+    if (cached.isNotEmpty) {
+      return cached;
+    }
+
+    _ensureAvatarResolved(post.memberMobile);
+    return '';
+  }
+
+  void _ensureAvatarResolved(String mobile) {
+    final normalized = _normalizeMobile(mobile);
+    if (normalized.isEmpty || _avatarLookupInFlight.contains(normalized)) {
+      return;
+    }
+
+    _avatarLookupInFlight.add(normalized);
+    widget.repository.fetchByMobileFromCloud(mobile).then((member) {
+      if (!mounted) {
+        return;
+      }
+      final selfieUrl = member?.selfiePath?.trim() ?? '';
+      if (selfieUrl.isNotEmpty) {
+        setState(() {
+          _avatarUrlByMobile[normalized] = selfieUrl;
+        });
+      }
+    }).whenComplete(() {
+      _avatarLookupInFlight.remove(normalized);
+    });
+  }
+
+  String _normalizeMobile(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 10) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
   }
 
   Future<void> _createHelpPost() async {

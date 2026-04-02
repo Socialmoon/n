@@ -523,10 +523,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   allowCustomValue: true,
                 ),
               ),
-              _buildTextField(_homePostOfficeController, 'Home Post Office'),
               _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
               _buildTextField(_homeGaliNoController, 'Gali No.'),
-              _buildTextField(_homeVillageLocationController, 'Home Village Location'),
             ],
           ),
         ],
@@ -733,7 +731,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _buildSummaryRow('Home Tehsil', _homeTehsilController.text.trim()),
             _buildSummaryRow(
               'Home Police Station', _homePoliceStationController.text.trim()),
-            _buildSummaryRow('Post Office', _homePostOfficeController.text.trim()),
             _buildSummaryRow(
               'Village / Mohalla', _homeVillageMohallaController.text.trim()),
             _buildSummaryRow('Gali No.', _homeGaliNoController.text.trim()),
@@ -1282,6 +1279,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!_validateIdentityStep()) {
         return;
       }
+      final unique = await _ensureIdentityNotDuplicateInCloud();
+      if (!unique) {
+        return;
+      }
       await _goToStep(1);
       return;
     }
@@ -1384,8 +1385,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showMessage('Mobile number already registered.');
       return false;
     }
+    if (widget.repository.findByEmail(email) != null) {
+      _showMessage('Email already registered.');
+      return false;
+    }
     if (_referenceMember == null) {
       _showMessage('Reference member could not be verified.');
+      return false;
+    }
+    return true;
+  }
+
+  Future<bool> _ensureIdentityNotDuplicateInCloud() async {
+    final mobile = _mobileController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
+
+    final byMobile = await widget.repository.fetchByMobileFromCloud(mobile);
+    if (byMobile != null) {
+      _showMessage('Mobile number already registered in system.');
+      return false;
+    }
+
+    final byEmail = await widget.repository.fetchByEmailFromCloud(email);
+    if (byEmail != null) {
+      _showMessage('Email already registered in system.');
       return false;
     }
     return true;
@@ -1449,7 +1472,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _sendingEmailOtp = true;
     });
 
-    final dispatch = await _emailOtpService.sendVerificationOtp(email);
+    final dispatch = await _emailOtpService.sendVerificationOtp(
+      email,
+      purpose: EmailOtpPurpose.registration,
+      memberName: _nameController.text.trim(),
+    );
 
     if (!mounted) {
       return;
@@ -1474,14 +1501,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final homeDistrict = _homeDistrictController.text.trim();
     final homeVillageMohalla = _homeVillageMohallaController.text.trim();
     final homeGaliNo = _homeGaliNoController.text.trim();
-    final homePostOffice = _homePostOfficeController.text.trim();
     final homePoliceStation = _homePoliceStationController.text.trim();
     final homeTehsil = _homeTehsilController.text.trim();
 
     if (homeDistrict.isEmpty ||
         homeVillageMohalla.isEmpty ||
         homeGaliNo.isEmpty ||
-        homePostOffice.isEmpty ||
         homePoliceStation.isEmpty ||
         homeTehsil.isEmpty) {
       _showMessage('Complete all home details.');
@@ -1609,6 +1634,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
+    final unique = await _ensureIdentityNotDuplicateInCloud();
+    if (!unique) {
+      return;
+    }
+
     setState(() {
       _submitting = true;
     });
@@ -1684,10 +1714,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       }),
       homeVillageMohalla: _homeVillageMohallaController.text.trim(),
       homeGaliNo: _homeGaliNoController.text.trim(),
-      homePostOffice: _homePostOfficeController.text.trim(),
+      homePostOffice: '',
       homePoliceStation: _homePoliceStationController.text.trim(),
       homeTehsil: _homeTehsilController.text.trim(),
-      homeVillageLocation: _homeVillageLocationController.text.trim(),
+      homeVillageLocation: '',
       appointmentDate: now,
       role: 'Member',
       lastUpdated: now,

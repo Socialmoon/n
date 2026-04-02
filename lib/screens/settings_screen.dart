@@ -228,16 +228,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               : (languageCode == 'hi' ? 'अपडेट' : 'Update')),
                         ),
                       ),
-                      ListTile(
-                        leading: const Icon(Icons.notifications_active_outlined),
-                        title: Text(languageCode == 'hi'
-                            ? 'आपातकालीन नोटिफिकेशन जांचें'
-                            : 'Test emergency notification'),
-                        subtitle: Text(languageCode == 'hi'
-                            ? 'डिवाइस नोटिफिकेशन और वाइब्रेशन की जांच करें।'
-                            : 'Verify device notification and vibration behavior.'),
-                        onTap: _sendTestEmergencyNotification,
-                      ),
                       const Divider(height: 1),
                       ListTile(
                         leading:
@@ -428,27 +418,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _languageService.currentLanguageCode == 'hi'
           ? 'फिंगरप्रिंट लॉगिन सफलतापूर्वक अपडेट हो गया।'
           : 'Fingerprint login updated successfully.',
-    );
-  }
-
-  Future<void> _sendTestEmergencyNotification() async {
-    final languageCode = _languageService.currentLanguageCode;
-    await _notificationService.requestPermissionsIfNeeded();
-    await _notificationService.showEmergencyAlertNotification(
-      title: languageCode == 'hi'
-          ? 'अपना साथी आपातकालीन अलर्ट'
-          : 'Apne Saathi Emergency Alert',
-      body: languageCode == 'hi'
-          ? 'यह एक टेस्ट नोटिफिकेशन है।'
-          : 'This is a test emergency notification.',
-    );
-    if (_vibrationEnabled && await Vibration.hasVibrator()) {
-      await Vibration.vibrate(pattern: <int>[0, 200, 100, 300]);
-    }
-    _showMessage(
-      languageCode == 'hi'
-          ? 'टेस्ट नोटिफिकेशन भेज दिया गया।'
-          : 'Test notification sent.',
     );
   }
 

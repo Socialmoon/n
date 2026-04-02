@@ -190,14 +190,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildQuickActions(),
           const SizedBox(height: 20),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             isHindi ? 'हाल के आपातकालीन अलर्ट' : 'Recent emergency alerts',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           ...widget.emergencyService.alerts.take(5).map(_buildAlertCard),
           if (widget.emergencyService.alerts.isEmpty)
-            const Card(
+            Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
                 child: Text(isHindi
@@ -219,6 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
 
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'dashboard-emergency-fab',
         onPressed: _triggerAlert,
         icon: const Icon(Icons.sos_outlined),
         label: Text(isHindi ? 'आपातकाल' : 'Emergency'),

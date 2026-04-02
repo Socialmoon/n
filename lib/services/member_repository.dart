@@ -146,6 +146,24 @@ class MemberRepository {
     return member;
   }
 
+  Future<Member?> fetchByEmailFromCloud(String email) async {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final member = await _cloudService.fetchMemberByEmail(normalized);
+    if (member == null) {
+      return null;
+    }
+    final index = _members.indexWhere((item) => item.id == member.id);
+    if (index == -1) {
+      _members.add(member);
+    } else {
+      _members[index] = member;
+    }
+    return member;
+  }
+
   Member? findByMobile(String mobileNumber) {
     final normalized = _normalizeMobile(mobileNumber);
     if (normalized.isEmpty) {
@@ -154,6 +172,23 @@ class MemberRepository {
     Member? latest;
     for (final member in _members) {
       if (_normalizeMobile(member.mobileNumber) == normalized) {
+        if (latest == null || member.lastUpdated.isAfter(latest.lastUpdated)) {
+          latest = member;
+        }
+      }
+    }
+    return latest;
+  }
+
+  Member? findByEmail(String email) {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    Member? latest;
+    for (final member in _members) {
+      final memberEmail = member.email?.trim().toLowerCase() ?? '';
+      if (memberEmail == normalized) {
         if (latest == null || member.lastUpdated.isAfter(latest.lastUpdated)) {
           latest = member;
         }

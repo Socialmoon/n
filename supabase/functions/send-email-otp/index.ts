@@ -1,5 +1,7 @@
+// @ts-ignore: Resolved by Supabase Edge/Deno runtime during function execution.
 import "@supabase/functions-js/edge-runtime.d.ts";
 /// <reference path="./smtp-url-module.d.ts" />
+// @ts-ignore: Remote Deno URL import is valid at runtime; local declaration file provides types.
 import { SmtpClient } from "https://deno.land/x/smtp/mod.ts";
 
 declare const Deno: {
@@ -40,6 +42,12 @@ const RESEND_COOLDOWN_MS = 60 * 1000;
 const OTP_SLOT_MS = 5 * 60 * 1000;
 const lastOtpSentAt = new Map<string, number>();
 
+type OtpPurpose =
+  | "login_verification"
+  | "registration"
+  | "device_binding"
+  | "profile_update";
+
 function jsonResponse(status: number, payload: Record<string, unknown>) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -52,6 +60,97 @@ function jsonResponse(status: number, payload: Record<string, unknown>) {
 
 function isValidEmail(email: string): boolean {
   return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim());
+}
+
+function normalizePurpose(rawPurpose: string | undefined): OtpPurpose {
+  if (rawPurpose === "registration") {
+    return "registration";
+  }
+  if (rawPurpose === "device_binding") {
+    return "device_binding";
+  }
+  if (rawPurpose === "profile_update") {
+    return "profile_update";
+  }
+  return "login_verification";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildOtpTemplate(
+  otp: string,
+  purpose: OtpPurpose,
+  memberName?: string,
+): { subject: string; content: string; html: string } {
+  const cleanName = (memberName ?? "").trim();
+  const greetingName = cleanName.length > 0 ? cleanName : "Member";
+
+  const labels = {
+    login_verification: {
+      subject: "Apne Saathi | Login Verification OTP",
+      heading: "Login Verification",
+      line: "Use this OTP to verify your sign-in request.",
+    },
+    registration: {
+      subject: "Apne Saathi | Registration Email Verification OTP",
+      heading: "Registration Verification",
+      line: "Use this OTP to complete your new account registration.",
+    },
+    device_binding: {
+      subject: "Apne Saathi | New Device Verification OTP",
+      heading: "New Device Verification",
+      line: "Use this OTP to approve login from a new device.",
+    },
+    profile_update: {
+      subject: "Apne Saathi | Email Update Verification OTP",
+      heading: "Email Update Verification",
+      line: "Use this OTP to confirm your email update request.",
+    },
+  } as const;
+
+  const selected = labels[purpose];
+  const safeName = escapeHtml(greetingName);
+  const safeLine = escapeHtml(selected.line);
+
+  const content =
+    `Hello ${greetingName},\n\n` +
+    `${selected.line}\n` +
+    `OTP: ${otp}\n` +
+    `Valid for 5 minutes.\n\n` +
+    `Do not share this OTP with anyone.\n` +
+    `If you did not request this verification, ignore this email.\n\n` +
+    `Regards,\nApne Saathi Support`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;background:#f5f8fb;padding:18px;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ea;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#10394b,#2f7982);padding:14px 16px;color:#ffffff;">
+          <h2 style="margin:0;font-size:18px;">Apne Saathi Support</h2>
+          <p style="margin:4px 0 0;font-size:12px;opacity:0.92;">${selected.heading}</p>
+        </div>
+        <div style="padding:16px;color:#1f2d36;">
+          <p style="margin:0 0 10px;">Hello ${safeName},</p>
+          <p style="margin:0 0 12px;">${safeLine}</p>
+          <div style="display:inline-block;padding:10px 14px;border:1px dashed #b7c5cf;border-radius:8px;background:#f7fbfd;font-size:24px;font-weight:700;letter-spacing:4px;">${otp}</div>
+          <p style="margin:12px 0 0;font-size:13px;color:#4a5e6c;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <p style="margin:10px 0 0;font-size:12px;color:#6b7d88;">Do not share this OTP with anyone. If this request was not made by you, ignore this email.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return {
+    subject: selected.subject,
+    content,
+    html,
+  };
 }
 
 async function computeOtp(email: string, secret: string, slotOffset = 0): Promise<string> {
@@ -87,7 +186,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(405, { success: false, error: "Method not allowed" });
   }
 
-  let body: { email?: string };
+  let body: { email?: string; purpose?: string; memberName?: string };
   try {
     body = await req.json();
   } catch {
@@ -95,6 +194,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const email = (body.email ?? "").trim();
+  const purpose = normalizePurpose(body.purpose);
+  const memberName = (body.memberName ?? "").trim();
   if (!isValidEmail(email)) {
     return jsonResponse(400, { success: false, error: "Invalid email address" });
   }
@@ -122,6 +223,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const otp = await computeOtp(email, otpSecret);
+  const template = buildOtpTemplate(otp, purpose, memberName);
   const client = new SmtpClient();
 
   try {
@@ -135,30 +237,9 @@ Deno.serve(async (req: Request) => {
     await client.send({
       from: smtpUser,
       to: email,
-      subject: "Apne Saathi Support | OTP Verification",
-      content:
-        `Hello,\n\n` +
-        `Your Apne Saathi verification OTP is: ${otp}\n` +
-        `This OTP is valid for 5 minutes.\n\n` +
-        `If you did not request this, please ignore this email.\n\n` +
-        `Regards,\nApne Saathi Support`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f8fb;padding:18px;">
-          <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ea;border-radius:12px;overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#10394b,#2f7982);padding:14px 16px;color:#ffffff;">
-              <h2 style="margin:0;font-size:18px;">Apne Saathi Support</h2>
-              <p style="margin:4px 0 0;font-size:12px;opacity:0.92;">Secure OTP Verification</p>
-            </div>
-            <div style="padding:16px;color:#1f2d36;">
-              <p style="margin:0 0 10px;">Hello,</p>
-              <p style="margin:0 0 12px;">Use the OTP below to verify your login:</p>
-              <div style="display:inline-block;padding:10px 14px;border:1px dashed #b7c5cf;border-radius:8px;background:#f7fbfd;font-size:24px;font-weight:700;letter-spacing:4px;">${otp}</div>
-              <p style="margin:12px 0 0;font-size:13px;color:#4a5e6c;">This OTP is valid for <strong>5 minutes</strong>.</p>
-              <p style="margin:10px 0 0;font-size:12px;color:#6b7d88;">If you did not request this OTP, you can safely ignore this email.</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: template.subject,
+      content: template.content,
+      html: template.html,
     });
 
     await client.close();
