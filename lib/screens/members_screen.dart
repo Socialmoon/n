@@ -998,10 +998,9 @@ class _MembersScreenState extends State<MembersScreen> {
           ),
           isEmpty: !hasValue,
           child: Text(
-            hasValue ? selectedValue : (emptyLabel ?? ''),
-            style: hasValue
-                ? null
-                : TextStyle(color: Theme.of(context).hintColor),
+            hasValue ? selectedValue : '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
