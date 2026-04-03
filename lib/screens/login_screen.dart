@@ -234,12 +234,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
                                   onPressed:
-                                      _checkingBiometric ? null : _loginWithBiometric,
+                                      _checkingBiometric
+                                          ? null
+                                          : (_biometricAvailable ? _loginWithBiometric : null),
                                   icon: const Icon(Icons.fingerprint),
                                   label: Text(
                                     _checkingBiometric
                                         ? AppStrings.tr(languageCode, 'checking_biometrics')
-                                        : AppStrings.tr(languageCode, 'use_biometric_login'),
+                                        : (_biometricAvailable
+                                            ? AppStrings.tr(languageCode, 'use_biometric_login')
+                                            : 'Biometric unavailable for this mobile'),
                                   ),
                                 ),
                               ),

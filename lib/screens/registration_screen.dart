@@ -72,7 +72,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _homePostOfficeController = TextEditingController();
   final _homePoliceStationController = TextEditingController();
   final _homeTehsilController = TextEditingController();
-  final _homeVillageLocationController = TextEditingController();
   XFile? _selfie;
   XFile? _idCardPhoto;
   Member? _referenceMember;
@@ -196,7 +195,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _homePostOfficeController.dispose();
     _homePoliceStationController.dispose();
     _homeTehsilController.dispose();
-    _homeVillageLocationController.dispose();
     super.dispose();
   }
 
@@ -499,10 +497,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         children: <Widget>[
           _buildChunkCard(
             title: 'Home details',
-            subtitle: 'For now state is fixed to Uttar Pradesh.',
+            subtitle: 'You can type your own state, district and station if not listed.',
             initiallyExpanded: true,
             children: <Widget>[
-              _buildTextField(_homeStateController, 'Home State', readOnly: true),
+              _buildTextField(_homeStateController, 'Home State'),
               _buildSelectionField(
                 _homeDistrictController,
                 'Home District',
@@ -511,6 +509,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   title: 'Select Home District',
                   options: _allDistrictOptions,
                   controller: _homeDistrictController,
+                  allowCustomValue: true,
                   onSelected: (_) {
                     unawaited(_loadHomeStationOptions());
                   },
@@ -558,6 +557,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   title: 'Select Posting District',
                   options: _allDistrictOptions,
                   controller: _postingDistrictController,
+                  allowCustomValue: true,
                   onSelected: (_) {
                     unawaited(_loadPostingStationOptions());
                   },
@@ -1537,10 +1537,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    final homeDistrictValid =
-        await _locationSuggestions.isKnownDistrict(homeDistrict);
-    if (!homeDistrictValid) {
-      _showMessage('Choose a valid UP home district from suggestions.');
+    if (homeDistrict.length < 2) {
+      _showMessage('Enter a valid home district.');
       return false;
     }
 
@@ -1556,10 +1554,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    final postingDistrictValid =
-        await _locationSuggestions.isKnownDistrict(postingDistrict);
-    if (!postingDistrictValid) {
-      _showMessage('Choose a valid UP posting district from suggestions.');
+    if (postingDistrict.length < 2) {
+      _showMessage('Enter a valid posting district.');
       return false;
     }
 

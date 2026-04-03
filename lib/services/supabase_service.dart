@@ -965,8 +965,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _helpPostToRow(HelpPost post) {
+    final ownerId = Supabase.instance.client.auth.currentUser?.id;
     return <String, dynamic>{
       'id': post.id,
+      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
       'member_id': post.memberId,
       'member_name': post.memberName,
       'member_mobile': post.memberMobile,
@@ -993,8 +995,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _helpCommentToRow(HelpComment comment) {
+    final ownerId = Supabase.instance.client.auth.currentUser?.id;
     return <String, dynamic>{
       'id': comment.id,
+      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
       'post_id': comment.postId,
       'member_id': comment.memberId,
       'member_name': comment.memberName,

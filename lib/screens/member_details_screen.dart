@@ -119,7 +119,6 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
                 _row('Post Office', _displayMember.homePostOffice),
                 _row('Home Police Station', _displayMember.homePoliceStation),
                 _row('Home Tehsil', _displayMember.homeTehsil),
-                _row('Home Village Location', _displayMember.homeVillageLocation),
               ],
             ),
           ],

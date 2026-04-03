@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../models/help_comment.dart';
 import '../models/help_post.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
@@ -87,6 +88,23 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     );
   }
 
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year;
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
+  }
+
+  int _daysRemaining(HelpPost post) {
+    final now = DateTime.now();
+    final elapsedDays = now.difference(post.createdAt.toLocal()).inDays;
+    final remaining = 7 - elapsedDays;
+    return remaining < 0 ? 0 : remaining;
+  }
+
   Widget _buildHelpPostCard(HelpPost post) {
     final comments = widget.helpFeedService.commentsFor(post.id);
     final commentCount = comments.length;
@@ -95,8 +113,8 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     final initial = post.memberName.isEmpty
       ? '?'
       : post.memberName.substring(0, 1).toUpperCase();
-    final timestamp =
-        '${post.createdAt.day}/${post.createdAt.month}/${post.createdAt.year} ${post.createdAt.hour.toString().padLeft(2, '0')}:${post.createdAt.minute.toString().padLeft(2, '0')}';
+    final timestamp = _formatDateTime(post.createdAt);
+    final remainingDays = _daysRemaining(post);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -206,6 +224,29 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF1FB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(Icons.timelapse_outlined, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$remainingDays',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
@@ -353,6 +394,7 @@ class _HelpPostDetailScreen extends StatefulWidget {
 
 class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
+  bool _postingComment = false;
 
   @override
   void dispose() {
@@ -362,7 +404,8 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final comments = widget.helpFeedService.commentsFor(widget.post.id);
+    final comments = widget.helpFeedService.commentsFor(widget.post.id).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final canDelete = widget.currentUser.isAdmin ||
         widget.currentUser.id == widget.post.memberId;
 
@@ -435,31 +478,19 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                       child: Text('No comments yet. Start the conversation.'),
                     ),
                   ),
-                ...comments.map(
-                  (comment) {
-                    final canDeleteComment = widget.currentUser.isAdmin ||
-                        widget.currentUser.id == comment.memberId;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.person_outline),
-                        title: Text(comment.memberName),
-                        subtitle: Text(comment.message),
-                        trailing: canDeleteComment
-                            ? IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 20),
-                                tooltip: 'Delete comment',
-                                onPressed: () => _deleteComment(comment.id),
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                ),
+                ..._buildCommentsWithDateSeparators(comments),
               ],
             ),
           ),
-          Container(
+          SafeArea(
+            top: false,
+            child: AnimatedPadding(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -479,12 +510,91 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: _submitComment,
-                  child: const Text('Post'),
+                  onPressed: _postingComment ? null : _submitComment,
+                  child: Text(_postingComment ? 'Posting...' : 'Post'),
                 ),
               ],
             ),
+              ),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildCommentsWithDateSeparators(List<HelpComment> comments) {
+    final widgets = <Widget>[];
+    DateTime? lastDate;
+    for (final comment in comments) {
+      final createdLocal = comment.createdAt.toLocal();
+      final day = DateTime(createdLocal.year, createdLocal.month, createdLocal.day);
+      if (lastDate == null || day != lastDate) {
+        widgets.add(_buildDateSeparator(day));
+        lastDate = day;
+      }
+
+      final canDeleteComment = widget.currentUser.isAdmin ||
+          widget.currentUser.id == comment.memberId;
+      widgets.add(
+        Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(comment.memberName),
+            subtitle: Text(comment.message),
+            trailing: canDeleteComment
+                ? IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    tooltip: 'Delete comment',
+                    onPressed: () => _deleteComment(comment.id),
+                  )
+                : null,
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  Widget _buildDateSeparator(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    String label;
+    if (date == today) {
+      label = 'Today';
+    } else if (date == yesterday) {
+      label = 'Yesterday';
+    } else {
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year;
+      label = '$day/$month/$year';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: <Widget>[
+          const Expanded(child: Divider()),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF3F8),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4E5C67),
+              ),
+            ),
+          ),
+          const Expanded(child: Divider()),
         ],
       ),
     );
@@ -495,15 +605,21 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
     if (message.isEmpty) {
       return;
     }
+    setState(() {
+      _postingComment = true;
+    });
     final added = await widget.helpFeedService.addComment(
       postId: widget.post.id,
       member: widget.currentUser,
       message: message,
     );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _postingComment = false;
+    });
     if (!added) {
-      if (!mounted) {
-        return;
-      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to post comment to cloud. Please retry.')),
       );
@@ -514,6 +630,9 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
       return;
     }
     setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comment posted.')),
+    );
   }
 
   Future<void> _deletePost() async {
@@ -551,6 +670,9 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
       );
       return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Post deleted.')),
+    );
     Navigator.of(context).pop();
   }
 

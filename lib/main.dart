@@ -257,7 +257,6 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                       },
                       onLogout: () async {
                         await _authService.logout();
-                        _emergencyService.stopAlertSync();
                         if (!mounted) {
                           return;
                         }

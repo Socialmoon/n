@@ -10,8 +10,16 @@ class HelpFeedService {
   final SupabaseService _cloudService;
   final List<HelpPost> _posts = <HelpPost>[];
   final List<HelpComment> _comments = <HelpComment>[];
+  static const Duration _postExpiry = Duration(days: 7);
 
-  List<HelpPost> get posts => List.unmodifiable(_posts.reversed);
+  List<HelpPost> get posts {
+    final now = DateTime.now();
+    final active = _posts
+        .where((post) => now.difference(post.createdAt.toLocal()) < _postExpiry)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List.unmodifiable(active);
+  }
 
   List<HelpComment> commentsFor(String postId) {
     final matching = _comments.where((item) => item.postId == postId).toList()
@@ -26,16 +34,21 @@ class HelpFeedService {
 
     final cloudPosts = await _cloudService.fetchHelpPosts();
     final cloudComments = await _cloudService.fetchHelpComments();
-    if (cloudPosts.isEmpty) {
-      return;
-    }
+    final now = DateTime.now();
+    final activePosts = cloudPosts
+        .where((post) => now.difference(post.createdAt.toLocal()) < _postExpiry)
+        .toList();
+    final activePostIds = activePosts.map((post) => post.id).toSet();
+    final activeComments = cloudComments
+        .where((comment) => activePostIds.contains(comment.postId))
+        .toList();
 
     _posts
       ..clear()
-      ..addAll(cloudPosts.reversed);
+      ..addAll(activePosts);
     _comments
       ..clear()
-      ..addAll(cloudComments.reversed);
+      ..addAll(activeComments);
   }
 
   Future<bool> createPost({
@@ -60,6 +73,7 @@ class HelpFeedService {
       _posts.removeWhere((item) => item.id == post.id);
       return false;
     }
+    await load();
     return true;
   }
 
@@ -83,6 +97,7 @@ class HelpFeedService {
       _comments.removeWhere((item) => item.id == comment.id);
       return false;
     }
+    await load();
     return true;
   }
 
@@ -101,6 +116,7 @@ class HelpFeedService {
         ..addAll(previousComments);
       return false;
     }
+    await load();
     return true;
   }
 
@@ -114,6 +130,7 @@ class HelpFeedService {
         ..addAll(previousComments);
       return false;
     }
+    await load();
     return true;
   }
 }

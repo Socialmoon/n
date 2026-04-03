@@ -65,7 +65,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _homePostOfficeController;
   late final TextEditingController _homePoliceStationController;
   late final TextEditingController _homeTehsilController;
-  late final TextEditingController _homeVillageLocationController;
   final ImagePicker _imagePicker = ImagePicker();
   final LocationSuggestionService _locationSuggestions =
       LocationSuggestionService();
@@ -111,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homePostOfficeController = TextEditingController(text: widget.currentUser.homePostOffice ?? '');
     _homePoliceStationController = TextEditingController(text: widget.currentUser.homePoliceStation ?? '');
     _homeTehsilController = TextEditingController(text: widget.currentUser.homeTehsil ?? '');
-    _homeVillageLocationController = TextEditingController(text: widget.currentUser.homeVillageLocation ?? '');
     _selfiePath = widget.currentUser.selfiePath;
     
     // Auto-fill official name from name if empty
@@ -147,7 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homePostOfficeController.dispose();
     _homePoliceStationController.dispose();
     _homeTehsilController.dispose();
-    _homeVillageLocationController.dispose();
     super.dispose();
   }
 
@@ -181,7 +178,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _homePostOfficeController.text = widget.currentUser.homePostOffice ?? '';
       _homePoliceStationController.text = widget.currentUser.homePoliceStation ?? '';
       _homeTehsilController.text = widget.currentUser.homeTehsil ?? '';
-      _homeVillageLocationController.text = widget.currentUser.homeVillageLocation ?? '';
       
       // Auto-fill official name from name if empty
       if ((widget.currentUser.officialName ?? '').trim().isEmpty && widget.currentUser.name.trim().isNotEmpty) {
@@ -460,10 +456,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   _readOnlyRow('Home tehsil', user.homeTehsil ?? '-'),
                   _readOnlyRow(
-                    'Home village location',
-                    user.homeVillageLocation ?? '-',
-                  ),
-                  _readOnlyRow(
                     'Appointment date',
                     '${user.appointmentDate.day}/${user.appointmentDate.month}/${user.appointmentDate.year}',
                   ),
@@ -545,7 +537,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Home Gali No': _homeGaliNoController.text.trim(),
       'Home Police Station': _homePoliceStationController.text.trim(),
       'Home Tehsil': _homeTehsilController.text.trim(),
-      'Home Village Location': _homeVillageLocationController.text.trim(),
     };
 
     await Navigator.of(context).push(
@@ -563,7 +554,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           homeGaliNoController: _homeGaliNoController,
           homePoliceStationController: _homePoliceStationController,
           homeTehsilController: _homeTehsilController,
-          homeVillageLocationController: _homeVillageLocationController,
           previousValues: previousValues,
           saving: _saving,
           onSave: _save,
@@ -725,15 +715,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return false;
     }
 
-    final homeDistrictValid = await _locationSuggestions.isKnownDistrict(homeDistrict);
-    if (!homeDistrictValid) {
-      _showMessage('Choose a valid home district from options.');
-      return false;
-    }
-
-    final postingDistrictValid = await _locationSuggestions.isKnownDistrict(postingDistrict);
-    if (!postingDistrictValid) {
-      _showMessage('Choose a valid posting district from options.');
+    if (homeDistrict.length < 2 || postingDistrict.length < 2) {
+      _showMessage('Enter valid home and posting district names.');
       return false;
     }
 
@@ -803,7 +786,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         homePostOffice: _homePostOfficeController.text.trim(),
         homePoliceStation: _homePoliceStationController.text.trim(),
         homeTehsil: _homeTehsilController.text.trim(),
-        homeVillageLocation: _homeVillageLocationController.text.trim(),
         selfiePath: selfiePath,
         clearSelfiePath: selfiePath == null,
         lastUpdated: DateTime.now(),
@@ -824,7 +806,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'homePostOffice': _homePostOfficeController.text.trim(),
         'homePoliceStation': _homePoliceStationController.text.trim(),
         'homeTehsil': _homeTehsilController.text.trim(),
-        'homeVillageLocation': _homeVillageLocationController.text.trim(),
         'selfiePath': selfiePath ?? '',
       };
 
@@ -1248,7 +1229,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.homeGaliNoController,
     required this.homePoliceStationController,
     required this.homeTehsilController,
-    required this.homeVillageLocationController,
     required this.previousValues,
     required this.saving,
     required this.onSave,
@@ -1266,7 +1246,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
   final TextEditingController homeGaliNoController;
   final TextEditingController homePoliceStationController;
   final TextEditingController homeTehsilController;
-  final TextEditingController homeVillageLocationController;
   final Map<String, String> previousValues;
   final bool saving;
   final Future<bool> Function() onSave;
@@ -1535,7 +1514,6 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             TextField(
               controller: widget.homeStateController,
               decoration: const InputDecoration(labelText: 'Home State'),
-              readOnly: true,
             ),
             const SizedBox(height: 8),
             _buildSelectionField(
@@ -1546,6 +1524,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                 title: 'Select Home District',
                 options: _districtOptions,
                 controller: widget.homeDistrictController,
+                allowCustomValue: true,
                 onSelected: (_) {
                   widget.homePoliceStationController.clear();
                   unawaited(_loadHomeStationOptions());
@@ -1556,7 +1535,6 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             TextField(
               controller: widget.postingStateController,
               decoration: const InputDecoration(labelText: 'Posting State'),
-              readOnly: true,
             ),
             const SizedBox(height: 8),
             _buildSelectionField(
@@ -1567,6 +1545,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                 title: 'Select Posting District',
                 options: _districtOptions,
                 controller: widget.postingDistrictController,
+                allowCustomValue: true,
                 onSelected: (_) => unawaited(_loadPostingStationOptions()),
               ),
             ),
@@ -1643,11 +1622,6 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             TextField(
               controller: widget.homeTehsilController,
               decoration: const InputDecoration(labelText: 'Home Tehsil'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: widget.homeVillageLocationController,
-              decoration: const InputDecoration(labelText: 'Home Village Location'),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(

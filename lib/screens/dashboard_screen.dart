@@ -10,6 +10,7 @@ import '../services/member_repository.dart';
 import '../services/app_settings_service.dart';
 import '../core/brand.dart';
 import 'donation_screen.dart';
+import 'emergency_alert_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
 import 'admin_approvals_screen.dart';
@@ -353,75 +354,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
   Future<void> _triggerAlert() async {
-    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
-    final controller =
-      TextEditingController(text: isHindi ? 'तुरंत सहायता आवश्यक' : 'Immediate assistance required');
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isHindi ? 'आपातकालीन अलर्ट भेजें' : 'Trigger emergency alert'),
-          content: TextField(
-            controller: controller,
-            maxLines: 3,
-            decoration: InputDecoration(
-              labelText: isHindi ? 'अलर्ट संदेश' : 'Alert message',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(isHindi ? 'रद्द करें' : 'Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(isHindi ? 'अलर्ट भेजें' : 'Send alert'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true) {
-      controller.dispose();
-      return;
-    }
-    final sent = await widget.emergencyService.triggerAlert(
-      member: widget.currentUser,
-      message: controller.text.trim().isEmpty
-          ? (isHindi ? 'तुरंत सहायता आवश्यक' : 'Immediate assistance required')
-          : controller.text.trim(),
-    );
-    controller.dispose();
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-    final notificationsEnabled =
-        await _settingsService.getNotificationsEnabled();
-    if (!mounted) {
-      return;
-    }
-    if (!sent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isHindi
-              ? 'क्लाउड पर अलर्ट भेजने में समस्या हुई। कृपया फिर प्रयास करें।'
-              : 'Unable to send alert to cloud. Please retry.'),
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => EmergencyAlertScreen(
+          currentUser: widget.currentUser,
+          emergencyService: widget.emergencyService,
         ),
-      );
+      ),
+    );
+    if (!mounted) {
       return;
     }
+    final notificationsEnabled = await _settingsService.getNotificationsEnabled();
     if (!notificationsEnabled) {
       return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-          SnackBar(
-            content: Text(isHindi
-                ? 'आपातकालीन अलर्ट भेज दिया गया।'
-                : 'Emergency alert triggered.'),
-          ),
-        );
+    setState(() {});
   }
 
   Future<void> _openHelpFeed() async {

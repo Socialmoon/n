@@ -231,6 +231,10 @@ class AuthService {
       return const AuthResult(
           error: 'Your account has been blocked. Contact an admin.');
     }
+    if (member.isRetired) {
+      return const AuthResult(
+          error: 'Your account is marked as retired and cannot login. Contact an admin.');
+    }
     if (!member.isApproved) {
       return const AuthResult(
           error: 'Your registration is pending admin approval.');

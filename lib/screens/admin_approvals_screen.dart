@@ -303,7 +303,6 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
       'homePostOffice': 'Home Post Office',
       'homePoliceStation': 'Home Police Station',
       'homeTehsil': 'Home Tehsil',
-      'homeVillageLocation': 'Home Village Location',
       'selfiePath': 'Profile Photo',
     };
     return labels[key] ?? key;

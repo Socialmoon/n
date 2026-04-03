@@ -66,7 +66,6 @@ class _MembersScreenState extends State<MembersScreen> {
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
   String? _selectedPostingLocation;
-  String? _optionalDistrict;
   String? _optionalSubDepartment;
   String? _optionalCategory;
   _LatLng? _deviceCoordinates;
@@ -87,10 +86,18 @@ class _MembersScreenState extends State<MembersScreen> {
   List<Member> get _allVisibleMembers {
     final members = widget.repository.activeMembers
         .where(
-          (member) =>
-              widget.currentUser.isAdmin ||
-              member.isApproved ||
-              member.id == widget.currentUser.id,
+          (member) {
+            if (widget.currentUser.isAdmin) {
+              return true;
+            }
+
+            // Non-admin users should not see blocked/deleted members.
+            if (member.isBlocked || member.isDeleted) {
+              return false;
+            }
+
+            return member.isApproved || member.id == widget.currentUser.id;
+          },
         )
         .toList();
     members.sort((left, right) => left.name.compareTo(right.name));
@@ -148,13 +155,10 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   List<Member> _applyOptionalFilters(List<Member> members) {
-    final district = (_optionalDistrict ?? '').trim().toLowerCase();
     final subDepartment = (_optionalSubDepartment ?? '').trim().toLowerCase();
     final category = (_optionalCategory ?? '').trim().toLowerCase();
 
     final filtered = members.where((member) {
-      final districtMatch = district.isEmpty ||
-          member.postingDistrict.trim().toLowerCase() == district;
       final subDepartmentValue = (member.department ?? '').trim().toLowerCase();
       final subDepartmentMatch =
           subDepartment.isEmpty || subDepartmentValue == subDepartment;
@@ -163,7 +167,7 @@ class _MembersScreenState extends State<MembersScreen> {
         .toLowerCase();
       final categoryMatch = category.isEmpty || categoryValue == category;
 
-      return districtMatch && subDepartmentMatch && categoryMatch;
+      return subDepartmentMatch && categoryMatch;
     }).toList();
 
     return _sortByDistanceIfAvailable(filtered);
@@ -338,6 +342,7 @@ class _MembersScreenState extends State<MembersScreen> {
         .toSet()
         .toList()
       ..sort();
+    final appliedFilters = _appliedFilterLabels(isHindi);
 
     return Card(
       child: Padding(
@@ -439,6 +444,21 @@ class _MembersScreenState extends State<MembersScreen> {
                     : 'Show All In-Range Members on Map'),
               ),
             ],
+            if (appliedFilters.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: appliedFilters
+                    .map(
+                      (label) => Chip(
+                        label: Text(label),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
@@ -467,41 +487,22 @@ class _MembersScreenState extends State<MembersScreen> {
             ),
             const SizedBox(height: 8),
             if (_filterMode == null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F4F7),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD5DEE3)),
-                    ),
-                    child: Text(
-                      isHindi
-                          ? 'वैकल्पिक फ़िल्टर देखने के लिए पहले एक मुख्य फ़िल्टर चुनें।'
-                          : 'Select any primary filter first to enable optional filters.',
-                      style: const TextStyle(color: Color(0xFF5A6B74)),
-                    ),
-                  ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F4F7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD5DEE3)),
+                ),
+                child: Text(
+                  isHindi
+                      ? 'वैकल्पिक फ़िल्टर देखने के लिए पहले एक मुख्य फ़िल्टर चुनें।'
+                      : 'Select any primary filter first to enable optional filters.',
+                  style: const TextStyle(color: Color(0xFF5A6B74)),
                 ),
               )
             else if (_showOptionalFilters) ...<Widget>[
-              _buildTypeablePickerField(
-                labelText:
-                    isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
-                value: _optionalDistrict,
-                options: districts,
-                onChanged: (value) {
-                  setState(() {
-                    _optionalDistrict = value;
-                  });
-                },
-                emptyLabel: isHindi ? 'सभी जिले' : 'All Districts',
-              ),
-              const SizedBox(height: 8),
               _buildTypeablePickerField(
                 labelText: isHindi
                     ? 'उप विभाग (वैकल्पिक)'
@@ -535,7 +536,6 @@ class _MembersScreenState extends State<MembersScreen> {
                 child: TextButton.icon(
                   onPressed: () {
                     setState(() {
-                      _optionalDistrict = null;
                       _optionalSubDepartment = null;
                       _optionalCategory = null;
                     });
@@ -549,6 +549,33 @@ class _MembersScreenState extends State<MembersScreen> {
         ),
       ),
     );
+  }
+
+  List<String> _appliedFilterLabels(bool isHindi) {
+    final labels = <String>[];
+    if (_filterMode == _MemberFilterMode.district) {
+      final district = (_selectedDistrict ?? '').trim();
+      if (district.isNotEmpty) {
+        labels.add('${isHindi ? 'जिला' : 'District'}: $district');
+      }
+    } else if (_filterMode == _MemberFilterMode.postingLocation) {
+      final location = (_selectedPostingLocation ?? '').trim();
+      if (location.isNotEmpty) {
+        labels.add('${isHindi ? 'पोस्टिंग स्थान' : 'Posting Place'}: $location');
+      }
+    } else if (_filterMode == _MemberFilterMode.currentLocation) {
+      labels.add(isHindi ? 'रेडियस: 100 किमी' : 'Radius: 100 km');
+    }
+
+    final subDepartment = (_optionalSubDepartment ?? '').trim();
+    if (subDepartment.isNotEmpty) {
+      labels.add('${isHindi ? 'उप विभाग' : 'Sub Department'}: $subDepartment');
+    }
+    final category = (_optionalCategory ?? '').trim();
+    if (category.isNotEmpty) {
+      labels.add('${isHindi ? 'कैटेगरी' : 'Category'}: $category');
+    }
+    return labels;
   }
 
   Widget _buildMemberCard(Member member) {
