@@ -412,6 +412,20 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _postingComment = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _refreshComments();
+  }
+
+  Future<void> _refreshComments() async {
+    await widget.helpFeedService.load();
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   String _relativeDateLabel(DateTime value) {
     final local = value.toLocal();
     final dateOnly = DateTime(local.year, local.month, local.day);
