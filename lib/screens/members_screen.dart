@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/time_utils.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
@@ -30,7 +31,6 @@ class MembersScreen extends StatefulWidget {
 }
 
 class _MembersScreenState extends State<MembersScreen> {
-  static const Duration _istOffset = Duration(hours: 5, minutes: 30);
   static const List<String> _subDepartmentOptions = <String>[
     'Civil Police',
     'P.A.C',
@@ -1196,13 +1196,7 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   String _formatDateTime(DateTime value) {
-    final ist = value.toUtc().add(_istOffset);
-    final day = ist.day.toString().padLeft(2, '0');
-    final month = ist.month.toString().padLeft(2, '0');
-    final year = ist.year;
-    final hour = ist.hour.toString().padLeft(2, '0');
-    final minute = ist.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year $hour:$minute';
+    return formatIstDateTime(value);
   }
 
   void _showMessage(String message) {

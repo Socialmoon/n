@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
+import '../core/time_utils.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 
@@ -630,12 +631,6 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     if (value == null) {
       return 'Never';
     }
-    final local = value.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year;
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year $hour:$minute';
+    return formatIstDateTime(value);
   }
 }

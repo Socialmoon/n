@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/time_utils.dart';
 import '../models/donation_entry.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
@@ -644,8 +645,7 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Widget _buildDonationCard(DonationEntry entry) {
-    final stamp =
-        '${entry.createdAt.day}/${entry.createdAt.month}/${entry.createdAt.year} ${entry.createdAt.hour.toString().padLeft(2, '0')}:${entry.createdAt.minute.toString().padLeft(2, '0')}';
+    final stamp = formatIstDateTime(entry.createdAt);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

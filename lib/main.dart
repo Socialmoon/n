@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:workmanager/workmanager.dart';
 
 import 'core/app_strings.dart';
 import 'core/brand.dart';
@@ -19,19 +18,11 @@ import 'services/help_feed_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/member_repository.dart';
 import 'services/supabase_service.dart';
-import 'services/background_alert_worker.dart';
+import 'services/background_tasks.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Workmanager().initialize(
-    backgroundAlertCallbackDispatcher,
-    isInDebugMode: false,
-  );
-  await Workmanager().registerPeriodicTask(
-    emergencyAlertBackgroundTask,
-    emergencyAlertBackgroundTask,
-    frequency: const Duration(minutes: 15),
-  );
+  await initializeBackgroundTasks();
   runApp(const ApneSaathiApp());
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/time_utils.dart';
 import '../models/member.dart';
 
 class MemberDetailsScreen extends StatefulWidget {
@@ -100,7 +101,10 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
                 ],
               ),
               if (_displayMember.liveLocationUpdatedAt != null)
-                _row('Current Location Updated', _displayMember.liveLocationUpdatedAt!.toLocal().toString()),
+                _row(
+                  'Current Location Updated',
+                  formatIstDateTime(_displayMember.liveLocationUpdatedAt!),
+                ),
             ],
           ),
           if (_hasPreviousDetails) ...<Widget>[
@@ -404,7 +408,7 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
     <div class="card">
       <div class="head">
         <h1>Member Details Export</h1>
-        <p>Generated: ${DateTime.now().toLocal()}</p>
+        <p>Generated: ${formatIstDateTime(DateTime.now())} IST</p>
       </div>
       <div class="photo-wrap">
         $profileHtml

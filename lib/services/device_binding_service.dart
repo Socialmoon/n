@@ -5,6 +5,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/time_utils.dart';
+
 class DeviceBinding {
   const DeviceBinding({
     required this.deviceId,
@@ -28,7 +30,7 @@ class DeviceBinding {
     return DeviceBinding(
       deviceId: map['deviceId'] as String,
       fingerprint: map['fingerprint'] as String,
-      boundAt: DateTime.parse(map['boundAt'] as String),
+      boundAt: parseServerDateTime(map['boundAt']),
     );
   }
 

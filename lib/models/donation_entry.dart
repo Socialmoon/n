@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../core/time_utils.dart';
+
 class DonationEntry {
   const DonationEntry({
     required this.id,
@@ -99,13 +101,13 @@ class DonationEntry {
       amount: (map['amount'] as num).toDouble(),
       upiId: map['upiId'] as String,
       status: map['status'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: parseServerDateTime(map['createdAt']),
       transactionRef: map['transactionRef'] as String?,
       note: map['note'] as String?,
       screenshotPath: map['screenshotPath'] as String?,
       reviewedAt: map['reviewedAt'] == null
           ? null
-          : DateTime.parse(map['reviewedAt'] as String),
+          : parseServerDateTime(map['reviewedAt']),
       reviewedBy: map['reviewedBy'] as String?,
       rejectionReason: map['rejectionReason'] as String?,
     );

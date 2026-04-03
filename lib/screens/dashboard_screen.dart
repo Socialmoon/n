@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/time_utils.dart';
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
@@ -348,7 +349,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: const Icon(Icons.notifications_active_outlined),
         title: Text(alert.message),
         subtitle: Text(
-          '${alert.memberName} • ${alert.location} • ${alert.timestamp.day}/${alert.timestamp.month}/${alert.timestamp.year} ${alert.timestamp.hour.toString().padLeft(2, '0')}:${alert.timestamp.minute.toString().padLeft(2, '0')}',
+          '${alert.memberName} • ${alert.location} • ${formatIstDateTime(alert.timestamp)}',
         ),
       ),
     );

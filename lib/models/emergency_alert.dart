@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../core/time_utils.dart';
+
 class EmergencyAlert {
   const EmergencyAlert({
     required this.id,
@@ -33,7 +35,7 @@ class EmergencyAlert {
       id: map['id'] as String,
       memberId: map['memberId'] as String,
       memberName: map['memberName'] as String,
-      timestamp: DateTime.parse(map['timestamp'] as String),
+      timestamp: parseServerDateTime(map['timestamp']),
       message: map['message'] as String,
       location: map['location'] as String,
     );

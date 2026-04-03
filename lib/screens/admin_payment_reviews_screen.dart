@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
+import '../core/time_utils.dart';
 import '../models/donation_entry.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
@@ -69,8 +70,7 @@ class _AdminPaymentReviewsScreenState extends State<AdminPaymentReviewsScreen> {
   }
 
   Widget _buildReviewCard(DonationEntry entry) {
-    final stamp =
-        '${entry.createdAt.day}/${entry.createdAt.month}/${entry.createdAt.year} ${entry.createdAt.hour.toString().padLeft(2, '0')}:${entry.createdAt.minute.toString().padLeft(2, '0')}';
+    final stamp = formatIstDateTime(entry.createdAt);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

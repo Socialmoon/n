@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
+import '../core/time_utils.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/donation_service.dart';
@@ -457,7 +458,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _readOnlyRow('Home tehsil', user.homeTehsil ?? '-'),
                   _readOnlyRow(
                     'Appointment date',
-                    '${user.appointmentDate.day}/${user.appointmentDate.month}/${user.appointmentDate.year}',
+                    formatIstDate(user.appointmentDate),
                   ),
                   _readOnlyRow(
                     'Status',

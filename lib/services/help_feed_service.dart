@@ -13,9 +13,9 @@ class HelpFeedService {
   static const Duration _postExpiry = Duration(days: 7);
 
   List<HelpPost> get posts {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final active = _posts
-        .where((post) => now.difference(post.createdAt.toLocal()) < _postExpiry)
+        .where((post) => now.difference(post.createdAt.toUtc()) < _postExpiry)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return List.unmodifiable(active);
@@ -34,9 +34,9 @@ class HelpFeedService {
 
     final cloudPosts = await _cloudService.fetchHelpPosts();
     final cloudComments = await _cloudService.fetchHelpComments();
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final activePosts = cloudPosts
-        .where((post) => now.difference(post.createdAt.toLocal()) < _postExpiry)
+      .where((post) => now.difference(post.createdAt.toUtc()) < _postExpiry)
         .toList();
     final activePostIds = activePosts.map((post) => post.id).toSet();
     final activeComments = cloudComments

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../core/time_utils.dart';
+
 class Member {
   const Member({
     required this.id,
@@ -335,14 +337,14 @@ class Member {
         liveLongitude: (map['liveLongitude'] as num?)?.toDouble(),
         liveLocationUpdatedAt: map['liveLocationUpdatedAt'] == null
           ? null
-          : DateTime.parse(map['liveLocationUpdatedAt'] as String),
+          : parseServerDateTime(map['liveLocationUpdatedAt']),
       lastLoginAt: map['lastLoginAt'] == null
           ? null
-          : DateTime.parse(map['lastLoginAt'] as String),
-      appointmentDate: DateTime.parse(map['appointmentDate'] as String),
+          : parseServerDateTime(map['lastLoginAt']),
+      appointmentDate: parseServerDateTime(map['appointmentDate']),
       role: map['role'] as String,
-      lastUpdated: DateTime.parse(map['lastUpdated'] as String),
-      passwordUpdatedAt: DateTime.parse(map['passwordUpdatedAt'] as String),
+      lastUpdated: parseServerDateTime(map['lastUpdated']),
+      passwordUpdatedAt: parseServerDateTime(map['passwordUpdatedAt']),
       isAdmin: map['isAdmin'] as bool? ?? false,
       isBlocked: map['isBlocked'] as bool? ?? false,
       isApproved: map['isApproved'] as bool? ?? (map['isAdmin'] as bool? ?? false),
@@ -350,10 +352,10 @@ class Member {
       isDeleted: map['isDeleted'] as bool? ?? false,
       retiredAt: map['retiredAt'] == null
           ? null
-          : DateTime.parse(map['retiredAt'] as String),
+          : parseServerDateTime(map['retiredAt']),
       deletedAt: map['deletedAt'] == null
           ? null
-          : DateTime.parse(map['deletedAt'] as String),
+          : parseServerDateTime(map['deletedAt']),
         pendingUpdatePayload: map['pendingUpdatePayload'] as String?,
         previousPublicProfileSnapshot:
           map['previousPublicProfileSnapshot'] as String?,
