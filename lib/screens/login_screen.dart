@@ -233,9 +233,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: (_checkingBiometric || !_biometricAvailable)
-                                      ? null
-                                      : _loginWithBiometric,
+                                  onPressed:
+                                      _checkingBiometric ? null : _loginWithBiometric,
                                   icon: const Icon(Icons.fingerprint),
                                   label: Text(
                                     _checkingBiometric

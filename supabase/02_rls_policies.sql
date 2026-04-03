@@ -43,15 +43,15 @@ drop policy if exists alerts_select_policy on public.emergency_alerts;
 create policy alerts_select_policy
 on public.emergency_alerts
 for select
-to authenticated
-using (public.is_app_admin() or owner_id = auth.uid());
+to anon, authenticated
+using (true);
 
 drop policy if exists alerts_insert_policy on public.emergency_alerts;
 create policy alerts_insert_policy
 on public.emergency_alerts
 for insert
-to authenticated
-with check (public.is_app_admin() or owner_id = auth.uid());
+to anon, authenticated
+with check (true);
 
 drop policy if exists alerts_update_policy on public.emergency_alerts;
 create policy alerts_update_policy

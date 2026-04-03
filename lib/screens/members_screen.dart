@@ -30,14 +30,44 @@ class MembersScreen extends StatefulWidget {
 }
 
 class _MembersScreenState extends State<MembersScreen> {
+  static const List<String> _subDepartmentOptions = <String>[
+    'Civil Police',
+    'P.A.C',
+    'Fire Service',
+    'Jail Warden',
+    'Armed Police',
+    'UPSSF',
+    'GRP',
+    'Dial 112',
+    'LIU',
+    'Radio Department',
+    'Others',
+  ];
+
+  static const List<String> _postingCategoryOptions = <String>[
+    'Reserve Police Line',
+    'Circle Police Office',
+    'Police Station',
+    'Fire Station',
+    'District Police Office/Branch',
+    'Other Police Office/Branch',
+    'Battalion',
+    'Range Police Office',
+    'Zone Police Office',
+    'Police Head Quarter Office',
+    'District Jail',
+    'Others',
+  ];
+
   bool _refreshing = false;
   bool _updatingLiveLocation = false;
   bool _locatingDevice = false;
+  bool _showOptionalFilters = false;
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
   String? _selectedPostingLocation;
   String? _optionalDistrict;
-  String? _optionalDepartment;
+  String? _optionalSubDepartment;
   String? _optionalCategory;
   _LatLng? _deviceCoordinates;
   final double _radiusKm = 100;
@@ -55,9 +85,16 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   List<Member> get _allVisibleMembers {
-    return widget.repository.activeMembers
-        .where((member) => widget.currentUser.isAdmin || member.isApproved)
+    final members = widget.repository.activeMembers
+        .where(
+          (member) =>
+              widget.currentUser.isAdmin ||
+              member.isApproved ||
+              member.id == widget.currentUser.id,
+        )
         .toList();
+    members.sort((left, right) => left.name.compareTo(right.name));
+    return members;
   }
 
   List<Member> get _filteredMembers {
@@ -112,20 +149,21 @@ class _MembersScreenState extends State<MembersScreen> {
 
   List<Member> _applyOptionalFilters(List<Member> members) {
     final district = (_optionalDistrict ?? '').trim().toLowerCase();
-    final department = (_optionalDepartment ?? '').trim().toLowerCase();
+    final subDepartment = (_optionalSubDepartment ?? '').trim().toLowerCase();
     final category = (_optionalCategory ?? '').trim().toLowerCase();
 
     final filtered = members.where((member) {
       final districtMatch = district.isEmpty ||
           member.postingDistrict.trim().toLowerCase() == district;
-      final departmentValue = (member.department ?? '').trim().toLowerCase();
-      final departmentMatch = department.isEmpty || departmentValue == department;
+      final subDepartmentValue = (member.department ?? '').trim().toLowerCase();
+      final subDepartmentMatch =
+          subDepartment.isEmpty || subDepartmentValue == subDepartment;
       final categoryValue = _displayValue(member.postingCategory ?? '')
         .trim()
         .toLowerCase();
       final categoryMatch = category.isEmpty || categoryValue == category;
 
-      return districtMatch && departmentMatch && categoryMatch;
+      return districtMatch && subDepartmentMatch && categoryMatch;
     }).toList();
 
     return _sortByDistanceIfAvailable(filtered);
@@ -159,6 +197,8 @@ class _MembersScreenState extends State<MembersScreen> {
   Widget build(BuildContext context) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
     final filtered = _filteredMembers;
+    final ownMember =
+        widget.repository.findById(widget.currentUser.id) ?? widget.currentUser;
     final distanceOrigin = _distanceOriginCoordinates();
     final minDistanceKm = _minimumDistanceKm(filtered, distanceOrigin);
 
@@ -233,15 +273,21 @@ class _MembersScreenState extends State<MembersScreen> {
             ),
           const SizedBox(height: 12),
           if (_filterMode == null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  isHindi
-                      ? 'पहले फ़िल्टर चुनें। जिला, पोस्टिंग लोकेशन या रेडियस फ़िल्टर लगाने के बाद सदस्य दिखेंगे।'
-                      : 'Select a filter first. Member data is visible after applying district, posting location, or radius filter.',
+            Column(
+              children: <Widget>[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      isHindi
+                          ? 'पहले फ़िल्टर चुनें। तब बाकी सदस्य दिखेंगे। नीचे आपका प्रोफाइल हमेशा दिखेगा।'
+                          : 'Select a filter first to see other members. Your profile is always visible below.',
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                _buildMemberCard(ownMember),
+              ],
             )
           else if (filtered.isEmpty)
             Card(
@@ -267,15 +313,22 @@ class _MembersScreenState extends State<MembersScreen> {
         .toSet()
         .toList()
       ..sort();
-    final departments = _allVisibleMembers
+    final subDepartments = <String>{
+      ..._subDepartmentOptions,
+      ..._allVisibleMembers
         .map((member) => (member.department ?? '').trim())
         .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
+    }
+      .toList()
       ..sort();
-    final categories = _allVisibleMembers
+    final categories = <String>{
+      ..._postingCategoryOptions,
+      ..._allVisibleMembers
         .map((member) => (member.postingCategory ?? '').trim())
         .where((value) => value.isNotEmpty)
+    }
+        .map(_displayValue)
+        .where((value) => value.trim().isNotEmpty)
         .toSet()
         .toList()
       ..sort();
@@ -387,64 +440,111 @@ class _MembersScreenState extends State<MembersScreen> {
               ),
             ],
             const SizedBox(height: 12),
-            Text(
-              isHindi ? 'अतिरिक्त वैकल्पिक फ़िल्टर' : 'Additional optional filters',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    isHindi ? 'अतिरिक्त वैकल्पिक फ़िल्टर' : 'Additional optional filters',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _filterMode == null
+                      ? null
+                      : () {
+                          setState(() {
+                            _showOptionalFilters = !_showOptionalFilters;
+                          });
+                        },
+                  icon: Icon(_showOptionalFilters
+                      ? Icons.tune_outlined
+                      : Icons.tune),
+                  label: Text(_showOptionalFilters
+                      ? (isHindi ? 'छुपाएं' : 'Hide')
+                      : (isHindi ? 'दिखाएं' : 'Show')),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
-            _buildTypeablePickerField(
-              labelText:
-                  isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
-              value: _optionalDistrict,
-              options: districts,
-              onChanged: (value) {
-                setState(() {
-                  _optionalDistrict = value;
-                });
-              },
-              emptyLabel: isHindi ? 'सभी जिले' : 'All Districts',
-            ),
-            const SizedBox(height: 8),
-            _buildTypeablePickerField(
-              labelText: isHindi ? 'विभाग (वैकल्पिक)' : 'Department (Optional)',
-              value: _optionalDepartment,
-              options: departments,
-              onChanged: (value) {
-                setState(() {
-                  _optionalDepartment = value;
-                });
-              },
-              emptyLabel: isHindi ? 'सभी विभाग' : 'All Departments',
-            ),
-            const SizedBox(height: 8),
-            _buildTypeablePickerField(
-              labelText: isHindi
-                  ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
-                  : 'Posting Category (Optional)',
-              value: _optionalCategory,
-              options: categories.map(_displayValue).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _optionalCategory = value;
-                });
-              },
-              emptyLabel: isHindi ? 'सभी कैटेगरी' : 'All Categories',
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () {
+            if (_filterMode == null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F4F7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFD5DEE3)),
+                    ),
+                    child: Text(
+                      isHindi
+                          ? 'वैकल्पिक फ़िल्टर देखने के लिए पहले एक मुख्य फ़िल्टर चुनें।'
+                          : 'Select any primary filter first to enable optional filters.',
+                      style: const TextStyle(color: Color(0xFF5A6B74)),
+                    ),
+                  ),
+                ),
+              )
+            else if (_showOptionalFilters) ...<Widget>[
+              _buildTypeablePickerField(
+                labelText:
+                    isHindi ? 'पोस्टिंग जिला (वैकल्पिक)' : 'Posting District (Optional)',
+                value: _optionalDistrict,
+                options: districts,
+                onChanged: (value) {
                   setState(() {
-                    _optionalDistrict = null;
-                    _optionalDepartment = null;
-                    _optionalCategory = null;
+                    _optionalDistrict = value;
                   });
                 },
-                icon: const Icon(Icons.restart_alt_outlined),
-                label: Text(isHindi ? 'फ़िल्टर साफ़ करें' : 'Clear Optional Filters'),
+                emptyLabel: isHindi ? 'सभी जिले' : 'All Districts',
               ),
-            ),
+              const SizedBox(height: 8),
+              _buildTypeablePickerField(
+                labelText: isHindi
+                    ? 'उप विभाग (वैकल्पिक)'
+                    : 'Sub Department (Optional)',
+                value: _optionalSubDepartment,
+                options: subDepartments,
+                onChanged: (value) {
+                  setState(() {
+                    _optionalSubDepartment = value;
+                  });
+                },
+                emptyLabel: isHindi ? 'सभी उप विभाग' : 'All Sub Departments',
+              ),
+              const SizedBox(height: 8),
+              _buildTypeablePickerField(
+                labelText: isHindi
+                    ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
+                    : 'Posting Category (Optional)',
+                value: _optionalCategory,
+                options: categories.map(_displayValue).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _optionalCategory = value;
+                  });
+                },
+                emptyLabel: isHindi ? 'सभी कैटेगरी' : 'All Categories',
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _optionalDistrict = null;
+                      _optionalSubDepartment = null;
+                      _optionalCategory = null;
+                    });
+                  },
+                  icon: const Icon(Icons.restart_alt_outlined),
+                  label: Text(isHindi ? 'फ़िल्टर साफ़ करें' : 'Clear Optional Filters'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

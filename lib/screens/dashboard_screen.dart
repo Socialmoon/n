@@ -53,8 +53,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final AppSettingsService _settingsService = AppSettingsService();
 
   @override
+  void initState() {
+    super.initState();
+    widget.emergencyService.addListener(_handleEmergencyUpdates);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.emergencyService, widget.emergencyService)) {
+      oldWidget.emergencyService.removeListener(_handleEmergencyUpdates);
+      widget.emergencyService.addListener(_handleEmergencyUpdates);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.emergencyService.removeListener(_handleEmergencyUpdates);
     super.dispose();
+  }
+
+  void _handleEmergencyUpdates() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   @override

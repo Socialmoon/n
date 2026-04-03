@@ -324,6 +324,8 @@ class AuthService {
           error: 'Unable to save biometric preference to cloud.',
         );
       }
+      _lastMobile = updated.mobileNumber;
+      await _persistLastMobile(updated.mobileNumber);
       return AuthResult(member: updated);
     } on PlatformException {
       return const AuthResult(

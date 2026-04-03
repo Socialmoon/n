@@ -342,7 +342,8 @@ class SupabaseService {
   }
 
   Future<bool> insertAlert(EmergencyAlert alert) async {
-    if (!await _ensureWriteSession()) {
+    final initialized = await _ensureInitialized();
+    if (!initialized) {
       return false;
     }
     try {
@@ -351,6 +352,17 @@ class SupabaseService {
           );
       return true;
     } catch (error) {
+      // Retry once with anonymous session in projects that require authenticated role.
+      if (await _ensureWriteSession()) {
+        try {
+          await Supabase.instance.client.from('emergency_alerts').insert(
+                _alertToRow(alert),
+              );
+          return true;
+        } catch (_) {
+          // Fall through to final debug print below.
+        }
+      }
       debugPrint('Supabase insertAlert failed: $error');
       return false;
     }

@@ -1,5 +1,6 @@
 import 'package:vibration/vibration.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
@@ -7,7 +8,7 @@ import 'app_settings_service.dart';
 import 'local_notification_service.dart';
 import 'supabase_service.dart';
 
-class EmergencyService {
+class EmergencyService extends ChangeNotifier {
   EmergencyService({required SupabaseService cloudService})
       : _cloudService = cloudService;
 
@@ -60,8 +61,17 @@ class EmergencyService {
       location: member.postingLocation,
     );
     _alerts.add(alert);
+    notifyListeners();
     _lastLocallyTriggeredAlertId = alert.id;
     final saved = await _cloudService.insertAlert(alert);
+    if (!saved) {
+      _alerts.removeWhere((item) => item.id == alert.id);
+      notifyListeners();
+      return false;
+    }
+
+    await _syncFromCloud(showLocalNotificationForNew: false);
+
     final notificationsEnabled = await _settingsService.getNotificationsEnabled();
     final vibrationEnabled = await _settingsService.getVibrationEnabled();
     if (vibrationEnabled && await Vibration.hasVibrator()) {
@@ -81,6 +91,10 @@ class EmergencyService {
   }) async {
     final cloudAlerts = await _cloudService.fetchAlerts();
     if (cloudAlerts.isEmpty) {
+      if (_alerts.isNotEmpty) {
+        _alerts.clear();
+        notifyListeners();
+      }
       return;
     }
 
@@ -92,6 +106,7 @@ class EmergencyService {
     _alerts
       ..clear()
       ..addAll(cloudAlerts.reversed);
+    notifyListeners();
 
     if (!showLocalNotificationForNew || newAlerts.isEmpty) {
       return;
