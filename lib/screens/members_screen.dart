@@ -87,16 +87,16 @@ class _MembersScreenState extends State<MembersScreen> {
     final members = widget.repository.activeMembers
         .where(
           (member) {
-            if (widget.currentUser.isAdmin) {
+            if (member.id == widget.currentUser.id) {
               return true;
             }
 
-            // Non-admin users should not see blocked/deleted members.
-            if (member.isBlocked || member.isDeleted) {
+            // Members list should only include approved, active members.
+            if (!member.isApproved || member.isBlocked || member.isDeleted) {
               return false;
             }
 
-            return member.isApproved || member.id == widget.currentUser.id;
+            return true;
           },
         )
         .toList();
@@ -1006,6 +1006,9 @@ class _MembersScreenState extends State<MembersScreen> {
     required ValueChanged<String?> onChanged,
     String? emptyLabel,
   }) {
+    final selectedValue = (value ?? '').trim();
+    final hasValue = selectedValue.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
@@ -1018,15 +1021,18 @@ class _MembersScreenState extends State<MembersScreen> {
           );
           onChanged(picked);
         },
-        child: AbsorbPointer(
-          child: TextFormField(
-            key: ValueKey<String>('picker_$labelText::${value ?? ''}'),
-            initialValue: value ?? '',
-            decoration: InputDecoration(
-              labelText: labelText,
-              hintText: emptyLabel,
-              suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
-            ),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: labelText,
+            hintText: emptyLabel,
+            suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+          ),
+          isEmpty: !hasValue,
+          child: Text(
+            hasValue ? selectedValue : (emptyLabel ?? ''),
+            style: hasValue
+                ? null
+                : TextStyle(color: Theme.of(context).hintColor),
           ),
         ),
       ),

@@ -39,7 +39,9 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
       );
     }
 
-    final members = widget.repository.members.toList()
+    final members = widget.repository.members
+      .where((member) => member.isApproved)
+      .toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     final query = _query.trim().toLowerCase();
