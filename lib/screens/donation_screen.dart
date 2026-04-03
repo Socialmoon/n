@@ -101,6 +101,7 @@ class _DonationScreenState extends State<DonationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 420;
     final tabs = <DonationTab>[DonationTab.donate, DonationTab.history];
     if (_isAdmin) {
       tabs.add(DonationTab.leaderboard);
@@ -114,21 +115,24 @@ class _DonationScreenState extends State<DonationScreen> {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: SegmentedButton<DonationTab>(
-              segments: tabs
-                  .map(
-                    (tab) => ButtonSegment<DonationTab>(
-                      value: tab,
-                      label: Text(_tabLabel(tab)),
-                    ),
-                  )
-                  .toList(),
-              selected: <DonationTab>{_selectedTab},
-              onSelectionChanged: (selection) {
-                setState(() {
-                  _selectedTab = selection.first;
-                });
-              },
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<DonationTab>(
+                segments: tabs
+                    .map(
+                      (tab) => ButtonSegment<DonationTab>(
+                        value: tab,
+                        label: Text(_tabLabel(tab, compact: isCompact)),
+                      ),
+                    )
+                    .toList(),
+                selected: <DonationTab>{_selectedTab},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _selectedTab = selection.first;
+                  });
+                },
+              ),
             ),
           ),
           Expanded(child: _buildCurrentTab()),
@@ -137,12 +141,12 @@ class _DonationScreenState extends State<DonationScreen> {
     );
   }
 
-  String _tabLabel(DonationTab tab) {
+  String _tabLabel(DonationTab tab, {bool compact = false}) {
     switch (tab) {
       case DonationTab.donate:
         return 'Donate';
       case DonationTab.history:
-        return 'Member History';
+        return compact ? 'History' : 'Member History';
       case DonationTab.leaderboard:
         return 'Leaderboard';
       case DonationTab.paymentSettings:

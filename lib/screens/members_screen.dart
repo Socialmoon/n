@@ -124,11 +124,17 @@ class _MembersScreenState extends State<MembersScreen> {
 
     if (_filterMode == _MemberFilterMode.postingLocation) {
       final location = (_selectedPostingLocation ?? '').trim().toLowerCase();
+      final districtScope = (_selectedDistrict ?? '').trim().toLowerCase();
       if (location.isEmpty) {
         return const <Member>[];
       }
       final filtered = members
-          .where((member) => member.postingLocation.trim().toLowerCase() == location)
+          .where((member) {
+            final locationMatch = member.postingLocation.trim().toLowerCase() == location;
+            final districtMatch = districtScope.isEmpty ||
+                member.postingDistrict.trim().toLowerCase() == districtScope;
+            return locationMatch && districtMatch;
+          })
           .toList();
       return _applyOptionalFilters(filtered);
     }
@@ -336,7 +342,15 @@ class _MembersScreenState extends State<MembersScreen> {
         .toSet()
         .toList()
       ..sort();
-    final postingLocations = _allVisibleMembers
+    final districtScopedMembers = (_selectedDistrict ?? '').trim().isEmpty
+      ? _allVisibleMembers
+      : _allVisibleMembers
+        .where(
+          (member) => member.postingDistrict.trim().toLowerCase() ==
+            _selectedDistrict!.trim().toLowerCase(),
+        )
+        .toList();
+    final postingLocations = districtScopedMembers
         .map((member) => member.postingLocation.trim())
         .where((value) => value.isNotEmpty)
         .toSet()
@@ -407,6 +421,37 @@ class _MembersScreenState extends State<MembersScreen> {
                   });
                 },
               ),
+            if (_filterMode == _MemberFilterMode.postingLocation)
+              _buildTypeablePickerField(
+                labelText: isHindi
+                    ? 'पोस्टिंग जिला (लोकेशन सूची सीमित करने के लिए)'
+                    : 'Posting District (to narrow location list)',
+                value: _selectedDistrict,
+                options: districts,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedDistrict = value;
+                    if (value != null && value.trim().isNotEmpty) {
+                      final scoped = _allVisibleMembers
+                          .where(
+                            (member) =>
+                                member.postingDistrict.trim().toLowerCase() ==
+                                value.trim().toLowerCase(),
+                          )
+                          .map((member) => member.postingLocation.trim())
+                          .toSet();
+                      final currentLocation = (_selectedPostingLocation ?? '').trim();
+                      if (currentLocation.isNotEmpty &&
+                          !scoped.any((item) => item.toLowerCase() == currentLocation.toLowerCase())) {
+                        _selectedPostingLocation = null;
+                      }
+                    }
+                  });
+                },
+                emptyLabel: isHindi ? 'सभी जिले' : 'All Districts',
+              ),
+            if (_filterMode == _MemberFilterMode.postingLocation)
+              const SizedBox(height: 8),
             if (_filterMode == _MemberFilterMode.postingLocation)
               _buildTypeablePickerField(
                 labelText: isHindi ? 'पोस्टिंग स्थान नाम' : 'Posting Place Name',

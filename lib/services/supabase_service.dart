@@ -1019,8 +1019,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _donationToRow(DonationEntry entry) {
+    final ownerId = Supabase.instance.client.auth.currentUser?.id;
     return <String, dynamic>{
       'id': entry.id,
+      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
       'member_id': entry.memberId,
       'member_name': entry.memberName,
       'member_mobile': entry.memberMobile,

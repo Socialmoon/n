@@ -223,26 +223,30 @@ class AuthService {
   }
 
   Future<AuthResult> _completeLogin(Member member) async {
-    if (member.isDeleted) {
+    // Always prefer latest cloud status so block/delete/retire takes effect immediately.
+    final latest = await _repository.fetchByMobileFromCloud(member.mobileNumber);
+    final effectiveMember = latest ?? member;
+
+    if (effectiveMember.isDeleted) {
       return const AuthResult(
           error: 'Your account has been deleted. Contact an admin.');
     }
-    if (member.isBlocked) {
+    if (effectiveMember.isBlocked) {
       return const AuthResult(
           error: 'Your account has been blocked. Contact an admin.');
     }
-    if (member.isRetired) {
+    if (effectiveMember.isRetired) {
       return const AuthResult(
           error: 'Your account is marked as retired and cannot login. Contact an admin.');
     }
-    if (!member.isApproved) {
+    if (!effectiveMember.isApproved) {
       return const AuthResult(
           error: 'Your registration is pending admin approval.');
     }
-    if (member.needsProfileRefresh) {
+    if (effectiveMember.needsProfileRefresh) {
       return const AuthResult(error: 'Profile update required before login.');
     }
-    if (member.needsPasswordRefresh) {
+    if (effectiveMember.needsPasswordRefresh) {
       return const AuthResult(error: 'Password renewal required before login.');
     }
 
@@ -250,17 +254,17 @@ class AuthService {
     final deviceBinding = DeviceBindingService();
     final currentDeviceId = await deviceBinding.getDeviceId();
     final currentFingerprint = await deviceBinding.generateFingerprint();
-    final payload = _decodePendingPayload(member.pendingUpdatePayload);
+    final payload = _decodePendingPayload(effectiveMember.pendingUpdatePayload);
     final storedDeviceId = payload['trustedDeviceId'] as String?;
     final storedFingerprint = payload['trustedDeviceFingerprint'] as String?;
 
-    Member memberToSave = member;
+    Member memberToSave = effectiveMember;
     if (storedDeviceId == null || storedDeviceId.isEmpty) {
       // First successful login binds the current device.
       payload['trustedDeviceId'] = currentDeviceId;
       payload['trustedDeviceFingerprint'] = currentFingerprint;
       payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
-      memberToSave = member.copyWith(
+      memberToSave = effectiveMember.copyWith(
         pendingUpdatePayload: jsonEncode(payload),
       );
     } else if (storedDeviceId != currentDeviceId ||
@@ -269,7 +273,7 @@ class AuthService {
             storedFingerprint != currentFingerprint)) {
       if (member.email?.isNotEmpty ?? false) {
         return AuthResult(
-          member: member,
+          member: effectiveMember,
           requiresDeviceVerification: true,
         );
       }

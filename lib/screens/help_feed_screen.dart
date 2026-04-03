@@ -98,6 +98,22 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     return '$day/$month/$year $hour:$minute';
   }
 
+  String _relativeDateLabel(DateTime value) {
+    final local = value.toLocal();
+    final dateOnly = DateTime(local.year, local.month, local.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    if (dateOnly == today) {
+      return 'Today, $time';
+    }
+    if (dateOnly == yesterday) {
+      return 'Yesterday, $time';
+    }
+    return _formatDateTime(local);
+  }
+
   int _daysRemaining(HelpPost post) {
     final now = DateTime.now();
     final elapsedDays = now.difference(post.createdAt.toLocal()).inDays;
@@ -113,7 +129,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     final initial = post.memberName.isEmpty
       ? '?'
       : post.memberName.substring(0, 1).toUpperCase();
-    final timestamp = _formatDateTime(post.createdAt);
+    final timestamp = _relativeDateLabel(post.createdAt);
     final remainingDays = _daysRemaining(post);
 
     return Card(
@@ -396,6 +412,25 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _postingComment = false;
 
+  String _relativeDateLabel(DateTime value) {
+    final local = value.toLocal();
+    final dateOnly = DateTime(local.year, local.month, local.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    if (dateOnly == today) {
+      return 'Today, $time';
+    }
+    if (dateOnly == yesterday) {
+      return 'Yesterday, $time';
+    }
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year;
+    return '$day/$month/$year $time';
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -444,6 +479,14 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text('${widget.post.memberName} • ${widget.post.location}'),
+                        const SizedBox(height: 4),
+                        Text(
+                          _relativeDateLabel(widget.post.createdAt),
+                          style: const TextStyle(
+                            color: Color(0xFF5A6B74),
+                            fontSize: 12,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
