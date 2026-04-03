@@ -324,7 +324,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
             const SizedBox(height: 6),
             Text('Mobile: ${member.mobileNumber}'),
             Text('Posting: ${member.postingLocation}, ${member.postingDistrict}'),
-            Text('Last login: ${member.lastLoginAt?.toLocal().toString() ?? 'Never'}'),
+            Text('Last login: ${_formatLastLogin(member.lastLoginAt)}'),
             Text('Retired: ${member.isRetired ? 'Yes' : 'No'}'),
             Text('Deleted: ${member.isDeleted ? 'Yes' : 'No'}'),
             const SizedBox(height: 10),
@@ -625,5 +625,18 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     setState(() {
       _refreshing = false;
     });
+  }
+
+  String _formatLastLogin(DateTime? value) {
+    if (value == null) {
+      return 'Never';
+    }
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year;
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
   }
 }

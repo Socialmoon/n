@@ -34,13 +34,13 @@ class MemberRepository {
 
   List<Member> get inactiveOver30Days => _members
       .where((member) {
-        final lastSeen = member.lastLoginAt ?? member.lastUpdated;
+        final lastSeen = member.lastLoginAt ?? member.appointmentDate;
         return !member.isDeleted && DateTime.now().difference(lastSeen).inDays >= 30;
       })
       .toList()
     ..sort((left, right) {
-      final leftSeen = left.lastLoginAt ?? left.lastUpdated;
-      final rightSeen = right.lastLoginAt ?? right.lastUpdated;
+      final leftSeen = left.lastLoginAt ?? left.appointmentDate;
+      final rightSeen = right.lastLoginAt ?? right.appointmentDate;
       return leftSeen.compareTo(rightSeen);
     });
 

@@ -38,7 +38,7 @@ class SupabaseService {
       return false;
     }
 
-    final client = Supabase.instance.client;
+    var client = Supabase.instance.client;
     if (client.auth.currentSession != null) {
       return true;
     }
@@ -49,6 +49,19 @@ class SupabaseService {
       debugPrint(
         'Supabase anonymous sign-in required for writes but failed: $error',
       );
+      // Retry once after re-initialization to recover from transient auth client state.
+      _initialized = false;
+      await initialize();
+      if (_initialized) {
+        client = Supabase.instance.client;
+        try {
+          await client.auth.signInAnonymously().timeout(_initTimeout);
+        } catch (retryError) {
+          debugPrint(
+            'Supabase anonymous sign-in retry failed: $retryError',
+          );
+        }
+      }
     }
 
     return client.auth.currentSession != null;

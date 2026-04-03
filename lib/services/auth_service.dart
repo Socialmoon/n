@@ -36,12 +36,28 @@ class AuthService {
   final Map<String, int> _mpinFailuresByMobile = <String, int>{};
   final Map<String, DateTime> _loginLockedUntilByMobile = <String, DateTime>{};
   static const String _lastMobileKey = 'auth_last_mobile';
+  static const String _biometricMemberCacheKey = 'auth_biometric_member_v1';
+  Member? _cachedBiometricMember;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_lastMobileKey);
     if (saved != null && saved.trim().isNotEmpty) {
       _lastMobile = _normalizeMobile(saved);
+    }
+    final cachedRaw = prefs.getString(_biometricMemberCacheKey);
+    if (cachedRaw != null && cachedRaw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(cachedRaw);
+        if (decoded is Map<String, dynamic>) {
+          _cachedBiometricMember = Member.fromMap(decoded);
+        } else if (decoded is Map) {
+          _cachedBiometricMember =
+              Member.fromMap(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {
+        _cachedBiometricMember = null;
+      }
     }
   }
 
@@ -93,10 +109,11 @@ class AuthService {
 
   Future<bool> isBiometricAvailable({String? mobileNumber}) async {
     final targetMobile = _normalizeMobile(mobileNumber ?? _lastMobile ?? '');
-    if (targetMobile.isEmpty) {
-      return false;
+    Member? member;
+    if (targetMobile.isNotEmpty) {
+      member = await _resolveMember(targetMobile, refreshFromCloud: false);
     }
-    final member = await _resolveMember(targetMobile);
+    member ??= _matchCachedBiometricMember(targetMobile);
     if (member == null) {
       return false;
     }
@@ -146,12 +163,22 @@ class AuthService {
   }
 
   Future<AuthResult> loginWithBiometric({String? mobileNumber}) async {
-    final targetMobile = _normalizeMobile(mobileNumber ?? _lastMobile ?? '');
-    if (targetMobile.isEmpty) {
-      return const AuthResult(
-          error: 'Enter your mobile number before biometric login.');
+    final typedMobile = _normalizeMobile(mobileNumber ?? '');
+    final targetMobile = _normalizeMobile(
+      typedMobile.isEmpty ? (_lastMobile ?? '') : typedMobile,
+    );
+
+    Member? member;
+    if (targetMobile.isNotEmpty) {
+      member = await _resolveMember(targetMobile);
     }
-    final member = await _resolveMember(targetMobile);
+    member ??= _matchCachedBiometricMember(targetMobile);
+
+    if (member == null && typedMobile.isEmpty) {
+      return const AuthResult(
+        error: 'Enter your mobile number before biometric login.',
+      );
+    }
     if (member == null) {
       return const AuthResult(
           error: 'Member not found for this mobile number.');
@@ -251,12 +278,12 @@ class AuthService {
     final now = DateTime.now();
     final updatedMember = memberToSave.copyWith(
       lastLoginAt: now,
-      lastUpdated: now,
     );
     await _repository.saveMember(updatedMember);
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     await _persistLastMobile(updatedMember.mobileNumber);
+    await _persistBiometricMember(updatedMember);
     return AuthResult(member: updatedMember);
   }
 
@@ -273,12 +300,12 @@ class AuthService {
     final updatedMember = member.copyWith(
       pendingUpdatePayload: jsonEncode(payload),
       lastLoginAt: now,
-      lastUpdated: now,
     );
     await _repository.saveMember(updatedMember);
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     await _persistLastMobile(updatedMember.mobileNumber);
+    await _persistBiometricMember(updatedMember);
     return AuthResult(member: updatedMember);
   }
 
@@ -310,12 +337,14 @@ class AuthService {
         );
       }
 
-      final payload = _decodePendingPayload(member.pendingUpdatePayload);
-      payload['biometricEnabled'] = true;
-      payload['biometricEnrolledAt'] = DateTime.now().toIso8601String();
+      // Apply biometric directly without waiting for admin approval.
+      // Preserve any existing pending profile updates.
+      final currentPayload = _decodePendingPayload(member.pendingUpdatePayload);
+      currentPayload['biometricEnabled'] = true;
+      currentPayload['biometricEnrolledAt'] = DateTime.now().toIso8601String();
 
       final updated = member.copyWith(
-        pendingUpdatePayload: jsonEncode(payload),
+        pendingUpdatePayload: jsonEncode(currentPayload),
         lastUpdated: DateTime.now(),
       );
       final saved = await _repository.saveMember(updated);
@@ -326,6 +355,7 @@ class AuthService {
       }
       _lastMobile = updated.mobileNumber;
       await _persistLastMobile(updated.mobileNumber);
+      await _persistBiometricMember(updated);
       return AuthResult(member: updated);
     } on PlatformException {
       return const AuthResult(
@@ -360,12 +390,24 @@ class AuthService {
     }
   }
 
-  Future<Member?> _resolveMember(String mobileNumber) async {
+  Future<Member?> _resolveMember(
+    String mobileNumber, {
+    bool refreshFromCloud = true,
+  }) async {
     final normalized = _normalizeMobile(mobileNumber);
     if (normalized.isEmpty) {
       return null;
     }
-    // Always refresh once so profile fields (like selfie_path) reflect latest cloud state.
+    final local = _repository.findByMobile(normalized);
+    if (local != null) {
+      return local;
+    }
+
+    if (!refreshFromCloud) {
+      return null;
+    }
+
+    // Best-effort refresh for latest server state.
     await _repository.refreshFromCloud();
     final latest = _repository.findByMobile(normalized);
     if (latest != null) {
@@ -428,5 +470,24 @@ class AuthService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_lastMobileKey, normalized);
+  }
+
+  Member? _matchCachedBiometricMember(String normalizedMobile) {
+    final cached = _cachedBiometricMember;
+    if (cached == null) {
+      return null;
+    }
+    if (normalizedMobile.isEmpty) {
+      return cached;
+    }
+    return _normalizeMobile(cached.mobileNumber) == normalizedMobile
+        ? cached
+        : null;
+  }
+
+  Future<void> _persistBiometricMember(Member member) async {
+    _cachedBiometricMember = member;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_biometricMemberCacheKey, jsonEncode(member.toMap()));
   }
 }
