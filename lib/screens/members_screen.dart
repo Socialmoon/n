@@ -387,7 +387,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 options: districts,
                 onChanged: (value) {
                   setState(() {
-                    _selectedDistrict = value;
+                    _selectedDistrict = _normalizeFilterValue(value);
                   });
                 },
               ),
@@ -492,7 +492,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 options: subDepartments,
                 onChanged: (value) {
                   setState(() {
-                    _optionalSubDepartment = value;
+                    _optionalSubDepartment = _normalizeFilterValue(value);
                   });
                 },
                 emptyLabel: isHindi ? 'सभी उप विभाग' : 'All Sub Departments',
@@ -510,7 +510,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 options: postingLocations,
                 onChanged: (value) {
                   setState(() {
-                    _optionalPostingLocation = value;
+                    _optionalPostingLocation = _normalizeFilterValue(value);
                   });
                 },
                 emptyLabel: isHindi ? 'सभी पोस्टिंग लोकेशन' : 'All Posting Locations',
@@ -528,7 +528,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 options: categories.map(_displayValue).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _optionalCategory = value;
+                    _optionalCategory = _normalizeFilterValue(value);
                   });
                 },
                 emptyLabel: isHindi ? 'सभी कैटेगरी' : 'All Categories',
@@ -1020,6 +1020,7 @@ class _MembersScreenState extends State<MembersScreen> {
         },
         child: AbsorbPointer(
           child: TextFormField(
+            key: ValueKey<String>('picker_$labelText::${value ?? ''}'),
             initialValue: value ?? '',
             decoration: InputDecoration(
               labelText: labelText,
@@ -1171,6 +1172,40 @@ class _MembersScreenState extends State<MembersScreen> {
       }
     }
     return null;
+  }
+
+  String? _normalizeFilterValue(String? value) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final normalized = trimmed.toLowerCase();
+    const genericAnyValues = <String>{
+      'all',
+      'any',
+      'anyone',
+      'all districts',
+      'all district',
+      'all categories',
+      'all category',
+      'all sub departments',
+      'all sub department',
+      'all posting locations',
+      'all posting location',
+      'सभी',
+      'कोई भी',
+      'सभी जिले',
+      'सभी उप विभाग',
+      'सभी पोस्टिंग लोकेशन',
+      'सभी कैटेगरी',
+    };
+
+    if (genericAnyValues.contains(normalized)) {
+      return null;
+    }
+
+    return trimmed;
   }
 
   List<String> _uniqueCaseInsensitive(Iterable<String> values) {

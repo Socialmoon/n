@@ -20,10 +20,12 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
       LocalNotificationService();
   final List<EmergencyAlert> _alerts = [];
   final Set<String> _seenCloudAlertIds = <String>{};
+  final Set<String> _notifiedCloudAlertIds = <String>{};
   Timer? _syncTimer;
   String? _lastLocallyTriggeredAlertId;
   bool _cloudNotificationsArmed = false;
   bool _isAppInForeground = true;
+  bool _syncInProgress = false;
 
   List<EmergencyAlert> get alerts => List.unmodifiable(_alerts.reversed);
 
@@ -101,55 +103,68 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _syncFromCloud({
     required bool showLocalNotificationForNew,
   }) async {
-    final cloudAlerts = await _cloudService.fetchAlerts();
-    final previouslySeenIds = Set<String>.from(_seenCloudAlertIds);
-    _seenCloudAlertIds.addAll(cloudAlerts.map((alert) => alert.id));
+    if (_syncInProgress) {
+      return;
+    }
+    _syncInProgress = true;
 
-    if (cloudAlerts.isEmpty) {
-      if (_alerts.isNotEmpty) {
-        _alerts.clear();
-        notifyListeners();
+    try {
+      final cloudAlerts = await _cloudService.fetchAlerts();
+      final previouslySeenIds = Set<String>.from(_seenCloudAlertIds);
+      _seenCloudAlertIds.addAll(cloudAlerts.map((alert) => alert.id));
+
+      if (cloudAlerts.isEmpty) {
+        if (_alerts.isNotEmpty) {
+          _alerts.clear();
+          notifyListeners();
+        }
+        return;
       }
-      return;
-    }
 
-    final newAlerts = cloudAlerts
-        .where((alert) => !previouslySeenIds.contains(alert.id))
-        .toList();
+      final newAlerts = cloudAlerts
+          .where((alert) => !previouslySeenIds.contains(alert.id))
+          .toList();
 
-    _alerts
-      ..clear()
-      ..addAll(cloudAlerts.reversed);
-    notifyListeners();
+      _alerts
+        ..clear()
+        ..addAll(cloudAlerts.reversed);
+      notifyListeners();
 
-    if (!showLocalNotificationForNew || newAlerts.isEmpty) {
-      return;
-    }
-
-    // First periodic cycle after startup/login primes baseline only.
-    if (!_cloudNotificationsArmed) {
-      _cloudNotificationsArmed = true;
-      return;
-    }
-
-    final notificationsEnabled = await _settingsService.getNotificationsEnabled();
-    if (!notificationsEnabled) {
-      return;
-    }
-
-    // Do not show phone notifications while app is open (login/startup/in-app).
-    if (_isAppInForeground) {
-      return;
-    }
-
-    for (final alert in newAlerts.reversed) {
-      if (alert.id == _lastLocallyTriggeredAlertId) {
-        continue;
+      if (!showLocalNotificationForNew || newAlerts.isEmpty) {
+        return;
       }
-      await _localNotificationService.showEmergencyAlertNotification(
-        title: 'Apne Saathi Emergency Alert',
-        body: '${alert.memberName}: ${alert.message.trim().isEmpty ? 'Immediate assistance required' : alert.message.trim()}',
-      );
+
+      // First periodic cycle after startup/login primes baseline only.
+      if (!_cloudNotificationsArmed) {
+        _cloudNotificationsArmed = true;
+        return;
+      }
+
+      final notificationsEnabled = await _settingsService.getNotificationsEnabled();
+      if (!notificationsEnabled) {
+        return;
+      }
+
+      // Do not show phone notifications while app is open (login/startup/in-app).
+      if (_isAppInForeground) {
+        return;
+      }
+
+      for (final alert in newAlerts.reversed) {
+        if (alert.id == _lastLocallyTriggeredAlertId) {
+          continue;
+        }
+        if (_notifiedCloudAlertIds.contains(alert.id)) {
+          continue;
+        }
+        await _localNotificationService.showEmergencyAlertNotification(
+          title: 'Apne Saathi Emergency Alert',
+          body: '${alert.memberName}: ${alert.message.trim().isEmpty ? 'Immediate assistance required' : alert.message.trim()}',
+        );
+        _notifiedCloudAlertIds.add(alert.id);
+      }
+    } finally {
+      _syncInProgress = false;
     }
   }
 
