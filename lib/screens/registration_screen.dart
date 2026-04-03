@@ -1816,6 +1816,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   List<String> _batchYears() {
     final currentYear = DateTime.now().year;
+    // Generate all years from current year down to 1970 (includes current year)
     return List<String>.generate(
       currentYear - 1969,
       (index) => (currentYear - index).toString(),

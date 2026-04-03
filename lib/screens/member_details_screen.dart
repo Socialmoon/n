@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/member.dart';
 
-class MemberDetailsScreen extends StatelessWidget {
+class MemberDetailsScreen extends StatefulWidget {
   const MemberDetailsScreen({
     required this.currentUser,
     required this.member,
@@ -17,9 +17,34 @@ class MemberDetailsScreen extends StatelessWidget {
   final Member currentUser;
   final Member member;
 
-  bool get _showHomeDetails => currentUser.isAdmin;
+  @override
+  State<MemberDetailsScreen> createState() => _MemberDetailsScreenState();
+}
+
+class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
+  late Member _displayMember;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayMember = widget.member;
+  }
+
+  @override
+  void didUpdateWidget(covariant MemberDetailsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh details when member data changes (e.g., after admin approval)
+    if (widget.member.id == oldWidget.member.id &&
+        widget.member.lastUpdated != oldWidget.member.lastUpdated) {
+      setState(() {
+        _displayMember = widget.member;
+      });
+    }
+  }
+
+  bool get _showHomeDetails => widget.currentUser.isAdmin;
   bool get _hasPreviousDetails =>
-      (member.previousPublicProfileSnapshot ?? '').trim().isNotEmpty;
+      (_displayMember.previousPublicProfileSnapshot ?? '').trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +52,7 @@ class MemberDetailsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Member Details'),
         actions: <Widget>[
-          if (currentUser.isAdmin)
+          if (widget.currentUser.isAdmin)
             IconButton(
               onPressed: () => _downloadMemberDetails(context),
               icon: const Icon(Icons.download_outlined),
@@ -43,39 +68,39 @@ class MemberDetailsScreen extends StatelessWidget {
           _section(
             title: 'Member Details',
             children: <Widget>[
-              _row('Sub Department Name', member.department),
-              _row('Batch Year', member.batchYear),
-              _row('Rank', member.postRank),
-              _row('Name', member.officialName ?? member.name),
-              _row('Gender', member.gender),
-              _row('Married Status', member.maritalStatus),
-              _row('Posting District', member.postingDistrict),
-              _row('Posting Category', member.postingCategory),
-              _row('Posting Place Name', member.postingLocation),
-              _row('Posting Work As', _displayValue(member.postingWorkAs)),
-              _row('Whatsapp Mob. No.', member.whatsappNumber),
+              _row('Sub Department Name', _displayMember.department),
+              _row('Batch Year', _displayMember.batchYear),
+              _row('Rank', _displayMember.postRank),
+              _row('Name', _displayMember.officialName ?? _displayMember.name),
+              _row('Gender', _displayMember.gender),
+              _row('Married Status', _displayMember.maritalStatus),
+              _row('Posting District', _displayMember.postingDistrict),
+              _row('Posting Category', _displayMember.postingCategory),
+              _row('Posting Place Name', _displayMember.postingLocation),
+              _row('Posting Work As', _displayValue(_displayMember.postingWorkAs)),
+              _row('Whatsapp Mob. No.', _displayMember.whatsappNumber),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: <Widget>[
                   FilledButton.tonalIcon(
-                    onPressed: _postingLocationUri(member.postingPlaceLocation) == null
+                    onPressed: _postingLocationUri(_displayMember.postingPlaceLocation) == null
                         ? null
-                        : () => _openUri(_postingLocationUri(member.postingPlaceLocation)!),
+                        : () => _openUri(_postingLocationUri(_displayMember.postingPlaceLocation)!),
                     icon: const Icon(Icons.pin_drop_outlined),
                     label: const Text('Posting Location Link'),
                   ),
                   FilledButton.tonalIcon(
-                    onPressed: (member.liveLatitude == null || member.liveLongitude == null)
+                    onPressed: (_displayMember.liveLatitude == null || _displayMember.liveLongitude == null)
                         ? null
-                        : () => _openMap(member.liveLatitude!, member.liveLongitude!),
+                        : () => _openMap(_displayMember.liveLatitude!, _displayMember.liveLongitude!),
                     icon: const Icon(Icons.location_searching_outlined),
                     label: const Text('Current Location Link'),
                   ),
                 ],
               ),
-              if (member.liveLocationUpdatedAt != null)
-                _row('Current Location Updated', member.liveLocationUpdatedAt!.toLocal().toString()),
+              if (_displayMember.liveLocationUpdatedAt != null)
+                _row('Current Location Updated', _displayMember.liveLocationUpdatedAt!.toLocal().toString()),
             ],
           ),
           if (_hasPreviousDetails) ...<Widget>[
@@ -87,14 +112,14 @@ class MemberDetailsScreen extends StatelessWidget {
             _section(
               title: 'Home Details (Admin Only)',
               children: <Widget>[
-                _row('Home District Name', member.homeDistrict),
-                _row('Home State', member.homeState),
-                _row('Village / Mohalla', member.homeVillageMohalla),
-                _row('Gali No.', member.homeGaliNo),
-                _row('Post Office', member.homePostOffice),
-                _row('Home Police Station', member.homePoliceStation),
-                _row('Home Tehsil', member.homeTehsil),
-                _row('Home Village Location', member.homeVillageLocation),
+                _row('Home District Name', _displayMember.homeDistrict),
+                _row('Home State', _displayMember.homeState),
+                _row('Village / Mohalla', _displayMember.homeVillageMohalla),
+                _row('Gali No.', _displayMember.homeGaliNo),
+                _row('Post Office', _displayMember.homePostOffice),
+                _row('Home Police Station', _displayMember.homePoliceStation),
+                _row('Home Tehsil', _displayMember.homeTehsil),
+                _row('Home Village Location', _displayMember.homeVillageLocation),
               ],
             ),
           ],
@@ -104,7 +129,7 @@ class MemberDetailsScreen extends StatelessWidget {
   }
 
   List<Widget> _previousInfoRows() {
-    final raw = member.previousPublicProfileSnapshot?.trim() ?? '';
+    final raw = _displayMember.previousPublicProfileSnapshot?.trim() ?? '';
     if (raw.isEmpty) {
       return const <Widget>[];
     }
@@ -171,8 +196,8 @@ class MemberDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader() {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
-    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+    final selfieUrl = _displayMember.selfiePath?.trim() ?? '';
+    final initial = _displayMember.name.isEmpty ? '?' : _displayMember.name[0].toUpperCase();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -210,12 +235,12 @@ class MemberDetailsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    member.name,
+                    _displayMember.name,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
-                  Text(member.role),
-                  Text('${member.postingLocation}, ${member.postingDistrict}'),
+                  Text(_displayMember.role),
+                  Text('${_displayMember.postingLocation}, ${_displayMember.postingDistrict}'),
                 ],
               ),
             ),
@@ -270,7 +295,7 @@ class MemberDetailsScreen extends StatelessWidget {
     final rows = _exportRows();
     final content = _buildExportHtml(rows);
     final fileName =
-        'member_${member.id}_details_${DateTime.now().millisecondsSinceEpoch}.html';
+        'member_${_displayMember.id}_details_${DateTime.now().millisecondsSinceEpoch}.html';
 
     try {
       await SharePlus.instance.share(
@@ -298,26 +323,26 @@ class MemberDetailsScreen extends StatelessWidget {
 
   List<MapEntry<String, String>> _exportRows() {
     final postingDetails = <String>[
-      member.postingDistrict,
-      member.postingLocation,
-      if ((member.postingCategory ?? '').trim().isNotEmpty)
-        'Category: ${member.postingCategory}',
-      if ((member.postingWorkAs ?? '').trim().isNotEmpty)
-        'Work As: ${_displayValue(member.postingWorkAs)}',
+      _displayMember.postingDistrict,
+      _displayMember.postingLocation,
+      if ((_displayMember.postingCategory ?? '').trim().isNotEmpty)
+        'Category: ${_displayMember.postingCategory}',
+      if ((_displayMember.postingWorkAs ?? '').trim().isNotEmpty)
+        'Work As: ${_displayValue(_displayMember.postingWorkAs)}',
     ].where((item) => item.trim().isNotEmpty).join(' | ');
 
     final contactDetails = <String>[
-      'Whatsapp: ${member.whatsappNumber ?? ''}',
-      'Calling: ${member.callingContactNumber ?? ''}',
+      'Whatsapp: ${_displayMember.whatsappNumber ?? ''}',
+      'Calling: ${_displayMember.callingContactNumber ?? ''}',
     ].join(' | ');
 
     final rows = <MapEntry<String, String>>[
-      MapEntry<String, String>('Name', member.officialName ?? member.name),
-      MapEntry<String, String>('Mobile Number', member.mobileNumber),
-      MapEntry<String, String>('Sub Department', member.department ?? ''),
-      MapEntry<String, String>('Rank', member.postRank ?? ''),
-      MapEntry<String, String>('Batch Year', member.batchYear ?? ''),
-      MapEntry<String, String>('Gender', member.gender ?? ''),
+      MapEntry<String, String>('Name', _displayMember.officialName ?? _displayMember.name),
+      MapEntry<String, String>('Mobile Number', _displayMember.mobileNumber),
+      MapEntry<String, String>('Sub Department', _displayMember.department ?? ''),
+      MapEntry<String, String>('Rank', _displayMember.postRank ?? ''),
+      MapEntry<String, String>('Batch Year', _displayMember.batchYear ?? ''),
+      MapEntry<String, String>('Gender', _displayMember.gender ?? ''),
       MapEntry<String, String>('Posting Details', postingDetails),
       MapEntry<String, String>('Calling Contacts', contactDetails),
     ];
@@ -337,7 +362,7 @@ class MemberDetailsScreen extends StatelessWidget {
         )
         .join();
 
-    final profileUrl = _safePhotoUrl(member.selfiePath);
+    final profileUrl = _safePhotoUrl(_displayMember.selfiePath);
     final profileHtml = profileUrl == null
         ? '<div class="avatar-fallback">No Photo</div>'
         : '<img class="avatar" src="$profileUrl" alt="Member photo" />';

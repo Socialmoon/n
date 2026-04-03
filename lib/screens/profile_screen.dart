@@ -113,6 +113,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homeTehsilController = TextEditingController(text: widget.currentUser.homeTehsil ?? '');
     _homeVillageLocationController = TextEditingController(text: widget.currentUser.homeVillageLocation ?? '');
     _selfiePath = widget.currentUser.selfiePath;
+    
+    // Auto-fill official name from name if empty
+    if ((widget.currentUser.officialName ?? '').trim().isEmpty && widget.currentUser.name.trim().isNotEmpty) {
+      _officialNameController.text = widget.currentUser.name;
+    }
   }
 
   @override
@@ -177,6 +182,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _homePoliceStationController.text = widget.currentUser.homePoliceStation ?? '';
       _homeTehsilController.text = widget.currentUser.homeTehsil ?? '';
       _homeVillageLocationController.text = widget.currentUser.homeVillageLocation ?? '';
+      
+      // Auto-fill official name from name if empty
+      if ((widget.currentUser.officialName ?? '').trim().isEmpty && widget.currentUser.name.trim().isNotEmpty) {
+        _officialNameController.text = widget.currentUser.name;
+      }
       // Preserve unsaved local preview if user is editing right now.
       if (_selfiePreviewBytes == null) {
         _selfiePath = widget.currentUser.selfiePath;
