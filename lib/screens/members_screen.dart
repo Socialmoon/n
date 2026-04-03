@@ -12,7 +12,6 @@ import 'member_details_screen.dart';
 
 enum _MemberFilterMode {
   district,
-  postingLocation,
   currentLocation,
 }
 
@@ -66,7 +65,7 @@ class _MembersScreenState extends State<MembersScreen> {
   bool _showOptionalFilters = false;
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
-  String? _selectedPostingLocation;
+  String? _optionalPostingLocation;
   String? _optionalSubDepartment;
   String? _optionalCategory;
   _LatLng? _deviceCoordinates;
@@ -123,23 +122,6 @@ class _MembersScreenState extends State<MembersScreen> {
       return _applyOptionalFilters(filtered);
     }
 
-    if (_filterMode == _MemberFilterMode.postingLocation) {
-      final location = (_selectedPostingLocation ?? '').trim().toLowerCase();
-      final districtScope = (_selectedDistrict ?? '').trim().toLowerCase();
-      if (location.isEmpty) {
-        return const <Member>[];
-      }
-      final filtered = members
-          .where((member) {
-            final locationMatch = member.postingLocation.trim().toLowerCase() == location;
-            final districtMatch = districtScope.isEmpty ||
-                member.postingDistrict.trim().toLowerCase() == districtScope;
-            return locationMatch && districtMatch;
-          })
-          .toList();
-      return _applyOptionalFilters(filtered);
-    }
-
     final currentCoords = _distanceOriginCoordinates();
     if (currentCoords == null) {
       return const <Member>[];
@@ -162,10 +144,14 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   List<Member> _applyOptionalFilters(List<Member> members) {
+    final postingLocation = (_optionalPostingLocation ?? '').trim().toLowerCase();
     final subDepartment = (_optionalSubDepartment ?? '').trim().toLowerCase();
     final category = (_optionalCategory ?? '').trim().toLowerCase();
 
     final filtered = members.where((member) {
+      final postingLocationValue = member.postingLocation.trim().toLowerCase();
+      final postingLocationMatch =
+          postingLocation.isEmpty || postingLocationValue == postingLocation;
       final subDepartmentValue = (member.department ?? '').trim().toLowerCase();
       final subDepartmentMatch =
           subDepartment.isEmpty || subDepartmentValue == subDepartment;
@@ -174,7 +160,7 @@ class _MembersScreenState extends State<MembersScreen> {
         .toLowerCase();
       final categoryMatch = category.isEmpty || categoryValue == category;
 
-      return subDepartmentMatch && categoryMatch;
+      return postingLocationMatch && subDepartmentMatch && categoryMatch;
     }).toList();
 
     return _sortByDistanceIfAvailable(filtered);
@@ -318,45 +304,33 @@ class _MembersScreenState extends State<MembersScreen> {
 
   Widget _buildFilterPanel(List<Member> filteredMembers) {
     final isHindi = Localizations.localeOf(context).languageCode == 'hi';
-    final districts = _allVisibleMembers
+    final districts = _uniqueCaseInsensitive(
+      _allVisibleMembers
         .map((member) => member.postingDistrict.trim())
         .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    final subDepartments = <String>{
+        .toList(),
+    )..sort();
+    final subDepartments = _uniqueCaseInsensitive(<String>[
       ..._subDepartmentOptions,
       ..._allVisibleMembers
         .map((member) => (member.department ?? '').trim())
         .where((value) => value.isNotEmpty)
-    }
-      .toList()
-      ..sort();
-    final categories = <String>{
+    ])..sort();
+    final categories = _uniqueCaseInsensitive(<String>[
       ..._postingCategoryOptions,
       ..._allVisibleMembers
         .map((member) => (member.postingCategory ?? '').trim())
         .where((value) => value.isNotEmpty)
-    }
-        .map(_displayValue)
-        .where((value) => value.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    final districtScopedMembers = (_selectedDistrict ?? '').trim().isEmpty
-      ? _allVisibleMembers
-      : _allVisibleMembers
-        .where(
-          (member) => member.postingDistrict.trim().toLowerCase() ==
-            _selectedDistrict!.trim().toLowerCase(),
-        )
-        .toList();
-    final postingLocations = districtScopedMembers
+    ]
+      .map(_displayValue)
+      .where((value) => value.trim().isNotEmpty)
+      .toList())..sort();
+    final postingLocations = _uniqueCaseInsensitive(
+      _allVisibleMembers
         .map((member) => member.postingLocation.trim())
         .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+        .toList(),
+    )..sort();
     final appliedFilters = _appliedFilterLabels(isHindi);
 
     return Card(
@@ -391,15 +365,6 @@ class _MembersScreenState extends State<MembersScreen> {
                   },
                 ),
                 ChoiceChip(
-                  label: Text(isHindi ? 'पोस्टिंग लोकेशन से' : 'By Posting Location'),
-                  selected: _filterMode == _MemberFilterMode.postingLocation,
-                  onSelected: (_) {
-                    setState(() {
-                      _filterMode = _MemberFilterMode.postingLocation;
-                    });
-                  },
-                ),
-                ChoiceChip(
                   label: Text(isHindi ? '100 किमी रेडियस' : 'By 100 km Radius'),
                   selected: _filterMode == _MemberFilterMode.currentLocation,
                   onSelected: (_) {
@@ -413,23 +378,16 @@ class _MembersScreenState extends State<MembersScreen> {
             const SizedBox(height: 12),
             if (_filterMode == _MemberFilterMode.district)
               _buildTypeablePickerField(
-                labelText: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
+                labelText: _appliedFieldLabel(
+                  isHindi: isHindi,
+                  baseLabel: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
+                  value: _selectedDistrict,
+                ),
                 value: _selectedDistrict,
                 options: districts,
                 onChanged: (value) {
                   setState(() {
                     _selectedDistrict = value;
-                  });
-                },
-              ),
-            if (_filterMode == _MemberFilterMode.postingLocation)
-              _buildTypeablePickerField(
-                labelText: isHindi ? 'पोस्टिंग स्थान नाम' : 'Posting Place Name',
-                value: _selectedPostingLocation,
-                options: postingLocations,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPostingLocation = value;
                   });
                 },
               ),
@@ -520,8 +478,16 @@ class _MembersScreenState extends State<MembersScreen> {
             else if (_showOptionalFilters) ...<Widget>[
               _buildTypeablePickerField(
                 labelText: isHindi
-                    ? 'उप विभाग (वैकल्पिक)'
-                    : 'Sub Department (Optional)',
+                    ? _appliedFieldLabel(
+                        isHindi: isHindi,
+                        baseLabel: 'उप विभाग (वैकल्पिक)',
+                        value: _optionalSubDepartment,
+                      )
+                    : _appliedFieldLabel(
+                        isHindi: isHindi,
+                        baseLabel: 'Sub Department (Optional)',
+                        value: _optionalSubDepartment,
+                      ),
                 value: _optionalSubDepartment,
                 options: subDepartments,
                 onChanged: (value) {
@@ -533,9 +499,31 @@ class _MembersScreenState extends State<MembersScreen> {
               ),
               const SizedBox(height: 8),
               _buildTypeablePickerField(
-                labelText: isHindi
-                    ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
-                    : 'Posting Category (Optional)',
+                labelText: _appliedFieldLabel(
+                  isHindi: isHindi,
+                  baseLabel: isHindi
+                      ? 'पोस्टिंग लोकेशन (वैकल्पिक)'
+                      : 'Posting Location (Optional)',
+                  value: _optionalPostingLocation,
+                ),
+                value: _optionalPostingLocation,
+                options: postingLocations,
+                onChanged: (value) {
+                  setState(() {
+                    _optionalPostingLocation = value;
+                  });
+                },
+                emptyLabel: isHindi ? 'सभी पोस्टिंग लोकेशन' : 'All Posting Locations',
+              ),
+              const SizedBox(height: 8),
+              _buildTypeablePickerField(
+                labelText: _appliedFieldLabel(
+                  isHindi: isHindi,
+                  baseLabel: isHindi
+                      ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
+                      : 'Posting Category (Optional)',
+                  value: _optionalCategory,
+                ),
                 value: _optionalCategory,
                 options: categories.map(_displayValue).toList(),
                 onChanged: (value) {
@@ -551,6 +539,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 child: TextButton.icon(
                   onPressed: () {
                     setState(() {
+                      _optionalPostingLocation = null;
                       _optionalSubDepartment = null;
                       _optionalCategory = null;
                     });
@@ -571,26 +560,50 @@ class _MembersScreenState extends State<MembersScreen> {
     if (_filterMode == _MemberFilterMode.district) {
       final district = (_selectedDistrict ?? '').trim();
       if (district.isNotEmpty) {
-        labels.add('${isHindi ? 'जिला' : 'District'}: $district');
-      }
-    } else if (_filterMode == _MemberFilterMode.postingLocation) {
-      final location = (_selectedPostingLocation ?? '').trim();
-      if (location.isNotEmpty) {
-        labels.add('${isHindi ? 'पोस्टिंग स्थान' : 'Posting Place'}: $location');
+        labels.add('${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'जिला' : 'District'}: $district');
       }
     } else if (_filterMode == _MemberFilterMode.currentLocation) {
-      labels.add(isHindi ? 'रेडियस: 100 किमी' : 'Radius: 100 km');
+      labels.add(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
+        '${isHindi ? 'रेडियस' : 'Radius'}: 100 km',
+      );
+    }
+
+    final postingLocation = (_optionalPostingLocation ?? '').trim();
+    if (postingLocation.isNotEmpty) {
+      labels.add(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
+        '${isHindi ? 'पोस्टिंग लोकेशन' : 'Posting Location'}: $postingLocation',
+      );
     }
 
     final subDepartment = (_optionalSubDepartment ?? '').trim();
     if (subDepartment.isNotEmpty) {
-      labels.add('${isHindi ? 'उप विभाग' : 'Sub Department'}: $subDepartment');
+      labels.add(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
+        '${isHindi ? 'उप विभाग' : 'Sub Department'}: $subDepartment',
+      );
     }
     final category = (_optionalCategory ?? '').trim();
     if (category.isNotEmpty) {
-      labels.add('${isHindi ? 'कैटेगरी' : 'Category'}: $category');
+      labels.add(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
+        '${isHindi ? 'कैटेगरी' : 'Category'}: $category',
+      );
     }
     return labels;
+  }
+
+  String _appliedFieldLabel({
+    required bool isHindi,
+    required String baseLabel,
+    required String? value,
+  }) {
+    final hasValue = (value ?? '').trim().isNotEmpty;
+    if (!hasValue) {
+      return baseLabel;
+    }
+    return isHindi ? 'लागू फ़िल्टर: $baseLabel' : 'Applied Filter: $baseLabel';
   }
 
   Widget _buildMemberCard(Member member) {
@@ -1103,7 +1116,11 @@ class _MembersScreenState extends State<MembersScreen> {
                             Navigator.of(context).pop(null);
                             return;
                           }
-                          Navigator.of(context).pop(typed);
+                          final existing = _findCaseInsensitiveOption(
+                            options: options,
+                            typed: typed,
+                          );
+                          Navigator.of(context).pop(existing ?? typed);
                         },
                         child: const Text('Use typed value'),
                       ),
@@ -1141,6 +1158,32 @@ class _MembersScreenState extends State<MembersScreen> {
       return 'Others';
     }
     return value;
+  }
+
+  String? _findCaseInsensitiveOption({
+    required Iterable<String> options,
+    required String typed,
+  }) {
+    final normalized = typed.trim().toLowerCase();
+    for (final option in options) {
+      if (option.trim().toLowerCase() == normalized) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  List<String> _uniqueCaseInsensitive(Iterable<String> values) {
+    final map = <String, String>{};
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      final key = trimmed.toLowerCase();
+      map.putIfAbsent(key, () => trimmed);
+    }
+    return map.values.toList();
   }
 
   _LatLng? _memberPostingCoordinates(Member member) {

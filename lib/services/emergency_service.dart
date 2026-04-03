@@ -19,6 +19,7 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
   final LocalNotificationService _localNotificationService =
       LocalNotificationService();
   final List<EmergencyAlert> _alerts = [];
+  final Set<String> _seenCloudAlertIds = <String>{};
   Timer? _syncTimer;
   String? _lastLocallyTriggeredAlertId;
   bool _cloudNotificationsArmed = false;
@@ -101,6 +102,9 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
     required bool showLocalNotificationForNew,
   }) async {
     final cloudAlerts = await _cloudService.fetchAlerts();
+    final previouslySeenIds = Set<String>.from(_seenCloudAlertIds);
+    _seenCloudAlertIds.addAll(cloudAlerts.map((alert) => alert.id));
+
     if (cloudAlerts.isEmpty) {
       if (_alerts.isNotEmpty) {
         _alerts.clear();
@@ -109,9 +113,8 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
 
-    final existingIds = _alerts.map((alert) => alert.id).toSet();
     final newAlerts = cloudAlerts
-        .where((alert) => !existingIds.contains(alert.id))
+        .where((alert) => !previouslySeenIds.contains(alert.id))
         .toList();
 
     _alerts

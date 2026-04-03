@@ -409,6 +409,14 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
     return formatIstDateTime(value);
   }
 
+  String _commentTimeLabel(DateTime value) {
+    final ist = toIst(value);
+    final hour = ist.hour == 0 ? 12 : (ist.hour > 12 ? ist.hour - 12 : ist.hour);
+    final minute = ist.minute.toString().padLeft(2, '0');
+    final meridiem = ist.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $meridiem';
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -564,7 +572,22 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
           child: ListTile(
             leading: const Icon(Icons.person_outline),
             title: Text(comment.memberName),
-            subtitle: Text(comment.message),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(comment.message),
+                const SizedBox(height: 4),
+                Text(
+                  _commentTimeLabel(comment.createdAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF5A6B74),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
             trailing: canDeleteComment
                 ? IconButton(
                     icon: const Icon(Icons.delete_outline, size: 20),
