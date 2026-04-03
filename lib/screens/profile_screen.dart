@@ -523,6 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _openUpdateInfoPage() async {
     final previousValues = <String, String>{
+      'Posting Location': _postingLocationController.text.trim(),
       'Home State': _homeStateController.text.trim(),
       'Home District': _homeDistrictController.text.trim(),
       'Posting State': _postingStateController.text.trim(),
@@ -532,7 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Posting Place Location': _postingPlaceLocationController.text.trim(),
       'Home Village / Mohalla': _homeVillageMohallaController.text.trim(),
       'Home Gali No': _homeGaliNoController.text.trim(),
-      'Home Post Office': _homePostOfficeController.text.trim(),
       'Home Police Station': _homePoliceStationController.text.trim(),
       'Home Tehsil': _homeTehsilController.text.trim(),
       'Home Village Location': _homeVillageLocationController.text.trim(),
@@ -541,6 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => _ProfileUpdateInfoScreen(
+          postingLocationController: _postingLocationController,
           homeStateController: _homeStateController,
           homeDistrictController: _homeDistrictController,
           postingStateController: _postingStateController,
@@ -550,7 +551,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           postingPlaceLocationController: _postingPlaceLocationController,
           homeVillageMohallaController: _homeVillageMohallaController,
           homeGaliNoController: _homeGaliNoController,
-          homePostOfficeController: _homePostOfficeController,
           homePoliceStationController: _homePoliceStationController,
           homeTehsilController: _homeTehsilController,
           homeVillageLocationController: _homeVillageLocationController,
@@ -705,15 +705,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return false;
     }
 
-    if (postingLocationChanged) {
-      final validStation = await _locationSuggestions.isKnownStation(
-        station: postingLocation,
-        district: widget.currentUser.postingDistrict,
-      );
-      if (!validStation) {
-        _showMessage('Choose a valid police station from suggestions.');
-        return false;
-      }
+    if (postingLocationChanged && !_isAcceptableStationValue(postingLocation)) {
+      _showMessage('Enter a valid posting location name.');
+      return false;
     }
 
     if (homeDistrict.isEmpty || postingDistrict.isEmpty || homePoliceStation.isEmpty) {
@@ -733,12 +727,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return false;
     }
 
-    final homeStationValid = await _locationSuggestions.isKnownStation(
-      station: homePoliceStation,
-      district: homeDistrict,
-    );
-    if (!homeStationValid) {
-      _showMessage('Choose a valid home police station from options.');
+    if (!_isAcceptableStationValue(homePoliceStation)) {
+      _showMessage('Enter a valid home police station name.');
       return false;
     }
 
@@ -845,8 +835,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return false;
       }
 
+      final existingPayload =
+          _decodePendingPayload(widget.currentUser.pendingUpdatePayload);
+      final securityOnly = _extractSecurityPayload(existingPayload);
+      final mergedPayload = <String, dynamic>{...securityOnly, ...changed};
+
       updated = widget.currentUser.copyWith(
-        pendingUpdatePayload: jsonEncode(changed),
+        pendingUpdatePayload: jsonEncode(mergedPayload),
         previousPublicProfileSnapshot: jsonEncode(currentProfile),
         lastUpdated: DateTime.now(),
       );
@@ -896,6 +891,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     return RegExp(r'^[0-9]{10}$').hasMatch(value);
   }
+
+  bool _isAcceptableStationValue(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length < 3) {
+      return false;
+    }
+    return RegExp(r"^[A-Za-z0-9 .,'()/-]{3,}$").hasMatch(trimmed);
+  }
+
+  Map<String, dynamic> _decodePendingPayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Map<String, dynamic> _extractSecurityPayload(Map<String, dynamic> payload) {
+    final security = <String, dynamic>{};
+    for (final key in _securityPayloadKeys) {
+      if (payload.containsKey(key)) {
+        security[key] = payload[key];
+      }
+    }
+    return security;
+  }
+
+  static const Set<String> _securityPayloadKeys = <String>{
+    'biometricEnabled',
+    'biometricEnrolledAt',
+    'trustedDeviceId',
+    'trustedDeviceFingerprint',
+    'trustedDeviceBoundAt',
+  };
 
   Map<String, dynamic> _currentPublicProfileSnapshot(Member member) {
     return <String, dynamic>{
@@ -1187,6 +1226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _ProfileUpdateInfoScreen extends StatefulWidget {
   const _ProfileUpdateInfoScreen({
+    required this.postingLocationController,
     required this.homeStateController,
     required this.homeDistrictController,
     required this.postingStateController,
@@ -1196,7 +1236,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.postingPlaceLocationController,
     required this.homeVillageMohallaController,
     required this.homeGaliNoController,
-    required this.homePostOfficeController,
     required this.homePoliceStationController,
     required this.homeTehsilController,
     required this.homeVillageLocationController,
@@ -1205,6 +1244,7 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.onSave,
   });
 
+  final TextEditingController postingLocationController;
   final TextEditingController homeStateController;
   final TextEditingController homeDistrictController;
   final TextEditingController postingStateController;
@@ -1214,7 +1254,6 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
   final TextEditingController postingPlaceLocationController;
   final TextEditingController homeVillageMohallaController;
   final TextEditingController homeGaliNoController;
-  final TextEditingController homePostOfficeController;
   final TextEditingController homePoliceStationController;
   final TextEditingController homeTehsilController;
   final TextEditingController homeVillageLocationController;
@@ -1230,6 +1269,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   final LocationSuggestionService _locationSuggestions = LocationSuggestionService();
   List<String> _districtOptions = <String>[];
   List<String> _homeStationOptions = <String>[];
+  List<String> _postingStationOptions = <String>[];
   bool _fetchingPostingLocation = false;
 
   @override
@@ -1237,6 +1277,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
     super.initState();
     unawaited(_loadDistrictOptions());
     unawaited(_loadHomeStationOptions());
+    unawaited(_loadPostingStationOptions());
   }
 
   Future<void> _loadDistrictOptions() async {
@@ -1261,11 +1302,24 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
     });
   }
 
+  Future<void> _loadPostingStationOptions() async {
+    final stations = await _locationSuggestions.allPoliceStations(
+      district: widget.postingDistrictController.text.trim(),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _postingStationOptions = stations;
+    });
+  }
+
   Future<void> _pickFromList({
     required String title,
     required List<String> options,
     required TextEditingController controller,
     ValueChanged<String>? onSelected,
+    bool allowCustomValue = false,
   }) async {
     final result = await showModalBottomSheet<String>(
       context: context,
@@ -1325,6 +1379,20 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                               },
                             ),
                     ),
+                    if (allowCustomValue)
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonal(
+                          onPressed: () {
+                            final typed = searchController.text.trim();
+                            if (typed.isEmpty) {
+                              return;
+                            }
+                            Navigator.of(context).pop(typed);
+                          },
+                          child: const Text('Use typed value'),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1489,6 +1557,19 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                 title: 'Select Posting District',
                 options: _districtOptions,
                 controller: widget.postingDistrictController,
+                onSelected: (_) => unawaited(_loadPostingStationOptions()),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildSelectionField(
+              widget.postingLocationController,
+              'Posting Location',
+              hint: 'Tap to choose station or use typed value',
+              onTap: () => _pickFromList(
+                title: 'Select Posting Location',
+                options: _postingStationOptions,
+                controller: widget.postingLocationController,
+                allowCustomValue: true,
               ),
             ),
             const SizedBox(height: 8),
@@ -1537,11 +1618,6 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               decoration: const InputDecoration(labelText: 'Home Gali No'),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.homePostOfficeController,
-              decoration: const InputDecoration(labelText: 'Home Post Office'),
-            ),
-            const SizedBox(height: 8),
             _buildSelectionField(
               widget.homePoliceStationController,
               'Home Police Station',
@@ -1550,6 +1626,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                 title: 'Select Home Police Station',
                 options: _homeStationOptions,
                 controller: widget.homePoliceStationController,
+                allowCustomValue: true,
               ),
             ),
             const SizedBox(height: 8),

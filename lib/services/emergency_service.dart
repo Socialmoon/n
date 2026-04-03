@@ -1,4 +1,5 @@
 import 'package:vibration/vibration.dart';
+import 'dart:async';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
@@ -15,6 +16,8 @@ class EmergencyService {
   final LocalNotificationService _localNotificationService =
       LocalNotificationService();
   final List<EmergencyAlert> _alerts = [];
+  Timer? _syncTimer;
+  String? _lastLocallyTriggeredAlertId;
 
   List<EmergencyAlert> get alerts => List.unmodifiable(_alerts.reversed);
 
@@ -23,17 +26,25 @@ class EmergencyService {
       return;
     }
 
-    final cloudAlerts = await _cloudService.fetchAlerts();
-    if (cloudAlerts.isEmpty) {
-      for (final alert in _alerts) {
-        await _cloudService.insertAlert(alert);
-      }
+    await _syncFromCloud(showLocalNotificationForNew: false);
+  }
+
+  Future<void> startAlertSync({
+    Duration interval = const Duration(seconds: 12),
+  }) async {
+    if (!_cloudService.isConfigured) {
       return;
     }
+    await _syncFromCloud(showLocalNotificationForNew: false);
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(interval, (_) {
+      unawaited(_syncFromCloud(showLocalNotificationForNew: true));
+    });
+  }
 
-    _alerts
-      ..clear()
-      ..addAll(cloudAlerts.reversed);
+  void stopAlertSync() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
   }
 
   Future<bool> triggerAlert({
@@ -49,6 +60,7 @@ class EmergencyService {
       location: member.postingLocation,
     );
     _alerts.add(alert);
+    _lastLocallyTriggeredAlertId = alert.id;
     final saved = await _cloudService.insertAlert(alert);
     final notificationsEnabled = await _settingsService.getNotificationsEnabled();
     final vibrationEnabled = await _settingsService.getVibrationEnabled();
@@ -62,6 +74,43 @@ class EmergencyService {
       );
     }
     return saved;
+  }
+
+  Future<void> _syncFromCloud({
+    required bool showLocalNotificationForNew,
+  }) async {
+    final cloudAlerts = await _cloudService.fetchAlerts();
+    if (cloudAlerts.isEmpty) {
+      return;
+    }
+
+    final existingIds = _alerts.map((alert) => alert.id).toSet();
+    final newAlerts = cloudAlerts
+        .where((alert) => !existingIds.contains(alert.id))
+        .toList();
+
+    _alerts
+      ..clear()
+      ..addAll(cloudAlerts.reversed);
+
+    if (!showLocalNotificationForNew || newAlerts.isEmpty) {
+      return;
+    }
+
+    final notificationsEnabled = await _settingsService.getNotificationsEnabled();
+    if (!notificationsEnabled) {
+      return;
+    }
+
+    for (final alert in newAlerts.reversed) {
+      if (alert.id == _lastLocallyTriggeredAlertId) {
+        continue;
+      }
+      await _localNotificationService.showEmergencyAlertNotification(
+        title: 'Apne Saathi Emergency Alert',
+        body: '${alert.memberName}: ${alert.message.trim().isEmpty ? 'Immediate assistance required' : alert.message.trim()}',
+      );
+    }
   }
 
 }

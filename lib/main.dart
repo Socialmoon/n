@@ -33,7 +33,7 @@ class ApneSaathiApp extends StatefulWidget {
 
 class _ApneSaathiAppState extends State<ApneSaathiApp> {
   static const Duration _startupTimeout = Duration(seconds: 8);
-  static const Duration _autoLogoutAfter = Duration(minutes: 30);
+  static const Duration _autoLogoutAfter = Duration(minutes: 5);
 
   final SupabaseService _supabaseService = SupabaseService();
   late final MemberRepository _repository =
@@ -64,6 +64,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
   @override
   void dispose() {
     _stopInactivityTimer();
+    _emergencyService.stopAlertSync();
     super.dispose();
   }
 
@@ -77,9 +78,10 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
       await _languageService.loadSavedLanguage().timeout(_startupTimeout);
       await _donationService.load().timeout(_startupTimeout);
       await _emergencyService.load().timeout(_startupTimeout);
+      await _emergencyService.startAlertSync().timeout(_startupTimeout);
       await _helpFeedService.load().timeout(_startupTimeout);
-        await _notificationService.initialize().timeout(_startupTimeout);
-        await _notificationService
+      await _notificationService.initialize().timeout(_startupTimeout);
+      await _notificationService
           .requestPermissionsIfNeeded()
           .timeout(_startupTimeout);
       sessionUser = await _authService
@@ -93,6 +95,8 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
         await _authService.initialize().timeout(_startupTimeout);
         await _languageService.loadSavedLanguage().timeout(_startupTimeout);
         await _donationService.load().timeout(_startupTimeout);
+        await _emergencyService.load().timeout(_startupTimeout);
+        await _emergencyService.startAlertSync().timeout(_startupTimeout);
         await _helpFeedService.load().timeout(_startupTimeout);
         sessionUser = await _authService
             .loadSession()
@@ -234,6 +238,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                         setState(() {
                           _currentUser = member;
                         });
+                        _emergencyService.startAlertSync();
                         _startInactivityTimer();
                       },
                     )
@@ -252,6 +257,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                       },
                       onLogout: () async {
                         await _authService.logout();
+                        _emergencyService.stopAlertSync();
                         if (!mounted) {
                           return;
                         }

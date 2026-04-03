@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/member.dart';
 import 'member_repository.dart';
@@ -34,8 +35,15 @@ class AuthService {
   static const Duration _loginLockDuration = Duration(minutes: 5);
   final Map<String, int> _mpinFailuresByMobile = <String, int>{};
   final Map<String, DateTime> _loginLockedUntilByMobile = <String, DateTime>{};
+  static const String _lastMobileKey = 'auth_last_mobile';
 
-  Future<void> initialize() async {}
+  Future<void> initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_lastMobileKey);
+    if (saved != null && saved.trim().isNotEmpty) {
+      _lastMobile = _normalizeMobile(saved);
+    }
+  }
 
   Future<Member?> loadSession() async {
     if (_activeUserId == null) {
@@ -248,6 +256,7 @@ class AuthService {
     await _repository.saveMember(updatedMember);
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
+    await _persistLastMobile(updatedMember.mobileNumber);
     return AuthResult(member: updatedMember);
   }
 
@@ -269,6 +278,7 @@ class AuthService {
     await _repository.saveMember(updatedMember);
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
+    await _persistLastMobile(updatedMember.mobileNumber);
     return AuthResult(member: updatedMember);
   }
 
@@ -407,5 +417,14 @@ class AuthService {
     }
     _mpinFailuresByMobile.remove(mobile);
     _loginLockedUntilByMobile.remove(mobile);
+  }
+
+  Future<void> _persistLastMobile(String mobile) async {
+    final normalized = _normalizeMobile(mobile);
+    if (normalized.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastMobileKey, normalized);
   }
 }

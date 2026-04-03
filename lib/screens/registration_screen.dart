@@ -1539,12 +1539,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    final stationValid = await _locationSuggestions.isKnownStation(
-      station: postingStation,
-      district: postingDistrict,
-    );
-    if (!stationValid) {
-      _showMessage('Choose a valid police station from suggestions.');
+    if (!_isAcceptableStationValue(postingStation)) {
+      _showMessage('Enter a valid police station name.');
       return false;
     }
 
@@ -1606,6 +1602,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     return true;
+  }
+
+  bool _isAcceptableStationValue(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length < 3) {
+      return false;
+    }
+    return RegExp(r"^[A-Za-z0-9 .,'()/-]{3,}$").hasMatch(trimmed);
   }
 
   bool _validateDocumentsStep() {

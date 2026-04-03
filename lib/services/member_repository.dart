@@ -48,7 +48,7 @@ class MemberRepository {
       .where((member) =>
           !member.isDeleted &&
           !member.isAdmin &&
-          (member.pendingUpdatePayload?.trim().isNotEmpty ?? false))
+        _hasPendingProfileUpdate(member.pendingUpdatePayload))
       .toList()
     ..sort((left, right) => left.name.compareTo(right.name));
 
@@ -351,16 +351,21 @@ class MemberRepository {
       return false;
     }
 
+    final parsedPayload = _decodePayload(raw);
+    final securityPayload = _extractSecurityPayload(parsedPayload);
+
     if (!approve) {
       final rejected = current.copyWith(
-        clearPendingUpdatePayload: true,
+        pendingUpdatePayload:
+            securityPayload.isEmpty ? null : jsonEncode(securityPayload),
+        clearPendingUpdatePayload: securityPayload.isEmpty,
         lastUpdated: DateTime.now(),
       );
       return saveMember(rejected);
     }
 
     try {
-      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final map = parsedPayload;
       final approved = current.copyWith(
         name: _stringOrCurrent(map, 'name', current.name),
         homeState: _stringOrCurrent(map, 'homeState', current.homeState),
@@ -414,7 +419,9 @@ class MemberRepository {
           current.homeVillageLocation,
         ),
         selfiePath: _stringOrCurrent(map, 'selfiePath', current.selfiePath),
-        clearPendingUpdatePayload: true,
+        pendingUpdatePayload:
+            securityPayload.isEmpty ? null : jsonEncode(securityPayload),
+        clearPendingUpdatePayload: securityPayload.isEmpty,
         lastUpdated: DateTime.now(),
       );
       return saveMember(approved);
@@ -438,4 +445,51 @@ class MemberRepository {
     }
     return trimmed;
   }
+
+  bool _hasPendingProfileUpdate(String? payload) {
+    final parsed = _decodePayload(payload);
+    if (parsed.isEmpty) {
+      return false;
+    }
+    parsed.removeWhere(
+      (key, _) => _securityPayloadKeys.contains(key),
+    );
+    return parsed.isNotEmpty;
+  }
+
+  Map<String, dynamic> _extractSecurityPayload(Map<String, dynamic> payload) {
+    final security = <String, dynamic>{};
+    for (final key in _securityPayloadKeys) {
+      if (payload.containsKey(key)) {
+        security[key] = payload[key];
+      }
+    }
+    return security;
+  }
+
+  Map<String, dynamic> _decodePayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  static const Set<String> _securityPayloadKeys = <String>{
+    'biometricEnabled',
+    'biometricEnrolledAt',
+    'trustedDeviceId',
+    'trustedDeviceFingerprint',
+    'trustedDeviceBoundAt',
+  };
 }
