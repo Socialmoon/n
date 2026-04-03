@@ -410,11 +410,7 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   }
 
   String _commentTimeLabel(DateTime value) {
-    final ist = toIst(value);
-    final hour = ist.hour == 0 ? 12 : (ist.hour > 12 ? ist.hour - 12 : ist.hour);
-    final minute = ist.minute.toString().padLeft(2, '0');
-    final meridiem = ist.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $meridiem';
+    return formatIstTime12(value);
   }
 
   @override

@@ -15,6 +15,7 @@ import 'emergency_alert_screen.dart';
 import 'help_feed_screen.dart';
 import 'members_screen.dart';
 import 'admin_approvals_screen.dart';
+import 'admin_all_members_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 
@@ -285,14 +286,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Profile and settings',
           onTap: () => _goToTabOrOpen(_accountTabIndex, _openAccountHub),
         ),
-        if (widget.currentUser.isAdmin)
+        if (widget.currentUser.isAdmin) ...<Widget>[
           _buildQuickActionTile(
             icon: Icons.verified_user_outlined,
             title: 'Approvals',
             subtitle: 'Review new members',
             onTap: _openApprovals,
-          )
-        else
+          ),
+          _buildQuickActionTile(
+            icon: Icons.badge_outlined,
+            title: 'All Members',
+            subtitle: 'Full admin details',
+            onTap: _openAdminAllMembers,
+          ),
+        ] else
           _buildQuickActionTile(
             icon: Icons.health_and_safety_outlined,
             title: 'Safety',
@@ -556,6 +563,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (context) => AdminApprovalsScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _openAdminAllMembers() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => AdminAllMembersScreen(
           currentUser: widget.currentUser,
           repository: widget.repository,
         ),

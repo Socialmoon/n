@@ -18,9 +18,15 @@ String formatIstDateTime(DateTime value) {
   final day = ist.day.toString().padLeft(2, '0');
   final month = ist.month.toString().padLeft(2, '0');
   final year = ist.year;
-  final hour = ist.hour.toString().padLeft(2, '0');
+  return '$day/$month/$year ${formatIstTime12(value)}';
+}
+
+String formatIstTime12(DateTime value) {
+  final ist = toIst(value);
+  final hour12 = ist.hour % 12 == 0 ? 12 : ist.hour % 12;
   final minute = ist.minute.toString().padLeft(2, '0');
-  return '$day/$month/$year $hour:$minute';
+  final meridiem = ist.hour >= 12 ? 'PM' : 'AM';
+  return '$hour12:$minute $meridiem';
 }
 
 String formatIstDate(DateTime value) {
@@ -37,7 +43,7 @@ String formatIstRelativeDateTime(DateTime value, {DateTime? now}) {
   final nowIst = toIst(now ?? DateTime.now());
   final today = DateTime(nowIst.year, nowIst.month, nowIst.day);
   final yesterday = today.subtract(const Duration(days: 1));
-  final time = '${ist.hour.toString().padLeft(2, '0')}:${ist.minute.toString().padLeft(2, '0')}';
+  final time = formatIstTime12(value);
 
   if (dateOnly == today) {
     return 'Today, $time';
