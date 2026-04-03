@@ -147,3 +147,21 @@ Tables and RLS policies are provided in:
 - Help Feed comments are synced and visible to all members.
 - Donation entries are synced with proof details for admin verification workflows.
 - URL and anon key are expected to be visible in client builds. Security is enforced by RLS policies, not by hiding anon keys.
+
+## APK Deployment Policy
+
+- This project does not use GitHub-hosted build/deploy minutes for APK publishing.
+- APK releases are deployed manually using authenticated GitHub CLI.
+
+Manual release workflow:
+
+```powershell
+gh auth login
+gh release create "apk-$(Get-Date -Format yyyyMMdd-HHmmss)" "PATH_TO_APK_FILE" --title "APK Manual Release" --generate-notes --latest
+```
+
+Example (existing local APK):
+
+```powershell
+gh release create "apk-$(Get-Date -Format yyyyMMdd-HHmmss)" "releases/app-release-20260320.apk" --title "APK Manual Release" --generate-notes --latest
+```

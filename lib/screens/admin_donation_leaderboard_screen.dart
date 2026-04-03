@@ -4,7 +4,7 @@ import '../core/brand.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 
-class AdminDonationLeaderboardScreen extends StatelessWidget {
+class AdminDonationLeaderboardScreen extends StatefulWidget {
   const AdminDonationLeaderboardScreen({
     required this.currentUser,
     required this.donationService,
@@ -15,8 +15,16 @@ class AdminDonationLeaderboardScreen extends StatelessWidget {
   final DonationService donationService;
 
   @override
+  State<AdminDonationLeaderboardScreen> createState() =>
+      _AdminDonationLeaderboardScreenState();
+}
+
+class _AdminDonationLeaderboardScreenState
+    extends State<AdminDonationLeaderboardScreen> {
+
+  @override
   Widget build(BuildContext context) {
-    if (!currentUser.isAdmin) {
+    if (!widget.currentUser.isAdmin) {
       return Scaffold(
         appBar: AppBar(title: const BrandedScreenTitle('Donations Leaderboard')),
         body: const Center(
@@ -28,7 +36,7 @@ class AdminDonationLeaderboardScreen extends StatelessWidget {
       );
     }
 
-    final donations = donationService.donations;
+    final donations = widget.donationService.donations;
     final Map<String, _MemberDonationStats> stats = <String, _MemberDonationStats>{};
     for (final entry in donations) {
       final existing = stats[entry.memberMobile];
@@ -112,15 +120,76 @@ class AdminDonationLeaderboardScreen extends StatelessWidget {
                 subtitle: Text(
                   '${item.memberMobile} • ${item.donationCount} entries • ${item.verifiedCount} verified • ${item.rejectedCount} rejected',
                 ),
-                trailing: Text(
-                  'Rs ${item.totalAmount.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'Rs ${item.totalAmount.toStringAsFixed(0)}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    IconButton(
+                      onPressed: () => _deleteMember(item),
+                      tooltip: 'Delete member donation entries',
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
                 ),
               ),
             );
           }),
         ],
       ),
+    );
+  }
+
+  Future<void> _deleteMember(_MemberDonationStats item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete donation entries?'),
+          content: Text(
+            'Delete all ${item.donationCount} donation entries for ${item.memberName} from Supabase?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final deletedCount = await widget.donationService.deleteDonationsByMemberMobile(
+      actor: widget.currentUser,
+      memberMobile: item.memberMobile,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (deletedCount == 0) {
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to delete donation entries. Please try again.'
+          : 'Unable to delete donation entries: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted $deletedCount donation entries.')),
     );
   }
 

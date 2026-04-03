@@ -552,6 +552,25 @@ class SupabaseService {
     }
   }
 
+  Future<bool> deleteDonation(String donationId) async {
+    _lastWriteError = null;
+    if (!await _ensureWriteSession()) {
+      _lastWriteError = 'No authenticated Supabase session for write.';
+      return false;
+    }
+    try {
+      await Supabase.instance.client
+          .from('donations')
+          .delete()
+          .eq('id', donationId);
+      return true;
+    } catch (error) {
+      _lastWriteError = _compactError(error.toString());
+      debugPrint('Supabase deleteDonation failed: $error');
+      return false;
+    }
+  }
+
   Future<String?> fetchAppSetting({required String key}) async {
     if (!isConfigured) {
       return null;

@@ -10,7 +10,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const OTP_SLOT_MS = 5 * 60 * 1000;
-const ROLLOVER_GRACE_MS = 60 * 1000;
 const VERIFY_WINDOW_MS = 10 * 60 * 1000;
 const VERIFY_LOCK_MS = 10 * 60 * 1000;
 const VERIFY_MAX_ATTEMPTS = 8;
@@ -113,13 +112,14 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const currentOtp = await computeOtp(email, otpSecret, 0);
-  const allowPrevious = (Date.now() % OTP_SLOT_MS) < ROLLOVER_GRACE_MS;
-  const previousOtp = allowPrevious
-    ? await computeOtp(email, otpSecret, -1)
-    : null;
+  // Accept adjacent slots to handle email delays and client/server clock skew.
+  const validOtps = new Set<string>([
+    await computeOtp(email, otpSecret, 0),
+    await computeOtp(email, otpSecret, -1),
+    await computeOtp(email, otpSecret, 1),
+  ]);
 
-  if (otp !== currentOtp && otp !== previousOtp) {
+  if (!validOtps.has(otp)) {
     const existing = verifyAttempts.get(normalizedEmail);
     if (existing == null) {
       verifyAttempts.set(normalizedEmail, {

@@ -482,9 +482,19 @@ class _DonationScreenState extends State<DonationScreen> {
               ),
               title: Text(item.memberName),
               subtitle: Text('${item.memberMobile} • ${item.donationCount} entries'),
-              trailing: Text(
-                'Rs ${item.totalAmount.toStringAsFixed(0)}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    'Rs ${item.totalAmount.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  IconButton(
+                    onPressed: () => _deleteLeaderboardMember(item),
+                    tooltip: 'Delete member donation entries',
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ),
           );
@@ -648,6 +658,57 @@ class _DonationScreenState extends State<DonationScreen> {
         ),
         isThreeLine: true,
       ),
+    );
+  }
+
+  Future<void> _deleteLeaderboardMember(_MemberDonationStats item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete donation entries?'),
+          content: Text(
+            'Delete all ${item.donationCount} donation entries for ${item.memberName} from Supabase?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final deletedCount = await widget.donationService.deleteDonationsByMemberMobile(
+      actor: widget.currentUser,
+      memberMobile: item.memberMobile,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (deletedCount == 0) {
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to delete donation entries. Please try again.'
+          : 'Unable to delete donation entries: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted $deletedCount donation entries.')),
     );
   }
 

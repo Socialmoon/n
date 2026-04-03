@@ -111,6 +111,11 @@ class _AdminPaymentReviewsScreenState extends State<AdminPaymentReviewsScreen> {
                   icon: const Icon(Icons.cancel_outlined),
                   label: const Text('Reject'),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () => _delete(entry),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete'),
+                ),
               ],
             ),
           ],
@@ -239,6 +244,57 @@ class _AdminPaymentReviewsScreenState extends State<AdminPaymentReviewsScreen> {
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Donation proof rejected.')),
+    );
+  }
+
+  Future<void> _delete(DonationEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete payment proof?'),
+          content: Text(
+            'This will permanently delete ${entry.memberName}\'s donation entry from Supabase.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final deleted = await widget.donationService.deleteDonation(
+      actor: widget.currentUser,
+      donationId: entry.id,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!deleted) {
+      final writeError = widget.donationService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to delete donation proof. Please try again.'
+          : 'Unable to delete donation proof: $writeError';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Donation proof deleted.')),
     );
   }
 }

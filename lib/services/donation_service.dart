@@ -88,6 +88,55 @@ class DonationService {
     }
   }
 
+  Future<bool> deleteDonation({
+    required Member actor,
+    required String donationId,
+  }) async {
+    if (!actor.isAdmin) {
+      return false;
+    }
+
+    final index = _donations.indexWhere((entry) => entry.id == donationId);
+    if (index == -1) {
+      return false;
+    }
+
+    final removed = _donations.removeAt(index);
+    final deleted = await _cloudService.deleteDonation(donationId);
+    if (!deleted) {
+      _donations.insert(index, removed);
+      return false;
+    }
+    return true;
+  }
+
+  Future<int> deleteDonationsByMemberMobile({
+    required Member actor,
+    required String memberMobile,
+  }) async {
+    if (!actor.isAdmin) {
+      return 0;
+    }
+
+    final targets = _donations
+        .where((entry) => entry.memberMobile == memberMobile)
+        .map((entry) => entry.id)
+        .toList();
+    if (targets.isEmpty) {
+      return 0;
+    }
+
+    var deletedCount = 0;
+    for (final donationId in targets) {
+      final deleted = await deleteDonation(actor: actor, donationId: donationId);
+      if (!deleted) {
+        break;
+      }
+      deletedCount++;
+    }
+    return deletedCount;
+  }
+
   Future<bool> updatePaymentSettings({
     required Member actor,
     required String upiId,
