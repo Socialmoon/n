@@ -378,11 +378,7 @@ class _MembersScreenState extends State<MembersScreen> {
             const SizedBox(height: 12),
             if (_filterMode == _MemberFilterMode.district)
               _buildTypeablePickerField(
-                labelText: _appliedFieldLabel(
-                  isHindi: isHindi,
-                  baseLabel: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
-                  value: _selectedDistrict,
-                ),
+                labelText: isHindi ? 'पोस्टिंग जिला' : 'Posting District',
                 value: _selectedDistrict,
                 options: districts,
                 onChanged: (value) {
@@ -478,16 +474,8 @@ class _MembersScreenState extends State<MembersScreen> {
             else if (_showOptionalFilters) ...<Widget>[
               _buildTypeablePickerField(
                 labelText: isHindi
-                    ? _appliedFieldLabel(
-                        isHindi: isHindi,
-                        baseLabel: 'उप विभाग (वैकल्पिक)',
-                        value: _optionalSubDepartment,
-                      )
-                    : _appliedFieldLabel(
-                        isHindi: isHindi,
-                        baseLabel: 'Sub Department (Optional)',
-                        value: _optionalSubDepartment,
-                      ),
+                    ? 'उप विभाग (वैकल्पिक)'
+                    : 'Sub Department (Optional)',
                 value: _optionalSubDepartment,
                 options: subDepartments,
                 onChanged: (value) {
@@ -499,13 +487,9 @@ class _MembersScreenState extends State<MembersScreen> {
               ),
               const SizedBox(height: 8),
               _buildTypeablePickerField(
-                labelText: _appliedFieldLabel(
-                  isHindi: isHindi,
-                  baseLabel: isHindi
-                      ? 'पोस्टिंग लोकेशन (वैकल्पिक)'
-                      : 'Posting Location (Optional)',
-                  value: _optionalPostingLocation,
-                ),
+                labelText: isHindi
+                    ? 'पोस्टिंग लोकेशन (वैकल्पिक)'
+                    : 'Posting Location (Optional)',
                 value: _optionalPostingLocation,
                 options: postingLocations,
                 onChanged: (value) {
@@ -517,13 +501,9 @@ class _MembersScreenState extends State<MembersScreen> {
               ),
               const SizedBox(height: 8),
               _buildTypeablePickerField(
-                labelText: _appliedFieldLabel(
-                  isHindi: isHindi,
-                  baseLabel: isHindi
-                      ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
-                      : 'Posting Category (Optional)',
-                  value: _optionalCategory,
-                ),
+                labelText: isHindi
+                    ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
+                    : 'Posting Category (Optional)',
                 value: _optionalCategory,
                 options: categories.map(_displayValue).toList(),
                 onChanged: (value) {
@@ -592,18 +572,6 @@ class _MembersScreenState extends State<MembersScreen> {
       );
     }
     return labels;
-  }
-
-  String _appliedFieldLabel({
-    required bool isHindi,
-    required String baseLabel,
-    required String? value,
-  }) {
-    final hasValue = (value ?? '').trim().isNotEmpty;
-    if (!hasValue) {
-      return baseLabel;
-    }
-    return isHindi ? 'लागू फ़िल्टर: $baseLabel' : 'Applied Filter: $baseLabel';
   }
 
   Widget _buildMemberCard(Member member) {
@@ -1022,6 +990,7 @@ class _MembersScreenState extends State<MembersScreen> {
           onChanged(picked);
         },
         child: InputDecorator(
+          key: ValueKey<String>('picker_$labelText::${hasValue ? selectedValue : '__empty__'}'),
           decoration: InputDecoration(
             labelText: labelText,
             hintText: emptyLabel,
