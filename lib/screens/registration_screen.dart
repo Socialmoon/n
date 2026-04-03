@@ -94,6 +94,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _checkingBiometric = false;
   bool _capturingPostingLocation = false;
   bool _willUploadPostingLocationLater = false;
+  bool _officialNameEditedByUser = false;
 
   static const List<String> _subDepartments = <String>[
     'Civil Police',
@@ -331,7 +332,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       subtitle: 'Enter the member identity and confirm the referring member.',
       child: Column(
         children: <Widget>[
-          _buildTextField(_nameController, 'Full name'),
+          _buildTextField(
+            _nameController,
+            'Full name',
+            onChanged: _syncOfficialNameFromIdentity,
+          ),
           _buildTextField(
             _mobileController,
             'Mobile number',
@@ -642,7 +647,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildDropdownField(_postRankController, 'Rank', _rankOptions),
               if (_postRankController.text == 'Other')
                 _buildTextField(_customRankController, 'Enter rank name'),
-              _buildTextField(_officialNameController, 'Official Name'),
+              _buildTextField(
+                _officialNameController,
+                'Official Name',
+                onChanged: _markOfficialNameEdited,
+              ),
               _buildDropdownField(_batchYearController, 'Batch Year', _batchYears()),
               _buildDropdownField(_genderController, 'Gender', _genderOptions),
               _buildDropdownField(
@@ -1176,6 +1185,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
       counterText: '',
     );
+  }
+
+  void _syncOfficialNameFromIdentity(String value) {
+    final fullName = value.trim();
+    if (_officialNameEditedByUser && _officialNameController.text.trim().isNotEmpty) {
+      return;
+    }
+    _officialNameController.value = TextEditingValue(
+      text: fullName,
+      selection: TextSelection.collapsed(offset: fullName.length),
+    );
+  }
+
+  void _markOfficialNameEdited(String value) {
+    _officialNameEditedByUser = value.trim().isNotEmpty;
   }
 
   Future<void> _pickSelfie() async {
