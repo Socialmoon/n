@@ -94,6 +94,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _capturingPostingLocation = false;
   bool _willUploadPostingLocationLater = false;
   bool _officialNameEditedByUser = false;
+  Timer? _otpResendTimer;
+  int _otpResendSeconds = 0;
 
   static const List<String> _subDepartments = <String>[
     'Civil Police',
@@ -195,6 +197,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _homePostOfficeController.dispose();
     _homePoliceStationController.dispose();
     _homeTehsilController.dispose();
+    _otpResendTimer?.cancel();
     super.dispose();
   }
 
@@ -329,160 +332,338 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       title: 'Identity and referral',
       subtitle: 'Enter the member identity and confirm the referring member.',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildTextField(
-            _nameController,
-            'Full name',
-            onChanged: _syncOfficialNameFromIdentity,
-          ),
-          _buildTextField(
-            _mobileController,
-            'Mobile number',
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            digitsOnly: true,
-          ),
-          _buildTextField(
-            _mpinController,
-            'Create 6 digit M-PIN',
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            digitsOnly: true,
-          ),
-          _buildTextField(
-            _emailController,
-            'Email address',
-            keyboardType: TextInputType.emailAddress,
-            onChanged: (_) {
-              if (_emailVerified || _emailOtpSent || _emailOtpController.text.isNotEmpty) {
-                setState(() {
-                  _emailVerified = false;
-                  _emailOtpSent = false;
-                  _emailOtpController.clear();
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 4),
-          _buildFingerprintOption(),
-          TextFormField(
-            controller: _referenceController,
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            decoration: _fieldDecoration('Reference member mobile number'),
-            onChanged: (value) {
-              setState(() {
-                _referenceMember = widget.repository.findByMobile(value.trim());
-              });
-            },
-          ),
-          if (_referenceMember != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 6),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1E7D3),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE0CEAA)),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const CircleAvatar(
-                    backgroundColor: _ink,
-                    foregroundColor: Colors.white,
-                    child: Icon(Icons.verified_user_outlined),
+          // Identity Fields Section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F5ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE8DCC8)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Personal Information',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  _nameController,
+                  'Full name',
+                  onChanged: _syncOfficialNameFromIdentity,
+                ),
+                _buildTextField(
+                  _emailController,
+                  'Email address',
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (_emailVerified || _emailOtpSent || _emailOtpController.text.isNotEmpty) {
+                      setState(() {
+                        _emailVerified = false;
+                        _emailOtpSent = false;
+                        _emailOtpController.clear();
+                      });
+                    }
+                  },
+                ),
+                _buildTextField(
+                  _mobileController,
+                  'Mobile number',
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  digitsOnly: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Security Section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F4F8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDDE5ED)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Security',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  _mpinController,
+                  'Create 6 digit M-PIN',
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  digitsOnly: true,
+                ),
+                const SizedBox(height: 8),
+                _buildFingerprintOption(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Reference Member Section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9F5EE),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEDD9BC)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Referring Member',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _referenceController,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: _fieldDecoration('Reference member mobile number'),
+                  onChanged: (value) {
+                    setState(() {
+                      _referenceMember = widget.repository.findByMobile(value.trim());
+                    });
+                  },
+                ),
+                if (_referenceMember != null) ...<Widget>[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1E7D3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE0CEAA)),
+                    ),
+                    child: Row(
                       children: <Widget>[
-                        Text(
-                          _referenceMember!.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: _ink,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.verified_user_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
-                        Text(
-                          '${_referenceMember!.role} • ${_referenceMember!.postingLocation}',
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                _referenceMember!.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: _ink,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_referenceMember!.role} • ${_referenceMember!.postingLocation}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7580),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildEmailVerificationStep() {
+    final bool canResend = _otpResendSeconds == 0 && !_sendingEmailOtp;
+    
     return _buildStepPage(
       title: 'Verify your email',
       subtitle: 'We will send a one-time passcode to your email address.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildSummaryRow('Email', _emailController.text.trim()),
-          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F4F8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDDE5ED)),
+            ),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.email_outlined, color: _ink, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Email address',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7580),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _emailController.text.trim(),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _emailVerified
                   ? const Color(0xFFE8F5ED)
-                  : const Color(0xFFFDF4E3),
+                  : (_sendingEmailOtp ? const Color(0xFFF5F3EE) : const Color(0xFFFDF4E3)),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _emailVerified
                     ? const Color(0xFF9CCDB0)
-                    : const Color(0xFFE0D0AE),
+                    : (_sendingEmailOtp ? const Color(0xFFE8D5B5) : const Color(0xFFE0D0AE)),
               ),
             ),
-            child: Text(
-              _emailVerified
-                  ? 'Email verified. You can continue.'
-                  : 'Email is not verified yet.',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  _emailVerified ? Icons.verified : Icons.info_outlined,
+                  color: _emailVerified ? const Color(0xFF2E7D32) : const Color(0xFF825A0F),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _emailVerified
+                        ? '✓ Email verified successfully'
+                        : (_sendingEmailOtp ? 'Sending OTP...' : 'OTP will be sent to your email'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: _emailVerified ? const Color(0xFF2E7D32) : const Color(0xFF5A4A23),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             controller: _emailOtpController,
             keyboardType: TextInputType.number,
             maxLength: 6,
+            enabled: _emailOtpSent && !_verifyingEmailOtp && !_emailVerified,
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.digitsOnly,
             ],
-            decoration: const InputDecoration(
-              labelText: 'Email OTP',
-              hintText: 'Enter 6 digit OTP',
-              prefixIcon: Icon(Icons.verified_outlined),
+            decoration: InputDecoration(
+              labelText: 'Enter OTP',
+              hintText: '000000',
+              prefixIcon: const Icon(Icons.lock_outline),
+              helperText: _emailOtpSent && !_emailVerified 
+                  ? 'Check your email for the 6-digit code'
+                  : null,
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: (_submitting || _sendingEmailOtp)
-                    ? null
-                    : _sendRegistrationEmailOtp,
-                icon: const Icon(Icons.send_outlined),
-                label: Text(_emailOtpSent ? 'Resend OTP' : 'Send OTP'),
-              ),
-              OutlinedButton.icon(
-                onPressed: (_submitting || _verifyingEmailOtp || !_emailOtpSent)
-                    ? null
-                    : _verifyRegistrationEmail,
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Verify OTP'),
-              ),
-            ],
+          if (_sendingEmailOtp || !_emailOtpSent) const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: canResend && !_emailVerified
+                      ? _sendRegistrationEmailOtp
+                      : null,
+                  icon: _sendingEmailOtp
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.send_outlined),
+                  label: Text(
+                    _sendingEmailOtp
+                        ? 'Sending OTP...'
+                        : (_emailOtpSent && _otpResendSeconds > 0
+                            ? 'Resend in ${_otpResendSeconds}s'
+                            : (_emailOtpSent ? 'Resend OTP' : 'Send OTP')),
+                  ),
+                ),
+                if (_emailOtpSent && !_emailVerified) ...<Widget>[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _verifyingEmailOtp || _emailOtpController.text.isEmpty
+                        ? null
+                        : _verifyRegistrationEmail,
+                    icon: _verifyingEmailOtp
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(_ink),
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_verifyingEmailOtp ? 'Verifying...' : 'Verify OTP'),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1364,6 +1545,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
+    
+    // Auto-send OTP when entering email verification step
+    if (step == 1 && !_emailOtpSent && !_sendingEmailOtp) {
+      // Add a small delay to ensure UI has updated
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        await _sendRegistrationEmailOtp();
+      }
+    }
   }
 
   Future<void> _previousStep() async {
@@ -1506,17 +1696,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    setState(() {
-      _sendingEmailOtp = false;
-      if (dispatch.success) {
-        _emailOtpSent = true;
-      }
-    });
-
     if (!dispatch.success) {
+      setState(() {
+        _sendingEmailOtp = false;
+      });
       _showMessage(dispatch.error ?? 'Unable to send email OTP.');
       return;
     }
+
+    // Start resend countdown timer
+    _otpResendTimer?.cancel();
+    setState(() {
+      _sendingEmailOtp = false;
+      _emailOtpSent = true;
+      _otpResendSeconds = 60;
+    });
+
+    _otpResendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        _otpResendTimer?.cancel();
+        return;
+      }
+      setState(() {
+        if (_otpResendSeconds > 0) {
+          _otpResendSeconds--;
+        } else {
+          _otpResendTimer?.cancel();
+        }
+      });
+    });
 
     _showMessage('OTP sent to $email');
   }
