@@ -445,6 +445,7 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
         widget.currentUser.id == widget.post.memberId;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const BrandedScreenTitle('Help Post Details'),
         actions: <Widget>[
