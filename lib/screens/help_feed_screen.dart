@@ -9,6 +9,12 @@ import '../services/help_feed_service.dart';
 import '../services/member_repository.dart';
 import 'post_new_request_screen.dart';
 
+const Duration _istOffset = Duration(hours: 5, minutes: 30);
+
+DateTime _toIst(DateTime value) {
+  return value.toUtc().add(_istOffset);
+}
+
 class HelpFeedScreen extends StatefulWidget {
   const HelpFeedScreen({
     required this.currentUser,
@@ -89,34 +95,34 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   }
 
   String _formatDateTime(DateTime value) {
-    final local = value.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year;
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
+    final ist = _toIst(value);
+    final day = ist.day.toString().padLeft(2, '0');
+    final month = ist.month.toString().padLeft(2, '0');
+    final year = ist.year;
+    final hour = ist.hour.toString().padLeft(2, '0');
+    final minute = ist.minute.toString().padLeft(2, '0');
     return '$day/$month/$year $hour:$minute';
   }
 
   String _relativeDateLabel(DateTime value) {
-    final local = value.toLocal();
-    final dateOnly = DateTime(local.year, local.month, local.day);
-    final now = DateTime.now();
+    final ist = _toIst(value);
+    final dateOnly = DateTime(ist.year, ist.month, ist.day);
+    final now = _toIst(DateTime.now());
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    final time = '${ist.hour.toString().padLeft(2, '0')}:${ist.minute.toString().padLeft(2, '0')}';
     if (dateOnly == today) {
       return 'Today, $time';
     }
     if (dateOnly == yesterday) {
       return 'Yesterday, $time';
     }
-    return _formatDateTime(local);
+    return _formatDateTime(value);
   }
 
   int _daysRemaining(HelpPost post) {
-    final now = DateTime.now();
-    final elapsedDays = now.difference(post.createdAt.toLocal()).inDays;
+    final now = _toIst(DateTime.now());
+    final elapsedDays = now.difference(_toIst(post.createdAt)).inDays;
     final remaining = 7 - elapsedDays;
     return remaining < 0 ? 0 : remaining;
   }
@@ -427,21 +433,21 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   }
 
   String _relativeDateLabel(DateTime value) {
-    final local = value.toLocal();
-    final dateOnly = DateTime(local.year, local.month, local.day);
-    final now = DateTime.now();
+    final ist = _toIst(value);
+    final dateOnly = DateTime(ist.year, ist.month, ist.day);
+    final now = _toIst(DateTime.now());
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    final time = '${ist.hour.toString().padLeft(2, '0')}:${ist.minute.toString().padLeft(2, '0')}';
     if (dateOnly == today) {
       return 'Today, $time';
     }
     if (dateOnly == yesterday) {
       return 'Yesterday, $time';
     }
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year;
+    final day = ist.day.toString().padLeft(2, '0');
+    final month = ist.month.toString().padLeft(2, '0');
+    final year = ist.year;
     return '$day/$month/$year $time';
   }
 
@@ -585,8 +591,8 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
     final widgets = <Widget>[];
     DateTime? lastDate;
     for (final comment in comments) {
-      final createdLocal = comment.createdAt.toLocal();
-      final day = DateTime(createdLocal.year, createdLocal.month, createdLocal.day);
+      final createdIst = _toIst(comment.createdAt);
+      final day = DateTime(createdIst.year, createdIst.month, createdIst.day);
       if (lastDate == null || day != lastDate) {
         widgets.add(_buildDateSeparator(day));
         lastDate = day;
@@ -616,7 +622,7 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
   }
 
   Widget _buildDateSeparator(DateTime date) {
-    final now = DateTime.now();
+    final now = _toIst(DateTime.now());
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     String label;

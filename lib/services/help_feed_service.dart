@@ -56,15 +56,16 @@ class HelpFeedService {
     required String category,
     required String message,
   }) async {
+    final nowUtc = DateTime.now().toUtc();
     final post = HelpPost(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: nowUtc.microsecondsSinceEpoch.toString(),
       memberId: member.id,
       memberName: member.name,
       memberMobile: member.mobileNumber,
       category: category,
       message: message,
       location: member.postingLocation,
-      createdAt: DateTime.now(),
+      createdAt: nowUtc,
     );
 
     _posts.add(post);
@@ -82,13 +83,14 @@ class HelpFeedService {
     required Member member,
     required String message,
   }) async {
+    final nowUtc = DateTime.now().toUtc();
     final comment = HelpComment(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: nowUtc.microsecondsSinceEpoch.toString(),
       postId: postId,
       memberId: member.id,
       memberName: member.name,
       message: message,
-      createdAt: DateTime.now(),
+      createdAt: nowUtc,
     );
 
     _comments.add(comment);

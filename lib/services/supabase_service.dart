@@ -990,7 +990,7 @@ class SupabaseService {
       'message': row['message'] as String,
       'location': row['location'] as String,
       'requestedAmount': (row['requested_amount'] as num?)?.toDouble(),
-      'createdAt': row['created_at'] as String,
+      'createdAt': (row['created_at'] ?? '').toString(),
     });
   }
 
@@ -1014,7 +1014,7 @@ class SupabaseService {
       'memberId': row['member_id'] as String,
       'memberName': row['member_name'] as String,
       'message': row['message'] as String,
-      'createdAt': row['created_at'] as String,
+      'createdAt': (row['created_at'] ?? '').toString(),
     });
   }
 

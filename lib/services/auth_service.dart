@@ -225,7 +225,13 @@ class AuthService {
   Future<AuthResult> _completeLogin(Member member) async {
     // Always prefer latest cloud status so block/delete/retire takes effect immediately.
     final latest = await _repository.fetchByMobileFromCloud(member.mobileNumber);
-    final effectiveMember = latest ?? member;
+    if (latest == null) {
+      return const AuthResult(
+        error:
+            'Your account record was removed from server. Contact admin if this is unexpected.',
+      );
+    }
+    final effectiveMember = latest;
 
     if (effectiveMember.isDeleted) {
       return const AuthResult(
@@ -283,7 +289,7 @@ class AuthService {
       );
     }
 
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final updatedMember = memberToSave.copyWith(
       lastLoginAt: now,
     );
@@ -302,9 +308,9 @@ class AuthService {
     final payload = _decodePendingPayload(member.pendingUpdatePayload);
     payload['trustedDeviceId'] = currentDeviceId;
     payload['trustedDeviceFingerprint'] = currentFingerprint;
-    payload['trustedDeviceBoundAt'] = DateTime.now().toIso8601String();
+    payload['trustedDeviceBoundAt'] = DateTime.now().toUtc().toIso8601String();
 
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final updatedMember = member.copyWith(
       pendingUpdatePayload: jsonEncode(payload),
       lastLoginAt: now,

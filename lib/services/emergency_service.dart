@@ -1,6 +1,6 @@
 import 'package:vibration/vibration.dart';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../models/emergency_alert.dart';
 import '../models/member.dart';
@@ -8,9 +8,11 @@ import 'app_settings_service.dart';
 import 'local_notification_service.dart';
 import 'supabase_service.dart';
 
-class EmergencyService extends ChangeNotifier {
+class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
   EmergencyService({required SupabaseService cloudService})
-      : _cloudService = cloudService;
+      : _cloudService = cloudService {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   final SupabaseService _cloudService;
   final AppSettingsService _settingsService = AppSettingsService();
@@ -19,6 +21,8 @@ class EmergencyService extends ChangeNotifier {
   final List<EmergencyAlert> _alerts = [];
   Timer? _syncTimer;
   String? _lastLocallyTriggeredAlertId;
+  bool _cloudNotificationsArmed = false;
+  bool _isAppInForeground = true;
 
   List<EmergencyAlert> get alerts => List.unmodifiable(_alerts.reversed);
 
@@ -36,6 +40,8 @@ class EmergencyService extends ChangeNotifier {
     if (!_cloudService.isConfigured) {
       return;
     }
+    // Reset on every start so app launch/login does not replay old alerts.
+    _cloudNotificationsArmed = false;
     await _syncFromCloud(showLocalNotificationForNew: false);
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(interval, (_) {
@@ -46,6 +52,11 @@ class EmergencyService extends ChangeNotifier {
   void stopAlertSync() {
     _syncTimer?.cancel();
     _syncTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppInForeground = state == AppLifecycleState.resumed;
   }
 
   Future<bool> triggerAlert({
@@ -112,8 +123,19 @@ class EmergencyService extends ChangeNotifier {
       return;
     }
 
+    // First periodic cycle after startup/login primes baseline only.
+    if (!_cloudNotificationsArmed) {
+      _cloudNotificationsArmed = true;
+      return;
+    }
+
     final notificationsEnabled = await _settingsService.getNotificationsEnabled();
     if (!notificationsEnabled) {
+      return;
+    }
+
+    // Do not show phone notifications while app is open (login/startup/in-app).
+    if (_isAppInForeground) {
       return;
     }
 

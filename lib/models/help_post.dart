@@ -46,7 +46,7 @@ class HelpPost {
       category: map['category'] as String,
       message: map['message'] as String,
       location: map['location'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: _parseUtcDateTime(map['createdAt']),
       requestedAmount: (map['requestedAmount'] as num?)?.toDouble(),
     );
   }
@@ -55,4 +55,31 @@ class HelpPost {
 
   factory HelpPost.fromJson(String source) =>
       HelpPost.fromMap(jsonDecode(source) as Map<String, dynamic>);
+}
+
+DateTime _parseUtcDateTime(dynamic raw) {
+  final text = (raw ?? '').toString().trim();
+  if (text.isEmpty) {
+    return DateTime.now().toUtc();
+  }
+
+  final hasTimezone = RegExp(r'(Z|[+-][0-9]{2}:[0-9]{2})$').hasMatch(text);
+  if (hasTimezone) {
+    return DateTime.parse(text).toUtc();
+  }
+
+  // Legacy rows were often stored without timezone as India local time.
+  // Preserve that wall-clock value by converting IST -> UTC explicitly.
+  final parsed = DateTime.parse(text);
+  const istOffset = Duration(hours: 5, minutes: 30);
+  return DateTime.utc(
+    parsed.year,
+    parsed.month,
+    parsed.day,
+    parsed.hour,
+    parsed.minute,
+    parsed.second,
+    parsed.millisecond,
+    parsed.microsecond,
+  ).subtract(istOffset);
 }

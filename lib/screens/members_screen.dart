@@ -30,6 +30,7 @@ class MembersScreen extends StatefulWidget {
 }
 
 class _MembersScreenState extends State<MembersScreen> {
+  static const Duration _istOffset = Duration(hours: 5, minutes: 30);
   static const List<String> _subDepartmentOptions = <String>[
     'Civil Police',
     'P.A.C',
@@ -1195,12 +1196,12 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   String _formatDateTime(DateTime value) {
-    final local = value.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year;
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
+    final ist = value.toUtc().add(_istOffset);
+    final day = ist.day.toString().padLeft(2, '0');
+    final month = ist.month.toString().padLeft(2, '0');
+    final year = ist.year;
+    final hour = ist.hour.toString().padLeft(2, '0');
+    final minute = ist.minute.toString().padLeft(2, '0');
     return '$day/$month/$year $hour:$minute';
   }
 
