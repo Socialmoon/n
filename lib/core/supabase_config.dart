@@ -1,8 +1,8 @@
 class SupabaseConfig {
    static const String _defaultUrl =
-    'https://mpfzclgtdworikwqwzea.supabase.co';
+    'https://iuhecyqizatkiskoznwq.supabase.co';
   static const String _defaultAnonKey =
-    'sb_publishable_nmR5V3k5WXT5hgI6fiCztg_8OS4i4ce';
+    'sb_publishable_3IwWvcVPJLQyaprQBdTXMw_zUi-lpC6';
 
   static const String _urlFromEnv = String.fromEnvironment('SUPABASE_URL');
   static const String _anonKeyFromEnv =

@@ -42,10 +42,10 @@ values (
   'Headquarters',
   'Headquarters',
   'Field Unit Alpha',
-  now(),
+  '2026-04-05 00:00:00+00',
   'Member',
-  now(),
-  now(),
+  '2026-04-05 00:00:00+00',
+  '2026-04-05 00:00:00+00',
   false
 )
 on conflict (id) do update
@@ -61,7 +61,7 @@ set
   posting_location = excluded.posting_location,
   role = excluded.role,
   is_admin = false,
-  last_updated = now();
+  last_updated = '2026-04-05 00:00:00+00';
 
 -- Quick verification query:
 -- select id, name, mobile_number, mpin, is_admin from public.members where id = 'seed-member-1';

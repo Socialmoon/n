@@ -279,21 +279,40 @@ class SupabaseService {
 
   Future<bool> upsertMember(Member member) async {
     _lastWriteError = null;
-    if (!await _ensureWriteSession()) {
-      _lastWriteError = 'No authenticated Supabase session for write.';
+    final initialized = await _ensureInitialized();
+    if (!initialized) {
+      _lastWriteError = 'Supabase client is not initialized.';
       return false;
     }
+    // Best-effort anonymous session. Some projects still allow anon-role writes
+    // without an authenticated session, so do not fail early on session absence.
+    await _ensureWriteSession();
 
     final client = Supabase.instance.client;
-    try {
-      await client
-          .from('members')
-          .upsert(_memberToRow(member), onConflict: 'id');
-      return true;
-    } catch (error) {
-      // Some projects with stricter RLS can reject upsert semantics; fallback to
-      // insert-or-update keeps profile/registration writes operational.
-      debugPrint('Supabase upsertMember primary attempt failed: $error');
+    final strippedColumns = <String>{};
+    final baseRow = _memberToRow(member);
+    var upsertRow = Map<String, dynamic>.from(baseRow);
+    while (true) {
+      try {
+        await client
+            .from('members')
+            .upsert(upsertRow, onConflict: 'id');
+        return true;
+      } on PostgrestException catch (error) {
+        final missingColumn = _extractMissingColumnName(error.message);
+        if (missingColumn != null && upsertRow.containsKey(missingColumn)) {
+          strippedColumns.add(missingColumn);
+          upsertRow.remove(missingColumn);
+          continue;
+        }
+        // Some projects with stricter RLS can reject upsert semantics; fallback to
+        // insert-or-update keeps profile/registration writes operational.
+        debugPrint('Supabase upsertMember primary attempt failed: $error');
+        break;
+      } catch (error) {
+        debugPrint('Supabase upsertMember primary attempt failed: $error');
+        break;
+      }
     }
 
     final currentUserId = client.auth.currentUser?.id;
@@ -301,33 +320,92 @@ class SupabaseService {
       member,
       ownerId: currentUserId,
       includeOwnerId: true,
-    );
+    )..removeWhere((key, _) => strippedColumns.contains(key));
 
-    try {
-      await client.from('members').insert(insertRow);
-      return true;
-    } on PostgrestException catch (error) {
-      if (error.code == '23505') {
-        try {
-          await client
-              .from('members')
-              .update(_memberToRow(member))
-              .eq('id', member.id);
-          return true;
-        } catch (updateError) {
-          _lastWriteError = _compactError(updateError.toString());
-          debugPrint('Supabase update member fallback failed: $updateError');
-          return false;
+    while (true) {
+      try {
+        await client.from('members').insert(insertRow);
+        return true;
+      } on PostgrestException catch (error) {
+        final missingColumn = _extractMissingColumnName(error.message);
+        if (missingColumn != null && insertRow.containsKey(missingColumn)) {
+          strippedColumns.add(missingColumn);
+          insertRow.remove(missingColumn);
+          continue;
         }
+
+        if (error.code == '23505') {
+          return _updateMemberWithSchemaFallback(
+            client,
+            memberId: member.id,
+            row: _memberToRow(member),
+            strippedColumns: strippedColumns,
+          );
+        }
+
+        _lastWriteError = _compactError(error.message);
+        debugPrint('Supabase upsertMember insert fallback failed: $error');
+        return false;
+      } catch (error) {
+        _lastWriteError = _compactError(error.toString());
+        debugPrint('Supabase upsertMember fallback failed: $error');
+        return false;
       }
-      _lastWriteError = _compactError(error.message);
-      debugPrint('Supabase upsertMember insert fallback failed: $error');
-      return false;
-    } catch (error) {
-      _lastWriteError = _compactError(error.toString());
-      debugPrint('Supabase upsertMember fallback failed: $error');
-      return false;
     }
+  }
+
+  Future<bool> _updateMemberWithSchemaFallback(
+    SupabaseClient client, {
+    required String memberId,
+    required Map<String, dynamic> row,
+    required Set<String> strippedColumns,
+  }) async {
+    final updateRow = Map<String, dynamic>.from(row)
+      ..removeWhere((key, _) => strippedColumns.contains(key));
+
+    while (true) {
+      try {
+        await client
+            .from('members')
+            .update(updateRow)
+            .eq('id', memberId);
+        return true;
+      } on PostgrestException catch (error) {
+        final missingColumn = _extractMissingColumnName(error.message);
+        if (missingColumn != null && updateRow.containsKey(missingColumn)) {
+          strippedColumns.add(missingColumn);
+          updateRow.remove(missingColumn);
+          continue;
+        }
+        _lastWriteError = _compactError(error.message);
+        debugPrint('Supabase update member fallback failed: $error');
+        return false;
+      } catch (error) {
+        _lastWriteError = _compactError(error.toString());
+        debugPrint('Supabase update member fallback failed: $error');
+        return false;
+      }
+    }
+  }
+
+  String? _extractMissingColumnName(String message) {
+    final relationColumnMatch = RegExp(
+      r'column\s+"([a-zA-Z0-9_]+)"\s+of\s+relation\s+"members"\s+does\s+not\s+exist',
+      caseSensitive: false,
+    ).firstMatch(message);
+    if (relationColumnMatch != null) {
+      return relationColumnMatch.group(1);
+    }
+
+    final schemaCacheMatch = RegExp(
+      r"Could not find the '([a-zA-Z0-9_]+)' column of 'members'",
+      caseSensitive: false,
+    ).firstMatch(message);
+    if (schemaCacheMatch != null) {
+      return schemaCacheMatch.group(1);
+    }
+
+    return null;
   }
 
   Future<List<EmergencyAlert>> fetchAlerts() async {

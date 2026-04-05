@@ -200,7 +200,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(400, { success: false, error: "Invalid email address" });
   }
 
-  const smtpUser = Deno.env.get("GMAIL_SMTP_USER") ?? "";
+  const smtpUser = Deno.env.get("GMAIL_SMTP_USER") ?? "apnesaathiheadquarter@gmail.com";
   const smtpPass = Deno.env.get("GMAIL_SMTP_APP_PASSWORD") ?? "";
   const otpSecret = Deno.env.get("EMAIL_OTP_SECRET") ?? "";
 

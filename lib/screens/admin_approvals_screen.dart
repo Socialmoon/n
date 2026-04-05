@@ -545,12 +545,27 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                   ),
                 ],
               )
-            : SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _working ? null : _approveMember,
-                  icon: const Icon(Icons.verified_outlined),
-                  label: const Text('Approve Member'),
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _working ? null : _approveMember,
+                      icon: const Icon(Icons.verified_outlined),
+                      label: const Text('Approve Member'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _working ? null : _rejectMember,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Reject Member'),
+                    ),
+                  ),
+                ],
                 ),
               ),
       ),
@@ -909,6 +924,33 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(approve ? 'Update approved.' : 'Update rejected.')),
+    );
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _rejectMember() async {
+    setState(() {
+      _working = true;
+    });
+    final success = await widget.repository.setMemberDeleted(
+      actor: widget.currentUser,
+      memberId: widget.member.id,
+      deleted: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _working = false;
+    });
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to reject member.')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${widget.member.name} rejected successfully.')),
     );
     Navigator.of(context).pop(true);
   }

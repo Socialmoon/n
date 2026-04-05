@@ -34,7 +34,7 @@ flutter build apk --release \
   --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 
-If no dart-define values are provided, the app now uses the built-in default Supabase project configured in `lib/core/supabase_config.dart`.
+If no dart-define values are provided, the app uses the built-in default Supabase URL from `lib/core/supabase_config.dart`, but you still need to provide `SUPABASE_ANON_KEY` (recommended for all environments).
 
 ## OTP (Twilio Verify)
 
@@ -96,6 +96,41 @@ Notes:
 - Current app calls these functions using the Supabase anon key headers.
 - Add rate limiting and abuse controls on server side before production rollout.
 - There is no local OTP fallback; OTP works only through the deployed Supabase Edge Functions and Twilio Verify.
+
+## Email OTP (Gmail SMTP)
+
+- Email OTP send/verify are handled through Supabase Edge Functions:
+  - `send-email-otp`
+  - `verify-email-otp`
+- Required Supabase secrets:
+  - `GMAIL_SMTP_USER` (default sender can be `apnesaathiheadquarter@gmail.com`)
+  - `GMAIL_SMTP_APP_PASSWORD` (Google App Password, not account password)
+  - `EMAIL_OTP_SECRET` (long random secret used to sign OTP slots)
+
+Set email OTP secrets manually:
+
+```bash
+npx supabase@latest secrets set \
+  GMAIL_SMTP_USER=apnesaathiheadquarter@gmail.com \
+  GMAIL_SMTP_APP_PASSWORD=YOUR_16_CHAR_APP_PASSWORD \
+  EMAIL_OTP_SECRET=YOUR_LONG_RANDOM_SECRET \
+  --project-ref YOUR_PROJECT_REF
+```
+
+Deploy email OTP functions:
+
+```bash
+npx supabase@latest functions deploy send-email-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+npx supabase@latest functions deploy verify-email-otp --project-ref YOUR_PROJECT_REF --no-verify-jwt
+```
+
+### One-command deploy (Twilio + Email OTP)
+
+Fill values in `.env`, then run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/deploy_otp_stack.ps1
+```
 
 ## Admin Access Setup
 
