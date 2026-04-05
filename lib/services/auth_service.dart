@@ -287,10 +287,31 @@ class AuthService {
     }
 
     final now = DateTime.now().toUtc();
-    final updatedMember = memberToSave.copyWith(
+    var updatedMember = memberToSave.copyWith(
       lastLoginAt: now,
     );
-    await _repository.saveMember(updatedMember);
+    var persisted = await _repository.saveMember(updatedMember);
+    if (!persisted) {
+      await _repository.refreshFromCloud();
+      final refreshed = _repository.findById(updatedMember.id);
+      if (refreshed != null) {
+        updatedMember = refreshed.copyWith(
+          pendingUpdatePayload: updatedMember.pendingUpdatePayload,
+          lastLoginAt: now,
+          lastUpdated: DateTime.now(),
+        );
+        persisted = await _repository.saveMember(updatedMember);
+      }
+    }
+    if (!persisted) {
+      final writeError = _repository.cloudService.lastWriteError;
+      final suffix =
+          (writeError == null || writeError.trim().isEmpty) ? '' : ' ($writeError)';
+      return AuthResult(
+        error:
+            'Device binding status could not be saved to cloud. Please retry after checking network$suffix',
+      );
+    }
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     await _persistLastMobile(updatedMember.mobileNumber);
@@ -299,20 +320,44 @@ class AuthService {
   }
 
   Future<AuthResult> completeDeviceVerification(Member member) async {
+    final latest = await _repository.fetchByMobileFromCloud(member.mobileNumber);
+    final effectiveMember = latest ?? member;
+
     final deviceBinding = DeviceBindingService();
     final currentDeviceId = await deviceBinding.getDeviceId();
     final currentFingerprint = await deviceBinding.generateFingerprint();
-    final payload = _decodePendingPayload(member.pendingUpdatePayload);
+    final payload = _decodePendingPayload(effectiveMember.pendingUpdatePayload);
     payload['trustedDeviceId'] = currentDeviceId;
     payload['trustedDeviceFingerprint'] = currentFingerprint;
     payload['trustedDeviceBoundAt'] = DateTime.now().toUtc().toIso8601String();
 
     final now = DateTime.now().toUtc();
-    final updatedMember = member.copyWith(
+    var updatedMember = effectiveMember.copyWith(
       pendingUpdatePayload: jsonEncode(payload),
       lastLoginAt: now,
     );
-    await _repository.saveMember(updatedMember);
+    var persisted = await _repository.saveMember(updatedMember);
+    if (!persisted) {
+      await _repository.refreshFromCloud();
+      final refreshed = _repository.findById(updatedMember.id);
+      if (refreshed != null) {
+        updatedMember = refreshed.copyWith(
+          pendingUpdatePayload: updatedMember.pendingUpdatePayload,
+          lastLoginAt: now,
+          lastUpdated: DateTime.now(),
+        );
+        persisted = await _repository.saveMember(updatedMember);
+      }
+    }
+    if (!persisted) {
+      final writeError = _repository.cloudService.lastWriteError;
+      final suffix =
+          (writeError == null || writeError.trim().isEmpty) ? '' : ' ($writeError)';
+      return AuthResult(
+        error:
+            'Device verification succeeded, but binding could not be saved to cloud. Please retry$suffix',
+      );
+    }
     _activeUserId = updatedMember.id;
     _lastMobile = updatedMember.mobileNumber;
     await _persistLastMobile(updatedMember.mobileNumber);

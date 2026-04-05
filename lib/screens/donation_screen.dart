@@ -437,18 +437,20 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Widget _buildLeaderboardTab() {
-    final donations = widget.donationService.donations;
-    if (donations.isEmpty) {
+    final verifiedDonations = widget.donationService.donations
+        .where((entry) => entry.isVerified)
+        .toList();
+    if (verifiedDonations.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20),
-          child: Text('No donations available for leaderboard yet.'),
+          child: Text('No verified donations available for leaderboard yet.'),
         ),
       );
     }
 
     final Map<String, _MemberDonationStats> stats = <String, _MemberDonationStats>{};
-    for (final entry in donations) {
+    for (final entry in verifiedDonations) {
       final key = entry.memberMobile;
       final existing = stats[key];
       if (existing == null) {
@@ -469,12 +471,16 @@ class _DonationScreenState extends State<DonationScreen> {
     final leaderboard = stats.values.toList()
       ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
 
-    final totalAmount = leaderboard.fold<double>(0, (sum, item) => sum + item.totalAmount);
+    final totalAmount =
+        leaderboard.fold<double>(0, (sum, item) => sum + item.totalAmount);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        _buildSummaryCard(title: 'All Donation Entries', value: '${donations.length}'),
+        _buildSummaryCard(
+          title: 'Verified Donation Entries',
+          value: '${verifiedDonations.length}',
+        ),
         const SizedBox(height: 10),
         _buildSummaryCard(
           title: 'Total Amount',
@@ -482,7 +488,7 @@ class _DonationScreenState extends State<DonationScreen> {
         ),
         const SizedBox(height: 14),
         const Text(
-          'Admin Leaderboard',
+          'Admin Leaderboard (Verified Only)',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
@@ -659,22 +665,86 @@ class _DonationScreenState extends State<DonationScreen> {
 
   Widget _buildDonationCard(DonationEntry entry) {
     final stamp = formatIstDateTime(entry.createdAt);
+    final statusVisual = _statusVisual(entry.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFF123C56),
-          foregroundColor: Colors.white,
-          child: Icon(Icons.volunteer_activism_outlined),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const CircleAvatar(
+                  backgroundColor: Color(0xFF123C56),
+                  foregroundColor: Colors.white,
+                  child: Icon(Icons.volunteer_activism_outlined),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${entry.memberName} donated Rs ${entry.amount.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusVisual.background,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    statusVisual.label,
+                    style: TextStyle(
+                      color: statusVisual.foreground,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('Submitted: $stamp'),
+            Text('Ref: ${entry.transactionRef?.isNotEmpty == true ? entry.transactionRef : 'N/A'}'),
+            if (entry.rejectionReason?.trim().isNotEmpty ?? false)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Rejection reason: ${entry.rejectionReason!.trim()}',
+                  style: const TextStyle(
+                    color: Color(0xFFB3261E),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
         ),
-        title: Text('${entry.memberName} donated Rs ${entry.amount.toStringAsFixed(0)}'),
-        subtitle: Text(
-          '${entry.status} • $stamp\nRef: ${entry.transactionRef?.isNotEmpty == true ? entry.transactionRef : 'N/A'}${entry.rejectionReason?.isNotEmpty == true ? '\nRejection: ${entry.rejectionReason}' : ''}',
-        ),
-        isThreeLine: true,
       ),
+    );
+  }
+
+  _DonationStatusVisual _statusVisual(String rawStatus) {
+    final normalized = rawStatus.trim().toLowerCase();
+    if (normalized == 'verified') {
+      return const _DonationStatusVisual(
+        label: 'Verified',
+        background: Color(0xFFDFF7E5),
+        foreground: Color(0xFF1F7A3A),
+      );
+    }
+    if (normalized == 'rejected') {
+      return const _DonationStatusVisual(
+        label: 'Rejected',
+        background: Color(0xFFFDE7E9),
+        foreground: Color(0xFFB3261E),
+      );
+    }
+    return const _DonationStatusVisual(
+      label: 'Unverified',
+      background: Color(0xFFFFF4D6),
+      foreground: Color(0xFF8A5A00),
     );
   }
 
@@ -1166,4 +1236,16 @@ class _MemberDonationStats {
       donationCount: donationCount ?? this.donationCount,
     );
   }
+}
+
+class _DonationStatusVisual {
+  const _DonationStatusVisual({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
 }

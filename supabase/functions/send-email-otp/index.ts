@@ -94,24 +94,24 @@ function buildOtpTemplate(
 
   const labels = {
     login_verification: {
-      subject: "Apne Saathi | Login Verification OTP",
-      heading: "Login Verification",
-      line: "Use this OTP to verify your sign-in request.",
+      subject: "Apne Saathi security code",
+      heading: "Login verification",
+      line: "Use this code to verify your sign-in request.",
     },
     registration: {
-      subject: "Apne Saathi | Registration Email Verification OTP",
-      heading: "Registration Verification",
-      line: "Use this OTP to complete your new account registration.",
+      subject: "Apne Saathi security code",
+      heading: "Registration verification",
+      line: "Use this code to complete your new account registration.",
     },
     device_binding: {
-      subject: "Apne Saathi | New Device Verification OTP",
-      heading: "New Device Verification",
-      line: "Use this OTP to approve login from a new device.",
+      subject: "Apne Saathi security code",
+      heading: "New device verification",
+      line: "Use this code to approve login from a new device.",
     },
     profile_update: {
-      subject: "Apne Saathi | Email Update Verification OTP",
-      heading: "Email Update Verification",
-      line: "Use this OTP to confirm your email update request.",
+      subject: "Apne Saathi security code",
+      heading: "Profile update verification",
+      line: "Use this code to confirm your email update request.",
     },
   } as const;
 
@@ -122,27 +122,19 @@ function buildOtpTemplate(
   const content =
     `Hello ${greetingName},\n\n` +
     `${selected.line}\n` +
-    `OTP: ${otp}\n` +
+    `Code: ${otp}\n` +
     `Valid for 5 minutes.\n\n` +
-    `Do not share this OTP with anyone.\n` +
-    `If you did not request this verification, ignore this email.\n\n` +
-    `Regards,\nApne Saathi Support`;
+    `If you did not request this, you can ignore this email.\n\n` +
+    `Apne Saathi`;
 
   const html = `
-    <div style="font-family:Arial,sans-serif;background:#f5f8fb;padding:18px;">
-      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ea;border-radius:12px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#10394b,#2f7982);padding:14px 16px;color:#ffffff;">
-          <h2 style="margin:0;font-size:18px;">Apne Saathi Support</h2>
-          <p style="margin:4px 0 0;font-size:12px;opacity:0.92;">${selected.heading}</p>
-        </div>
-        <div style="padding:16px;color:#1f2d36;">
-          <p style="margin:0 0 10px;">Hello ${safeName},</p>
-          <p style="margin:0 0 12px;">${safeLine}</p>
-          <div style="display:inline-block;padding:10px 14px;border:1px dashed #b7c5cf;border-radius:8px;background:#f7fbfd;font-size:24px;font-weight:700;letter-spacing:4px;">${otp}</div>
-          <p style="margin:12px 0 0;font-size:13px;color:#4a5e6c;">This OTP is valid for <strong>5 minutes</strong>.</p>
-          <p style="margin:10px 0 0;font-size:12px;color:#6b7d88;">Do not share this OTP with anyone. If this request was not made by you, ignore this email.</p>
-        </div>
-      </div>
+    <div style="font-family:Arial,sans-serif;background:#ffffff;padding:16px;color:#1f2d36;">
+      <p style="margin:0 0 10px;">Hello ${safeName},</p>
+      <p style="margin:0 0 12px;">${safeLine}</p>
+      <div style="display:inline-block;padding:12px 16px;border:1px solid #d6dbe1;border-radius:8px;background:#f8fafc;font-size:28px;font-weight:700;letter-spacing:3px;">${otp}</div>
+      <p style="margin:12px 0 0;font-size:13px;color:#4a5e6c;">Valid for 5 minutes.</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b7d88;">If you did not request this, ignore this email.</p>
+      <p style="margin:14px 0 0;font-size:12px;color:#6b7d88;">Apne Saathi</p>
     </div>
   `;
 
@@ -201,6 +193,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const smtpUser = Deno.env.get("GMAIL_SMTP_USER") ?? "apnesaathiheadquarter@gmail.com";
+  const smtpFromName = Deno.env.get("EMAIL_FROM_NAME") ?? "Apne Saathi";
   const smtpPass = Deno.env.get("GMAIL_SMTP_APP_PASSWORD") ?? "";
   const otpSecret = Deno.env.get("EMAIL_OTP_SECRET") ?? "";
 
@@ -235,7 +228,7 @@ Deno.serve(async (req: Request) => {
     });
 
     await client.send({
-      from: smtpUser,
+      from: `${smtpFromName} <${smtpUser}>`,
       to: email,
       subject: template.subject,
       content: template.content,

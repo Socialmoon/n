@@ -432,6 +432,11 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: <Widget>[
               _header(member),
+              if (widget.isUpdateApproval) ...<Widget>[
+                const SizedBox(height: 10),
+                _updateApprovalActions(member),
+                const SizedBox(height: 12),
+              ],
               if (widget.isUpdateApproval && requestedFields.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
                 _section(
@@ -566,7 +571,6 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                     ),
                   ),
                 ],
-                ),
               ),
       ),
     );
@@ -615,6 +619,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
         ? member.mobileNumber
         : member.whatsappNumber!.trim();
     final referenceMobile = member.referenceMobileNumber.trim();
+    final postingGpsUri = _postingLocationUri(member.postingPlaceLocation);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -622,6 +627,13 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
           spacing: 8,
           runSpacing: 8,
           children: <Widget>[
+            FilledButton.tonalIcon(
+              onPressed: postingGpsUri == null ? null : () => _openUri(postingGpsUri),
+              icon: const Icon(Icons.pin_drop_outlined),
+              label: Text(
+                postingGpsUri == null ? 'GPS not uploaded' : 'Posting GPS',
+              ),
+            ),
             FilledButton.tonalIcon(
               onPressed: () => _openPhone(member.mobileNumber),
               icon: const Icon(Icons.call_outlined),
@@ -639,6 +651,57 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
               icon: const Icon(Icons.perm_contact_calendar_outlined),
               label: const Text('Call Reference'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _updateApprovalActions(Member member) {
+    final pending = _decodePayloadMap(member.pendingUpdatePayload);
+    final hasPostingUpdate =
+        (pending['postingLocation'] ?? '').toString().trim().isNotEmpty ||
+        (pending['postingPlaceLocation'] ?? '').toString().trim().isNotEmpty;
+    final verifyUri = _updatedPostingVerificationUri(member);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton.tonalIcon(
+                  onPressed: () => _openPhone(member.mobileNumber),
+                  icon: const Icon(Icons.call_outlined),
+                  label: const Text('Call Member'),
+                ),
+                if (hasPostingUpdate)
+                  FilledButton.tonalIcon(
+                    onPressed: verifyUri == null ? null : () => _openUri(verifyUri),
+                    icon: const Icon(Icons.pin_drop_outlined),
+                    label: Text(
+                      verifyUri == null
+                          ? 'Location not uploaded'
+                          : 'Verify Updated Location',
+                    ),
+                  ),
+              ],
+            ),
+            if (hasPostingUpdate && verifyUri == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'Member requested posting location update but did not provide usable GPS/location link. Please ask for location upload before approval.',
+                  style: TextStyle(
+                    color: Color(0xFFB3261E),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -684,10 +747,6 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
   }) {
     final raw = (postingPlaceLocationRaw ?? '').trim();
     final postingLocation = (postingLocationRaw ?? '').trim();
-    final gpsUri = _postingLocationUri(raw);
-    final locationUri = postingLocation.isEmpty
-        ? null
-        : _postingLocationUri(postingLocation);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -707,7 +766,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
               children: <Widget>[
                 if (raw.isEmpty)
                   const Text(
-                    'GPS not uploaded. Use posting location map fallback below.',
+                    'GPS not uploaded. Please ask the member to upload posting GPS before approval.',
                     style: TextStyle(
                       color: Color(0xFFB3261E),
                       fontWeight: FontWeight.w600,
@@ -716,30 +775,16 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                 else ...<Widget>[
                   Text(raw),
                   const SizedBox(height: 6),
+                  const Text(
+                    'Use the Posting GPS button above to review this location.',
+                    style: TextStyle(color: Color(0xFF5A6B74)),
+                  ),
                 ],
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    OutlinedButton.icon(
-                      onPressed: gpsUri == null ? null : () => _openUri(gpsUri),
-                      icon: const Icon(Icons.pin_drop_outlined),
-                      label: const Text('Open Posting GPS Map'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: locationUri == null
-                          ? null
-                          : () => _openUri(locationUri),
-                      icon: const Icon(Icons.map_outlined),
-                      label: const Text('Open Posting Location Map'),
-                    ),
-                  ],
-                ),
-                if (gpsUri == null && raw.isNotEmpty)
+                if (raw.isNotEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: 6),
                     child: Text(
-                      'GPS format not recognized. Verify posting GPS value.',
+                      'If the button above is disabled, GPS was not uploaded.',
                       style: TextStyle(color: Color(0xFFB3261E)),
                     ),
                   ),
@@ -890,8 +935,12 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
       _working = false;
     });
     if (!success) {
+      final writeError = widget.repository.cloudService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to approve member.'
+          : 'Unable to approve member: $writeError';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to approve member.')),
+        SnackBar(content: Text(message)),
       );
       return;
     }
@@ -917,8 +966,12 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
       _working = false;
     });
     if (!success) {
+      final writeError = widget.repository.cloudService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to process update request.'
+          : 'Unable to process update request: $writeError';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to process update request.')),
+        SnackBar(content: Text(message)),
       );
       return;
     }
@@ -944,8 +997,12 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
       _working = false;
     });
     if (!success) {
+      final writeError = widget.repository.cloudService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? 'Unable to reject member.'
+          : 'Unable to reject member: $writeError';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to reject member.')),
+        SnackBar(content: Text(message)),
       );
       return;
     }
@@ -1033,7 +1090,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
             ? _postingLocationUri(
                 requestedPostingPlaceRaw.isNotEmpty
                     ? requestedPostingPlaceRaw
-                    : member.postingPlaceLocation,
+              : nextValue,
               )
             : null;
 
@@ -1306,6 +1363,40 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
 
     final encoded = Uri.encodeComponent(text);
     return Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
+  }
+
+  Map<String, dynamic> _decodePayloadMap(String? raw) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Uri? _updatedPostingVerificationUri(Member member) {
+    final payload = _decodePayloadMap(member.pendingUpdatePayload);
+    final requestedGps = (payload['postingPlaceLocation'] ?? '').toString().trim();
+    if (requestedGps.isNotEmpty) {
+      return _postingLocationUri(requestedGps);
+    }
+
+    final requestedPosting = (payload['postingLocation'] ?? '').toString().trim();
+    if (requestedPosting.isNotEmpty) {
+      return _postingLocationUri(requestedPosting);
+    }
+
+    return null;
   }
 
   Future<void> _openUri(Uri uri) async {

@@ -95,6 +95,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _showOtpSendButton = false;
   bool _checkingBiometric = false;
   bool _capturingPostingLocation = false;
+  bool _uploadPostingGpsLater = false;
   bool _officialNameEditedByUser = false;
   Timer? _otpResendTimer;
   int _otpResendSeconds = 0;
@@ -791,8 +792,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildTextField(
                 _postingPlaceLocationController,
                 'Posting Place Location (Auto-fetched GPS)',
-                isRequired: true,
+                isRequired: !_uploadPostingGpsLater,
                 readOnly: true,
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _uploadPostingGpsLater,
+                onChanged: (value) {
+                  setState(() {
+                    _uploadPostingGpsLater = value ?? false;
+                  });
+                },
+                title: const Text('Upload posting GPS later'),
+                subtitle: const Text(
+                  'You can submit now and update posting place location from profile later.',
+                ),
               ),
               Align(
                 alignment: Alignment.centerLeft,
@@ -940,6 +955,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               'Posting District', _postingDistrictController.text.trim()),
             _buildSummaryRow(
               'Posting Police Station', _postingLocationController.text.trim()),
+            _buildSummaryRow(
+              'Posting GPS',
+              _postingPlaceLocationController.text.trim().isEmpty
+                  ? (_uploadPostingGpsLater
+                      ? 'Will upload later'
+                      : 'Not captured')
+                  : 'Captured',
+            ),
             _buildSummaryRow('Sub Department', _departmentController.text.trim()),
             _buildSummaryRow(
             'Rank',
@@ -1962,10 +1985,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    if (postingGps.isEmpty) {
+    if (postingGps.isEmpty && !_uploadPostingGpsLater) {
       await _markInvalidFields(
         <String>['Posting Place Location (Auto-fetched GPS)'],
-        'Please fetch posting place GPS location using the button.',
+        'Please fetch posting GPS location or choose Upload posting GPS later.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -2420,6 +2443,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
       setState(() {
         _postingPlaceLocationController.text = link;
+        _uploadPostingGpsLater = false;
       });
       _showMessage('Posting location captured.');
     } catch (_) {

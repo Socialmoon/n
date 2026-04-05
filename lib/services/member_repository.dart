@@ -243,7 +243,7 @@ class MemberRepository {
       return false;
     }
 
-    final current = getById(memberId);
+    final current = await _resolveCurrentMemberForMutation(memberId);
     if (current == null) {
       return false;
     }
@@ -268,7 +268,7 @@ class MemberRepository {
       return false;
     }
 
-    final current = getById(memberId);
+    final current = await _resolveCurrentMemberForMutation(memberId);
     if (current == null) {
       return false;
     }
@@ -310,7 +310,7 @@ class MemberRepository {
       return false;
     }
 
-    final current = getById(memberId);
+    final current = await _resolveCurrentMemberForMutation(memberId);
     if (current == null) {
       return false;
     }
@@ -338,7 +338,7 @@ class MemberRepository {
       return false;
     }
 
-    final current = getById(memberId);
+    final current = await _resolveCurrentMemberForMutation(memberId);
     if (current == null) {
       return false;
     }
@@ -366,7 +366,7 @@ class MemberRepository {
       return false;
     }
 
-    final current = getById(memberId);
+    final current = await _resolveCurrentMemberForMutation(memberId);
     if (current == null) {
       return false;
     }
@@ -460,11 +460,11 @@ class MemberRepository {
     String key,
     String? currentValue,
   ) {
-    final value = map[key] as String?;
-    if (value == null) {
+    final raw = map[key];
+    if (raw == null) {
       return currentValue;
     }
-    final trimmed = value.trim();
+    final trimmed = raw.toString().trim();
     if (trimmed.isEmpty) {
       return currentValue;
     }
@@ -508,6 +508,16 @@ class MemberRepository {
     } catch (_) {
       return <String, dynamic>{};
     }
+  }
+
+  Future<Member?> _resolveCurrentMemberForMutation(String memberId) async {
+    final local = getById(memberId);
+    if (local != null) {
+      return local;
+    }
+
+    await refreshFromCloud();
+    return getById(memberId);
   }
 
   static const Set<String> _securityPayloadKeys = <String>{

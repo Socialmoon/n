@@ -276,7 +276,7 @@ class DonationService {
       memberMobile: member.mobileNumber,
       amount: amount,
       upiId: upiId,
-      status: 'Pending',
+      status: 'Unverified',
       createdAt: now,
       note: normalizedNote.isEmpty ? null : normalizedNote,
       transactionRef:

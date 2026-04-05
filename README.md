@@ -104,6 +104,7 @@ Notes:
   - `verify-email-otp`
 - Required Supabase secrets:
   - `GMAIL_SMTP_USER` (default sender can be `apnesaathiheadquarter@gmail.com`)
+  - `EMAIL_FROM_NAME` (optional sender name, e.g. `Apne Saathi`)
   - `GMAIL_SMTP_APP_PASSWORD` (Google App Password, not account password)
   - `EMAIL_OTP_SECRET` (long random secret used to sign OTP slots)
 
@@ -112,6 +113,7 @@ Set email OTP secrets manually:
 ```bash
 npx supabase@latest secrets set \
   GMAIL_SMTP_USER=apnesaathiheadquarter@gmail.com \
+  EMAIL_FROM_NAME="Apne Saathi" \
   GMAIL_SMTP_APP_PASSWORD=YOUR_16_CHAR_APP_PASSWORD \
   EMAIL_OTP_SECRET=YOUR_LONG_RANDOM_SECRET \
   --project-ref YOUR_PROJECT_REF

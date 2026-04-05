@@ -28,6 +28,7 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
   bool _syncInProgress = false;
 
   List<EmergencyAlert> get alerts => List.unmodifiable(_alerts);
+  String? get lastWriteError => _cloudService.lastWriteError;
 
   Future<void> load() async {
     if (!_cloudService.isConfigured) {

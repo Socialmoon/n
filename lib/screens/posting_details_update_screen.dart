@@ -97,7 +97,11 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
                   label: Text(
                     _fetchingLocation
                         ? 'Fetching current location...'
-                        : 'Use current location',
+                        : 'Tap to share current location',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFACC15),
+                    foregroundColor: const Color(0xFF6B4D00),
                   ),
                 ),
               ),

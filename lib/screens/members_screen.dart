@@ -213,12 +213,24 @@ class _MembersScreenState extends State<MembersScreen> {
       appBar: AppBar(
         title: BrandedScreenTitle(isHindi ? 'सभी सदस्य' : 'All Members'),
         actions: <Widget>[
-          IconButton(
-            onPressed: (_locatingDevice || _updatingLiveLocation)
-                ? null
-                : _useAndShareCurrentLocation,
-            icon: const Icon(Icons.my_location_outlined),
-            tooltip: 'Use and share my current location',
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilledButton.tonalIcon(
+              onPressed: (_locatingDevice || _updatingLiveLocation)
+                  ? null
+                  : _useAndShareCurrentLocation,
+              icon: const Icon(Icons.my_location_outlined),
+              label: Text(isHindi ? 'स्थान साझा करें' : 'Share location'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFACC15),
+                foregroundColor: const Color(0xFF6B4D00),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
           ),
           IconButton(
             onPressed: _refreshing ? null : _refreshMembers,
@@ -429,10 +441,42 @@ class _MembersScreenState extends State<MembersScreen> {
               ),
             if (_filterMode == _MemberFilterMode.currentLocation) ...<Widget>[
               if (_distanceOriginCoordinates() == null)
-                Text(
-                  isHindi
-                      ? 'रेडियस फ़िल्टर के लिए डिवाइस लोकेशन चालू करें।'
-                      : 'Enable device location first to use radius filter.',
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3CD),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF3D26A)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        isHindi
+                            ? '100 किमी रेडियस फ़िल्टर के लिए पहले अपनी वर्तमान लोकेशन साझा करें।'
+                            : 'Tap Share location first to use the 100 km radius filter.',
+                        style: const TextStyle(
+                          color: Color(0xFF7A5900),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton.tonalIcon(
+                        onPressed: (_locatingDevice || _updatingLiveLocation)
+                            ? null
+                            : _useAndShareCurrentLocation,
+                        icon: const Icon(Icons.my_location_outlined),
+                        label: Text(
+                          isHindi ? 'वर्तमान लोकेशन साझा करें' : 'Share current location',
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFACC15),
+                          foregroundColor: const Color(0xFF6B4D00),
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               else
                 Text(
@@ -976,11 +1020,23 @@ class _MembersScreenState extends State<MembersScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Enable Current Location'),
+        title: const Text('Share Current Location'),
         content: const Text(
-          'To use 100 km radius filter, please enable and share your current location first.',
+          'Tap Share current location to enable the 100 km radius filter and see nearby members.',
         ),
         actions: <Widget>[
+          FilledButton.tonalIcon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _useAndShareCurrentLocation();
+            },
+            icon: const Icon(Icons.my_location_outlined),
+            label: const Text('Share location'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFACC15),
+              foregroundColor: const Color(0xFF6B4D00),
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),

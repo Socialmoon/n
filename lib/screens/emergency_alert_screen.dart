@@ -133,13 +133,17 @@ class _EmergencyAlertScreenState extends State<EmergencyAlertScreen> {
     });
 
     if (!sent) {
+      final writeError = widget.emergencyService.lastWriteError;
+      final message = (writeError == null || writeError.isEmpty)
+          ? (isHindi
+              ? 'क्लाउड पर अलर्ट भेजने में समस्या हुई। कृपया फिर प्रयास करें।'
+              : 'Unable to send alert to cloud. Please retry.')
+          : (isHindi
+              ? 'क्लाउड पर अलर्ट भेजने में समस्या हुई: $writeError'
+              : 'Unable to send alert to cloud: $writeError');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            isHindi
-                ? 'क्लाउड पर अलर्ट भेजने में समस्या हुई। कृपया फिर प्रयास करें।'
-                : 'Unable to send alert to cloud. Please retry.',
-          ),
+          content: Text(message),
         ),
       );
       return;

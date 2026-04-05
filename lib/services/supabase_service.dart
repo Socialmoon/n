@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -17,6 +18,7 @@ class SupabaseService {
   String? _lastUploadError;
   static const Duration _initTimeout = Duration(seconds: 20);
   static const String _mediaBucket = 'app-media';
+  static final Random _random = Random.secure();
 
   bool get isConfigured => SupabaseConfig.isConfigured;
   String? get lastWriteError => _lastWriteError;
@@ -291,31 +293,43 @@ class SupabaseService {
     final client = Supabase.instance.client;
     final strippedColumns = <String>{};
     final baseRow = _memberToRow(member);
-    var upsertRow = Map<String, dynamic>.from(baseRow);
+
+    // Update-first avoids owner_id NOT NULL failures for existing members when
+    // the current auth session is missing/expired during device-binding saves.
+    final updateRow = Map<String, dynamic>.from(baseRow)..remove('owner_id');
     while (true) {
       try {
-        await client
+        final rows = await client
             .from('members')
-            .upsert(upsertRow, onConflict: 'id');
-        return true;
+            .update(updateRow)
+            .eq('id', member.id)
+            .select('id')
+            .limit(1) as List<dynamic>;
+        if (rows.isNotEmpty) {
+          return true;
+        }
+        break;
       } on PostgrestException catch (error) {
         final missingColumn = _extractMissingColumnName(error.message);
-        if (missingColumn != null && upsertRow.containsKey(missingColumn)) {
+        if (missingColumn != null && updateRow.containsKey(missingColumn)) {
           strippedColumns.add(missingColumn);
-          upsertRow.remove(missingColumn);
+          updateRow.remove(missingColumn);
           continue;
         }
-        // Some projects with stricter RLS can reject upsert semantics; fallback to
-        // insert-or-update keeps profile/registration writes operational.
-        debugPrint('Supabase upsertMember primary attempt failed: $error');
+        debugPrint('Supabase upsertMember update-first attempt failed: $error');
         break;
       } catch (error) {
-        debugPrint('Supabase upsertMember primary attempt failed: $error');
+        debugPrint('Supabase upsertMember update-first attempt failed: $error');
         break;
       }
     }
 
-    final currentUserId = client.auth.currentUser?.id;
+    var currentUserId = _writeOwnerId();
+    if (currentUserId.isEmpty) {
+      _lastWriteError = 'Unable to create new member owner_id.';
+      return false;
+    }
+
     final insertRow = _memberToRow(
       member,
       ownerId: currentUserId,
@@ -408,6 +422,30 @@ class SupabaseService {
     return null;
   }
 
+  String? _extractMissingColumnNameForTable({
+    required String tableName,
+    required String message,
+  }) {
+    final escapedTable = RegExp.escape(tableName);
+    final relationColumnMatch = RegExp(
+      'column\\s+"([a-zA-Z0-9_]+)"\\s+of\\s+relation\\s+"$escapedTable"\\s+does\\s+not\\s+exist',
+      caseSensitive: false,
+    ).firstMatch(message);
+    if (relationColumnMatch != null) {
+      return relationColumnMatch.group(1);
+    }
+
+    final schemaCacheMatch = RegExp(
+      "Could not find the '([a-zA-Z0-9_]+)' column of '$escapedTable'",
+      caseSensitive: false,
+    ).firstMatch(message);
+    if (schemaCacheMatch != null) {
+      return schemaCacheMatch.group(1);
+    }
+
+    return null;
+  }
+
   Future<List<EmergencyAlert>> fetchAlerts() async {
     if (!isConfigured) {
       return <EmergencyAlert>[];
@@ -444,40 +482,81 @@ class SupabaseService {
   }
 
   Future<EmergencyAlert?> insertAlert(EmergencyAlert alert) async {
+    _lastWriteError = null;
     final initialized = await _ensureInitialized();
     if (!initialized) {
+      _lastWriteError = 'Supabase not initialized.';
       return null;
     }
-    try {
-      final rows = await Supabase.instance.client
-          .from('emergency_alerts')
-          .insert(_alertToRow(alert))
-          .select()
-          .limit(1) as List<dynamic>;
-      if (rows.isEmpty) {
-        return alert;
-      }
-      return _alertFromRow(rows.first as Map<String, dynamic>);
-    } catch (error) {
-      // Retry once with anonymous session in projects that require authenticated role.
-      if (await _ensureWriteSession()) {
+
+    await _ensureWriteSession();
+
+    final candidates = _alertInsertCandidates(alert);
+    for (final candidate in candidates) {
+      final row = Map<String, dynamic>.from(candidate);
+      while (true) {
         try {
           final rows = await Supabase.instance.client
               .from('emergency_alerts')
-              .insert(_alertToRow(alert))
+              .insert(row)
               .select()
               .limit(1) as List<dynamic>;
           if (rows.isEmpty) {
             return alert;
           }
           return _alertFromRow(rows.first as Map<String, dynamic>);
-        } catch (_) {
-          // Fall through to final debug print below.
+        } on PostgrestException catch (error) {
+          final missingColumn = _extractMissingColumnNameForTable(
+            tableName: 'emergency_alerts',
+            message: error.message,
+          );
+          if (missingColumn != null && row.containsKey(missingColumn)) {
+            row.remove(missingColumn);
+            continue;
+          }
+          _lastWriteError = _compactError(error.message);
+          break;
+        } catch (error) {
+          _lastWriteError = _compactError(error.toString());
+          break;
         }
       }
-      debugPrint('Supabase insertAlert failed: $error');
-      return null;
     }
+
+    try {
+      final bearer = _restBearerToken();
+      final uri = Uri.parse('${SupabaseConfig.url}/rest/v1/emergency_alerts');
+      for (final candidate in candidates) {
+        final response = await http.post(
+          uri,
+          headers: <String, String>{
+            'apikey': SupabaseConfig.anonKey,
+            'Authorization': 'Bearer $bearer',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: jsonEncode(candidate),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final body = response.body.trim();
+          if (body.isEmpty) {
+            return alert;
+          }
+          final parsed = jsonDecode(body);
+          if (parsed is List && parsed.isNotEmpty && parsed.first is Map<String, dynamic>) {
+            return _alertFromRow(parsed.first as Map<String, dynamic>);
+          }
+          return alert;
+        }
+        _lastWriteError = _extractApiError(response.body) ??
+            'Emergency alert insert failed (HTTP ${response.statusCode}).';
+      }
+    } catch (error) {
+      _lastWriteError = _compactError(error.toString());
+    }
+
+    debugPrint('Supabase insertAlert failed: ${_lastWriteError ?? 'unknown error'}');
+    return null;
   }
 
   Future<List<HelpPost>> fetchHelpPosts() async {
@@ -505,9 +584,10 @@ class SupabaseService {
   }
 
   Future<bool> insertHelpPost(HelpPost post) async {
-    if (!await _ensureWriteSession()) {
+    if (!await _ensureInitialized()) {
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client.from('help_posts').insert(
             _helpPostToRow(post),
@@ -520,9 +600,10 @@ class SupabaseService {
   }
 
   Future<bool> deleteHelpPost(String postId) async {
-    if (!await _ensureWriteSession()) {
+    if (!await _ensureInitialized()) {
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client
           .from('help_posts')
@@ -536,9 +617,10 @@ class SupabaseService {
   }
 
   Future<bool> deleteHelpComment(String commentId) async {
-    if (!await _ensureWriteSession()) {
+    if (!await _ensureInitialized()) {
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client
           .from('help_post_comments')
@@ -576,9 +658,10 @@ class SupabaseService {
   }
 
   Future<bool> insertHelpComment(HelpComment comment) async {
-    if (!await _ensureWriteSession()) {
+    if (!await _ensureInitialized()) {
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client.from('help_post_comments').insert(
             _helpCommentToRow(comment),
@@ -661,10 +744,11 @@ class SupabaseService {
 
   Future<bool> upsertDonation(DonationEntry entry) async {
     _lastWriteError = null;
-    if (!await _ensureWriteSession()) {
-      _lastWriteError = 'No authenticated Supabase session for write.';
+    if (!await _ensureInitialized()) {
+      _lastWriteError = 'Supabase not initialized.';
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client
           .from('donations')
@@ -679,10 +763,11 @@ class SupabaseService {
 
   Future<bool> deleteDonation(String donationId) async {
     _lastWriteError = null;
-    if (!await _ensureWriteSession()) {
-      _lastWriteError = 'No authenticated Supabase session for write.';
+    if (!await _ensureInitialized()) {
+      _lastWriteError = 'Supabase not initialized.';
       return false;
     }
+    await _ensureWriteSession();
     try {
       await Supabase.instance.client
           .from('donations')
@@ -792,55 +877,77 @@ class SupabaseService {
       }
     }
 
-    final path = '$folder/$fileName';
+    var path = '$folder/$fileName';
     final contentType = _detectImageContentType(bytes);
-    try {
-      await client.storage
-          .from(_mediaBucket)
-          .uploadBinary(
-            path,
-            bytes,
-            fileOptions: FileOptions(
-              cacheControl: '3600',
-              upsert: true,
-              contentType: contentType,
-            ),
-          );
-      return client.storage.from(_mediaBucket).getPublicUrl(path);
-    } catch (error) {
-      debugPrint('Supabase SDK uploadImageBytes failed: $error');
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        await client.storage
+            .from(_mediaBucket)
+            .uploadBinary(
+              path,
+              bytes,
+              fileOptions: FileOptions(
+                cacheControl: '3600',
+                upsert: false,
+                contentType: contentType,
+              ),
+            );
+        return client.storage.from(_mediaBucket).getPublicUrl(path);
+      } catch (error) {
+        final text = error.toString().toLowerCase();
+        final looksLikeConflict =
+            text.contains('409') || text.contains('duplicate') || text.contains('already exists');
+        if (looksLikeConflict && attempt == 0) {
+          final timestamp = DateTime.now().microsecondsSinceEpoch;
+          path = '$folder/${timestamp}_$fileName';
+          continue;
+        }
+        debugPrint('Supabase SDK uploadImageBytes failed: $error');
+      }
     }
 
-    try {
-      final bearer = _restBearerToken();
-      final encodedPath = path
-          .split('/')
-          .map(Uri.encodeComponent)
-          .join('/');
-      final uri = Uri.parse(
-        '${SupabaseConfig.url}/storage/v1/object/$_mediaBucket/$encodedPath',
-      );
-      final response = await http.post(
-        uri,
-        headers: <String, String>{
-          'apikey': SupabaseConfig.anonKey,
-          'Authorization': 'Bearer $bearer',
-          'Content-Type': contentType,
-          'x-upsert': 'true',
-        },
-        body: bytes,
-      );
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return client.storage.from(_mediaBucket).getPublicUrl(path);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final bearer = _restBearerToken();
+        final encodedPath = path
+            .split('/')
+            .map(Uri.encodeComponent)
+            .join('/');
+        final uri = Uri.parse(
+          '${SupabaseConfig.url}/storage/v1/object/$_mediaBucket/$encodedPath',
+        );
+        final response = await http.post(
+          uri,
+          headers: <String, String>{
+            'apikey': SupabaseConfig.anonKey,
+            'Authorization': 'Bearer $bearer',
+            'Content-Type': contentType,
+          },
+          body: bytes,
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return client.storage.from(_mediaBucket).getPublicUrl(path);
+        }
+
+        final looksLikeConflict = response.statusCode == 409;
+        if (looksLikeConflict && attempt == 0) {
+          final timestamp = DateTime.now().microsecondsSinceEpoch;
+          path = '$folder/${timestamp}_$fileName';
+          continue;
+        }
+
+        _lastUploadError = _extractApiError(response.body) ??
+            'Image upload failed (HTTP ${response.statusCode}).';
+        return null;
+      } catch (error) {
+        _lastUploadError = _compactError(error.toString());
+        debugPrint('Supabase REST uploadImageBytes failed: $error');
+        return null;
       }
-      _lastUploadError = _extractApiError(response.body) ??
-          'Image upload failed (HTTP ${response.statusCode}).';
-      return null;
-    } catch (error) {
-      _lastUploadError = _compactError(error.toString());
-      debugPrint('Supabase REST uploadImageBytes failed: $error');
-      return null;
     }
+
+    _lastUploadError = 'Image upload failed after retrying with a unique file name.';
+    return null;
   }
 
   String _compactError(String value) {
@@ -1080,8 +1187,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _alertToRow(EmergencyAlert alert) {
+    final ownerId = _writeOwnerId();
     return <String, dynamic>{
       'id': alert.id,
+      'owner_id': ownerId,
       'member_id': alert.memberId,
       'member_name': alert.memberName,
       // Always write UTC with timezone to prevent server-side timezone drift.
@@ -1091,18 +1200,31 @@ class SupabaseService {
     };
   }
 
+  List<Map<String, dynamic>> _alertInsertCandidates(EmergencyAlert alert) {
+    final base = _alertToRow(alert);
+    final createdAtVariant = Map<String, dynamic>.from(base)
+      ..remove('timestamp')
+      ..['created_at'] = alert.timestamp.toUtc().toIso8601String();
+    return <Map<String, dynamic>>[
+      base,
+      createdAtVariant,
+    ];
+  }
+
   EmergencyAlert _alertFromRow(Map<String, dynamic> row) {
     final createdAtRaw = row['created_at'];
     final timestampRaw = row['timestamp'];
     final effectiveTimestamp = createdAtRaw ?? timestampRaw;
 
     return EmergencyAlert.fromMap(<String, dynamic>{
-      'id': row['id'] as String,
-      'memberId': row['member_id'] as String,
-      'memberName': row['member_name'] as String,
+      'id': (row['id'] ?? DateTime.now().microsecondsSinceEpoch.toString()).toString(),
+      'memberId':
+          (row['member_id'] ?? row['owner_id'] ?? row['user_id'] ?? '').toString(),
+      'memberName':
+          (row['member_name'] ?? row['name'] ?? 'Unknown member').toString(),
       'timestamp': _parseEmergencyTimestamp(effectiveTimestamp),
-      'message': row['message'] as String,
-      'location': row['location'] as String,
+      'message': (row['message'] ?? row['alert_message'] ?? '').toString(),
+      'location': (row['location'] ?? row['posting_location'] ?? '').toString(),
     });
   }
 
@@ -1136,10 +1258,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _helpPostToRow(HelpPost post) {
-    final ownerId = Supabase.instance.client.auth.currentUser?.id;
+    final ownerId = _writeOwnerId();
     return <String, dynamic>{
       'id': post.id,
-      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
+      'owner_id': ownerId,
       'member_id': post.memberId,
       'member_name': post.memberName,
       'member_mobile': post.memberMobile,
@@ -1166,10 +1288,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _helpCommentToRow(HelpComment comment) {
-    final ownerId = Supabase.instance.client.auth.currentUser?.id;
+    final ownerId = _writeOwnerId();
     return <String, dynamic>{
       'id': comment.id,
-      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
+      'owner_id': ownerId,
       'post_id': comment.postId,
       'member_id': comment.memberId,
       'member_name': comment.memberName,
@@ -1190,10 +1312,10 @@ class SupabaseService {
   }
 
   Map<String, dynamic> _donationToRow(DonationEntry entry) {
-    final ownerId = Supabase.instance.client.auth.currentUser?.id;
+    final ownerId = _writeOwnerId();
     return <String, dynamic>{
       'id': entry.id,
-      if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
+      'owner_id': ownerId,
       'member_id': entry.memberId,
       'member_name': entry.memberName,
       'member_mobile': entry.memberMobile,
@@ -1208,6 +1330,24 @@ class SupabaseService {
       'rejection_reason': entry.rejectionReason,
       'created_at': entry.createdAt.toIso8601String(),
     };
+  }
+
+  String _writeOwnerId() {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId != null && currentUserId.trim().isNotEmpty) {
+      return currentUserId.trim();
+    }
+    return _generateUuidV4();
+  }
+
+  String _generateUuidV4() {
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    String twoDigits(int value) => value.toRadixString(16).padLeft(2, '0');
+    final hex = bytes.map(twoDigits).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
   }
 
   DonationEntry _donationFromRow(Map<String, dynamic> row) {
