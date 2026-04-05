@@ -386,13 +386,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _reportBug() async {
-    final message = Uri.encodeComponent(
-      'Bug report\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nIssue: ',
-    );
-    final uri = Uri.parse('https://wa.me/91$_bugReportMobile?text=$message');
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
-      _showMessage('Unable to open bug report channel. Please retry.');
+    try {
+      final message = Uri.encodeComponent(
+        'Bug report\nMember: ${widget.currentUser.name}\nMobile: ${widget.currentUser.mobileNumber}\nIssue: ',
+      );
+      final uri = Uri.parse('https://wa.me/91$_bugReportMobile?text=$message');
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        _showMessage('Unable to open bug report channel. Please retry.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Unable to open bug report channel. Please retry.');
+      }
     }
   }
 

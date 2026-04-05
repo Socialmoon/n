@@ -37,27 +37,30 @@ class DonationService {
     if (!_cloudService.isConfigured) {
       return;
     }
+    try {
+      final cloud = await _cloudService.fetchDonations();
+      _donations
+        ..clear()
+        ..addAll(cloud.reversed);
 
-    final cloud = await _cloudService.fetchDonations();
-    _donations
-      ..clear()
-      ..addAll(cloud.reversed);
-
-    _upiId = await _cloudService.fetchAppSetting(
-          key: 'donation_upi_id',
-        ) ??
-        defaultUpiId;
-    _upiName = await _cloudService.fetchAppSetting(
-          key: 'donation_upi_name',
-        ) ??
-        defaultUpiName;
-    _adminMobile = await _cloudService.fetchAppSetting(
-          key: 'donation_admin_mobile',
-        ) ??
-        defaultAdminMobile;
-    _customQrImageUrl = await _cloudService.fetchAppSetting(
-      key: 'donation_qr_image_url',
-    );
+      _upiId = await _cloudService.fetchAppSetting(
+            key: 'donation_upi_id',
+          ) ??
+          defaultUpiId;
+      _upiName = await _cloudService.fetchAppSetting(
+            key: 'donation_upi_name',
+          ) ??
+          defaultUpiName;
+      _adminMobile = await _cloudService.fetchAppSetting(
+            key: 'donation_admin_mobile',
+          ) ??
+          defaultAdminMobile;
+      _customQrImageUrl = await _cloudService.fetchAppSetting(
+        key: 'donation_qr_image_url',
+      );
+    } catch (_) {
+      return;
+    }
   }
 
   Future<void> updateDonationStatus({
@@ -82,8 +85,12 @@ class DonationService {
       reviewedBy: actor.name,
       rejectionReason: status.toLowerCase() == 'rejected' ? rejectionReason : null,
     );
-    final saved = await _cloudService.upsertDonation(_donations[index]);
-    if (!saved) {
+    try {
+      final saved = await _cloudService.upsertDonation(_donations[index]);
+      if (!saved) {
+        _donations[index] = current;
+      }
+    } catch (_) {
       _donations[index] = current;
     }
   }
@@ -102,12 +109,17 @@ class DonationService {
     }
 
     final removed = _donations.removeAt(index);
-    final deleted = await _cloudService.deleteDonation(donationId);
-    if (!deleted) {
+    try {
+      final deleted = await _cloudService.deleteDonation(donationId);
+      if (!deleted) {
+        _donations.insert(index, removed);
+        return false;
+      }
+      return true;
+    } catch (_) {
       _donations.insert(index, removed);
       return false;
     }
-    return true;
   }
 
   Future<int> deleteDonationsByMemberMobile({
@@ -127,14 +139,18 @@ class DonationService {
     }
 
     var deletedCount = 0;
-    for (final donationId in targets) {
-      final deleted = await deleteDonation(actor: actor, donationId: donationId);
-      if (!deleted) {
-        break;
+    try {
+      for (final donationId in targets) {
+        final deleted = await deleteDonation(actor: actor, donationId: donationId);
+        if (!deleted) {
+          break;
+        }
+        deletedCount++;
       }
-      deletedCount++;
+      return deletedCount;
+    } catch (_) {
+      return deletedCount;
     }
-    return deletedCount;
   }
 
   Future<bool> updatePaymentSettings({
@@ -159,29 +175,37 @@ class DonationService {
         ? null
         : customQrImageUrl;
 
-    final upiSaved =
-        await _cloudService.upsertAppSetting(key: 'donation_upi_id', value: _upiId);
-    final nameSaved =
-        await _cloudService.upsertAppSetting(key: 'donation_upi_name', value: _upiName);
-    final adminSaved = await _cloudService.upsertAppSetting(
-      key: 'donation_admin_mobile',
-      value: _adminMobile,
-    );
-    final qrSaved = await _cloudService.upsertAppSetting(
-      key: 'donation_qr_image_url',
-      value: _customQrImageUrl ?? '',
-    );
+    try {
+      final upiSaved =
+          await _cloudService.upsertAppSetting(key: 'donation_upi_id', value: _upiId);
+      final nameSaved =
+          await _cloudService.upsertAppSetting(key: 'donation_upi_name', value: _upiName);
+      final adminSaved = await _cloudService.upsertAppSetting(
+        key: 'donation_admin_mobile',
+        value: _adminMobile,
+      );
+      final qrSaved = await _cloudService.upsertAppSetting(
+        key: 'donation_qr_image_url',
+        value: _customQrImageUrl ?? '',
+      );
 
-    final allSaved = upiSaved && nameSaved && adminSaved && qrSaved;
-    if (!allSaved) {
+      final allSaved = upiSaved && nameSaved && adminSaved && qrSaved;
+      if (!allSaved) {
+        _upiId = previousUpiId;
+        _upiName = previousUpiName;
+        _adminMobile = previousAdminMobile;
+        _customQrImageUrl = previousCustomQrImageUrl;
+        return false;
+      }
+
+      return true;
+    } catch (_) {
       _upiId = previousUpiId;
       _upiName = previousUpiName;
       _adminMobile = previousAdminMobile;
       _customQrImageUrl = previousCustomQrImageUrl;
       return false;
     }
-
-    return true;
   }
 
   Future<bool> createDonation({
@@ -258,17 +282,22 @@ class DonationService {
 
     _createDonationInProgress = true;
     _donations.add(entry);
-    final saved = await _cloudService.insertDonation(entry);
-    _createDonationInProgress = false;
+    try {
+      final saved = await _cloudService.insertDonation(entry);
+      if (!saved) {
+        _donations.removeWhere((item) => item.id == entry.id);
+        return false;
+      }
 
-    if (!saved) {
+      _lastCreateFingerprint = fingerprint;
+      _lastCreateAt = DateTime.now();
+      return true;
+    } catch (_) {
       _donations.removeWhere((item) => item.id == entry.id);
       return false;
+    } finally {
+      _createDonationInProgress = false;
     }
-
-    _lastCreateFingerprint = fingerprint;
-    _lastCreateAt = DateTime.now();
-    return true;
   }
 
   Future<String?> uploadProofScreenshot(XFile screenshot) async {

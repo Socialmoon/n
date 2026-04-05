@@ -341,43 +341,64 @@ class SupabaseService {
       return <EmergencyAlert>[];
     }
     try {
-      final rows = await Supabase.instance.client
-          .from('emergency_alerts')
-          .select()
-          .order('timestamp', ascending: false) as List<dynamic>;
-      return rows
+      List<dynamic> rows;
+      try {
+        rows = await Supabase.instance.client
+            .from('emergency_alerts')
+            .select()
+            .order('created_at', ascending: false) as List<dynamic>;
+      } catch (_) {
+        rows = await Supabase.instance.client
+            .from('emergency_alerts')
+            .select()
+            .order('timestamp', ascending: false) as List<dynamic>;
+      }
+
+        final alerts = rows
           .map((row) => _alertFromRow(row as Map<String, dynamic>))
           .toList();
+        alerts.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return alerts;
     } catch (error) {
       debugPrint('Supabase fetchAlerts failed: $error');
       return <EmergencyAlert>[];
     }
   }
 
-  Future<bool> insertAlert(EmergencyAlert alert) async {
+  Future<EmergencyAlert?> insertAlert(EmergencyAlert alert) async {
     final initialized = await _ensureInitialized();
     if (!initialized) {
-      return false;
+      return null;
     }
     try {
-      await Supabase.instance.client.from('emergency_alerts').insert(
-            _alertToRow(alert),
-          );
-      return true;
+      final rows = await Supabase.instance.client
+          .from('emergency_alerts')
+          .insert(_alertToRow(alert))
+          .select()
+          .limit(1) as List<dynamic>;
+      if (rows.isEmpty) {
+        return alert;
+      }
+      return _alertFromRow(rows.first as Map<String, dynamic>);
     } catch (error) {
       // Retry once with anonymous session in projects that require authenticated role.
       if (await _ensureWriteSession()) {
         try {
-          await Supabase.instance.client.from('emergency_alerts').insert(
-                _alertToRow(alert),
-              );
-          return true;
+          final rows = await Supabase.instance.client
+              .from('emergency_alerts')
+              .insert(_alertToRow(alert))
+              .select()
+              .limit(1) as List<dynamic>;
+          if (rows.isEmpty) {
+            return alert;
+          }
+          return _alertFromRow(rows.first as Map<String, dynamic>);
         } catch (_) {
           // Fall through to final debug print below.
         }
       }
       debugPrint('Supabase insertAlert failed: $error');
-      return false;
+      return null;
     }
   }
 
@@ -947,21 +968,55 @@ class SupabaseService {
       'id': alert.id,
       'member_id': alert.memberId,
       'member_name': alert.memberName,
-      'timestamp': alert.timestamp.toIso8601String(),
+      // Always write UTC with timezone to prevent server-side timezone drift.
+      'timestamp': alert.timestamp.toUtc().toIso8601String(),
       'message': alert.message,
       'location': alert.location,
     };
   }
 
   EmergencyAlert _alertFromRow(Map<String, dynamic> row) {
+    final createdAtRaw = row['created_at'];
+    final timestampRaw = row['timestamp'];
+    final effectiveTimestamp = createdAtRaw ?? timestampRaw;
+
     return EmergencyAlert.fromMap(<String, dynamic>{
       'id': row['id'] as String,
       'memberId': row['member_id'] as String,
       'memberName': row['member_name'] as String,
-      'timestamp': row['timestamp'] as String,
+      'timestamp': _parseEmergencyTimestamp(effectiveTimestamp),
       'message': row['message'] as String,
       'location': row['location'] as String,
     });
+  }
+
+  DateTime _parseEmergencyTimestamp(dynamic raw) {
+    if (raw is DateTime) {
+      return raw.toUtc();
+    }
+
+    final text = (raw ?? '').toString().trim();
+    if (text.isEmpty) {
+      return DateTime.now().toUtc();
+    }
+
+    final hasTimezone = RegExp(r'(Z|[+-][0-9]{2}:[0-9]{2})$').hasMatch(text);
+    if (hasTimezone) {
+      return DateTime.parse(text).toUtc();
+    }
+
+    final parsed = DateTime.parse(text);
+    // Legacy rows may come without timezone; treat as UTC for stable display.
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+      parsed.millisecond,
+      parsed.microsecond,
+    );
   }
 
   Map<String, dynamic> _helpPostToRow(HelpPost post) {

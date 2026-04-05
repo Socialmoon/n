@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -90,12 +92,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _emailOtpSent = false;
   bool _sendingEmailOtp = false;
   bool _verifyingEmailOtp = false;
+  bool _showOtpSendButton = false;
   bool _checkingBiometric = false;
   bool _capturingPostingLocation = false;
-  bool _willUploadPostingLocationLater = false;
   bool _officialNameEditedByUser = false;
   Timer? _otpResendTimer;
   int _otpResendSeconds = 0;
+  final Map<String, GlobalKey> _fieldKeys = <String, GlobalKey>{};
+  final Set<String> _invalidFieldIds = <String>{};
 
   static const List<String> _subDepartments = <String>[
     'Civil Police',
@@ -357,17 +361,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 _buildTextField(
                   _nameController,
                   'Full name',
+                  isRequired: true,
                   onChanged: _syncOfficialNameFromIdentity,
                 ),
                 _buildTextField(
                   _emailController,
                   'Email address',
+                  isRequired: true,
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (_) {
                     if (_emailVerified || _emailOtpSent || _emailOtpController.text.isNotEmpty) {
                       setState(() {
                         _emailVerified = false;
                         _emailOtpSent = false;
+                        _showOtpSendButton = false;
                         _emailOtpController.clear();
                       });
                     }
@@ -376,6 +383,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 _buildTextField(
                   _mobileController,
                   'Mobile number',
+                  isRequired: true,
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
                   digitsOnly: true,
@@ -407,6 +415,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 _buildTextField(
                   _mpinController,
                   'Create 6 digit M-PIN',
+                  isRequired: true,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
                   digitsOnly: true,
@@ -444,7 +453,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   inputFormatters: <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
                   ],
-                  decoration: _fieldDecoration('Reference member mobile number'),
+                  decoration: _fieldDecoration(
+                    'Reference member mobile number',
+                    isRequired: true,
+                  ),
                   onChanged: (value) {
                     setState(() {
                       _referenceMember = widget.repository.findByMobile(value.trim());
@@ -606,6 +618,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.digitsOnly,
             ],
+            onChanged: (value) {
+              final otp = value.trim();
+              if (!_emailOtpSent || _emailVerified || _verifyingEmailOtp) {
+                return;
+              }
+              if (otp.length == 6) {
+                unawaited(_verifyRegistrationEmail());
+              }
+            },
             decoration: InputDecoration(
               labelText: 'Enter OTP',
               hintText: '000000',
@@ -621,47 +642,44 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                FilledButton.icon(
-                  onPressed: canResend && !_emailVerified
-                      ? _sendRegistrationEmailOtp
-                      : null,
-                  icon: _sendingEmailOtp
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.send_outlined),
-                  label: Text(
-                    _sendingEmailOtp
-                        ? 'Sending OTP...'
-                        : (_emailOtpSent && _otpResendSeconds > 0
-                            ? 'Resend in ${_otpResendSeconds}s'
-                            : (_emailOtpSent ? 'Resend OTP' : 'Send OTP')),
-                  ),
-                ),
-                if (_emailOtpSent && !_emailVerified) ...<Widget>[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _verifyingEmailOtp || _emailOtpController.text.isEmpty
-                        ? null
-                        : _verifyRegistrationEmail,
-                    icon: _verifyingEmailOtp
+                if (!_emailVerified)
+                  if (_showOtpSendButton || _emailOtpSent)
+                  FilledButton.icon(
+                    onPressed: canResend ? _sendRegistrationEmailOtp : null,
+                    icon: _sendingEmailOtp
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(_ink),
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Icon(Icons.check_circle_outline),
-                    label: Text(_verifyingEmailOtp ? 'Verifying...' : 'Verify OTP'),
+                        : const Icon(Icons.send_outlined),
+                    label: Text(
+                      _sendingEmailOtp
+                          ? 'Sending OTP...'
+                          : (_emailOtpSent && _otpResendSeconds > 0
+                              ? 'Resend in ${_otpResendSeconds}s'
+                              : (_emailOtpSent ? 'Resend OTP' : 'Send OTP')),
+                    ),
                   ),
-                ],
+                if (_emailOtpSent && !_emailVerified && _verifyingEmailOtp)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Verifying OTP...'),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -685,6 +703,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildSelectionField(
                 _homeDistrictController,
                 'Home District',
+                isRequired: true,
                 hint: 'Tap to choose from district list',
                 onTap: () => _pickFromList(
                   title: 'Select Home District',
@@ -696,10 +715,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   },
                 ),
               ),
-              _buildTextField(_homeTehsilController, 'Home Tehsil'),
+              _buildTextField(_homeTehsilController, 'Home Tehsil', isRequired: true),
               _buildSelectionField(
                 _homePoliceStationController,
                 'Home Police Station',
+                isRequired: true,
                 hint: 'Tap to choose station',
                 onTap: () => _pickFromList(
                   title: 'Select Home Police Station',
@@ -708,8 +728,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   allowCustomValue: true,
                 ),
               ),
-              _buildTextField(_homeVillageMohallaController, 'Village / Mohalla'),
-              _buildTextField(_homeGaliNoController, 'Gali No.'),
+              _buildTextField(_homeVillageMohallaController, 'Village / Mohalla', isRequired: true),
+              _buildTextField(_homeGaliNoController, 'Gali No.', isRequired: true),
             ],
           ),
         ],
@@ -733,6 +753,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildSelectionField(
                 _postingDistrictController,
                 'Posting District',
+                isRequired: true,
                 hint: 'Tap to choose district',
                 onTap: () => _pickFromList(
                   title: 'Select Posting District',
@@ -747,6 +768,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildSelectionField(
                 _postingLocationController,
                 'Posting Police Station',
+                isRequired: true,
                 hint: 'Tap to choose police station',
                 onTap: () => _pickFromList(
                   title: 'Select Posting Police Station',
@@ -765,35 +787,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                 ),
               ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('I am away from station now, I will upload location later'),
-                subtitle: const Text(
-                  'You can submit registration now and update posting location later from profile.',
-                ),
-                value: _willUploadPostingLocationLater,
-                onChanged: (value) {
-                  setState(() {
-                    _willUploadPostingLocationLater = value;
-                    if (value) {
-                      _postingPlaceLocationController.clear();
-                    }
-                  });
-                },
-              ),
               _buildTextField(
                 _postingPlaceLocationController,
-                'Posting Place Location Link/Coords',
-                readOnly: _willUploadPostingLocationLater,
+                'Posting Place Location (Auto-fetched GPS)',
+                isRequired: true,
+                readOnly: true,
               ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: _willUploadPostingLocationLater
-                      ? null
-                      : _capturingPostingLocation
-                          ? null
-                          : _capturePostingLocation,
+                  onPressed: _capturingPostingLocation ? null : _capturePostingLocation,
                   icon: const Icon(Icons.my_location_outlined),
                   label: Text(
                     _capturingPostingLocation
@@ -824,35 +827,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 _departmentController,
                 'Sub Department',
                 _subDepartments,
+                isRequired: true,
               ),
-              _buildDropdownField(_postRankController, 'Rank', _rankOptions),
+              _buildDropdownField(_postRankController, 'Rank', _rankOptions, isRequired: true),
               if (_postRankController.text == 'Other')
                 _buildTextField(_customRankController, 'Enter rank name'),
               _buildTextField(
                 _officialNameController,
                 'Official Name',
+                isRequired: true,
                 onChanged: _markOfficialNameEdited,
               ),
-              _buildDropdownField(_batchYearController, 'Batch Year', _batchYears()),
-              _buildDropdownField(_genderController, 'Gender', _genderOptions),
+              _buildDropdownField(_batchYearController, 'Batch Year', _batchYears(), isRequired: true),
+              _buildDropdownField(_genderController, 'Gender', _genderOptions, isRequired: true),
               _buildDropdownField(
                 _maritalStatusController,
                 'Marital Status',
                 _maritalStatusOptions,
+                isRequired: true,
               ),
               _buildDropdownField(
                 _postingCategoryController,
                 'Posting Category',
                 _postingCategories,
+                isRequired: true,
               ),
               _buildDropdownField(
                 _postingWorkAsController,
                 'Posting Work As',
                 _postingWorkOptions,
+                isRequired: true,
               ),
               _buildTextField(
                 _whatsappController,
                 'Whatsapp Number',
+                isRequired: true,
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
                 digitsOnly: true,
@@ -860,6 +869,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _buildTextField(
                 _callingNumberController,
                 'Calling Contact No.',
+                isRequired: true,
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
                 digitsOnly: true,
@@ -945,12 +955,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _buildSummaryRow('Posting Work As', _postingWorkAsController.text.trim()),
             _buildSummaryRow('Whatsapp', _whatsappController.text.trim()),
             _buildSummaryRow('Calling Contact', _callingNumberController.text.trim()),
-            _buildSummaryRow(
-              'Posting location upload plan',
-              _willUploadPostingLocationLater
-                  ? 'Will upload later (away from station now)'
-                  : 'Uploaded now',
-            ),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -1236,6 +1240,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   TextFormField _buildTextField(
     TextEditingController controller,
     String label, {
+    String? fieldId,
+    bool isRequired = false,
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
     bool digitsOnly = false,
@@ -1243,7 +1249,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ValueChanged<String>? onChanged,
     VoidCallback? onTap,
   }) {
+    final id = fieldId ?? label;
     return TextFormField(
+      key: _fieldKey(id),
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
@@ -1252,9 +1260,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       inputFormatters: digitsOnly
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
-      onChanged: onChanged,
+      onChanged: (value) {
+        if (value.trim().isNotEmpty) {
+          _clearFieldError(id);
+        }
+        onChanged?.call(value);
+      },
       onTap: onTap,
-      decoration: _fieldDecoration(label),
+      decoration: _fieldDecoration(
+        label,
+        isRequired: isRequired,
+        hasError: _invalidFieldIds.contains(id),
+      ),
     );
   }
 
@@ -1294,17 +1311,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildSelectionField(
     TextEditingController controller,
     String label, {
-    required VoidCallback onTap,
+    String? fieldId,
+    bool isRequired = false,
+    required Future<void> Function() onTap,
     String? hint,
   }) {
+    final id = fieldId ?? label;
     return GestureDetector(
-      onTap: onTap,
+      key: _fieldKey(id),
+      onTap: () async {
+        await onTap();
+        if (controller.text.trim().isNotEmpty) {
+          _clearFieldError(id);
+        }
+      },
       child: AbsorbPointer(
         child: TextFormField(
           controller: controller,
-          decoration: _fieldDecoration(label).copyWith(
+          decoration: _fieldDecoration(label, isRequired: isRequired).copyWith(
             hintText: hint,
             suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+            errorText: _invalidFieldIds.contains(id) ? 'Please check this field.' : null,
           ),
         ),
       ),
@@ -1315,13 +1342,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     TextEditingController controller,
     String label,
     List<String> options,
+    {String? fieldId, bool isRequired = false,}
   ) {
+    final id = fieldId ?? label;
     final current = controller.text.trim();
     final selected = options.contains(current) ? current : null;
     return Padding(
+      key: _fieldKey(id),
       padding: const EdgeInsets.only(bottom: 8),
       child: DropdownButtonFormField<String>(
-        key: ValueKey<String>('${label}_${controller.text}'),
         initialValue: selected,
         isExpanded: true,
         items: options
@@ -1338,16 +1367,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             if (label == 'Rank' && controller.text != 'Other') {
               _customRankController.clear();
             }
+            _clearFieldError(id);
           });
         },
-        decoration: _fieldDecoration(label),
+        decoration: _fieldDecoration(
+          label,
+          isRequired: isRequired,
+          hasError: _invalidFieldIds.contains(id),
+        ),
       ),
     );
   }
 
-  InputDecoration _fieldDecoration(String label) {
+  InputDecoration _fieldDecoration(
+    String label, {
+    bool isRequired = false,
+    bool hasError = false,
+  }) {
+    final labelText = isRequired ? '$label *' : label;
     return InputDecoration(
-      labelText: label,
+      labelText: labelText,
       floatingLabelStyle: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
       filled: true,
       fillColor: Colors.white,
@@ -1364,8 +1403,60 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _border),
       ),
+      errorText: hasError ? 'Please check this field.' : null,
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
       counterText: '',
     );
+  }
+
+  GlobalKey _fieldKey(String fieldId) {
+    return _fieldKeys.putIfAbsent(fieldId, () => GlobalKey());
+  }
+
+  void _clearFieldError(String fieldId) {
+    if (!_invalidFieldIds.contains(fieldId)) {
+      return;
+    }
+    setState(() {
+      _invalidFieldIds.remove(fieldId);
+    });
+  }
+
+  Future<void> _markInvalidFields(
+    List<String> fieldIds,
+    String firstMessage,
+    {bool showMessage = true, bool scroll = true}
+  ) async {
+    setState(() {
+      _invalidFieldIds
+        ..clear()
+        ..addAll(fieldIds);
+    });
+    if (showMessage) {
+      _showMessage(firstMessage);
+    }
+    if (fieldIds.isEmpty || !scroll) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) {
+      return;
+    }
+    final context = _fieldKeys[fieldIds.first]?.currentContext;
+    if (context != null) {
+      await Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 250),
+        alignment: 0.18,
+      );
+    }
   }
 
   void _syncOfficialNameFromIdentity(String value) {
@@ -1481,7 +1572,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _handlePrimaryAction() async {
     if (_currentStep == 0) {
-      if (!_validateIdentityStep()) {
+      if (!await _validateIdentityStep()) {
         return;
       }
       final unique = await _ensureIdentityNotDuplicateInCloud();
@@ -1518,7 +1609,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_currentStep == 4) {
-      if (!_validateServiceStep()) {
+      if (!await _validateServiceStep()) {
         return;
       }
       await _goToStep(5);
@@ -1526,7 +1617,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_currentStep == 5) {
-      if (!_validateDocumentsStep()) {
+      if (!await _validateDocumentsStep()) {
         return;
       }
       await _goToStep(6);
@@ -1545,11 +1636,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
-    
-    // Auto-send OTP when entering email verification step
-    if (step == 1 && !_emailOtpSent && !_sendingEmailOtp) {
-      // Add a small delay to ensure UI has updated
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    // First visit: auto-send OTP. Manual button appears only on send failure.
+    if (step == 1 && !_emailVerified && !_emailOtpSent && !_sendingEmailOtp) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
       if (mounted) {
         await _sendRegistrationEmailOtp();
       }
@@ -1563,48 +1653,101 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     await _goToStep(_currentStep - 1);
   }
 
-  bool _validateIdentityStep() {
+  Future<bool> _validateIdentityStep({bool showFeedback = true}) async {
     final name = _nameController.text.trim();
     final mobile = _mobileController.text.trim();
     final mpin = _mpinController.text.trim();
     final email = _emailController.text.trim();
     final reference = _referenceController.text.trim();
     if (name.isEmpty || mobile.isEmpty || email.isEmpty || reference.isEmpty || mpin.isEmpty) {
-      _showMessage(
-          'Enter full name, mobile number, email, M-PIN and reference mobile number.');
+      await _markInvalidFields(
+        <String>[
+          if (name.isEmpty) 'Full name',
+          if (email.isEmpty) 'Email address',
+          if (mobile.isEmpty) 'Mobile number',
+          if (mpin.isEmpty) 'Create 6 digit M-PIN',
+          if (reference.isEmpty) 'Reference member mobile number',
+        ],
+        'Enter full name, mobile number, email, M-PIN and reference mobile number.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (!_namePattern.hasMatch(name)) {
-      _showMessage('Enter a valid full name (letters and spaces only).');
+      await _markInvalidFields(
+        <String>['Full name'],
+        'Enter a valid full name (letters and spaces only).',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (!_mobilePattern.hasMatch(mobile) || !_mobilePattern.hasMatch(reference)) {
-      _showMessage('Mobile numbers must be 10 digits.');
+      await _markInvalidFields(
+        <String>[
+          if (!_mobilePattern.hasMatch(mobile)) 'Mobile number',
+          if (!_mobilePattern.hasMatch(reference)) 'Reference member mobile number',
+        ],
+        'Mobile numbers must be 10 digits.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
     if (!emailRegex.hasMatch(email)) {
-      _showMessage('Enter a valid email address.');
+      await _markInvalidFields(
+        <String>['Email address'],
+        'Enter a valid email address.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (mpin.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(mpin)) {
-      _showMessage('M-PIN must be exactly 6 digits.');
+      await _markInvalidFields(
+        <String>['Create 6 digit M-PIN'],
+        'M-PIN must be exactly 6 digits.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (mobile == reference) {
-      _showMessage('Reference mobile must be different from member mobile.');
+      await _markInvalidFields(
+        <String>['Reference member mobile number'],
+        'Reference mobile must be different from member mobile.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (widget.repository.findByMobile(mobile) != null) {
-      _showMessage('Mobile number already registered.');
+      await _markInvalidFields(
+        <String>['Mobile number'],
+        'Mobile number already registered.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (widget.repository.findByEmail(email) != null) {
-      _showMessage('Email already registered.');
+      await _markInvalidFields(
+        <String>['Email address'],
+        'Email already registered.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     if (_referenceMember == null) {
-      _showMessage('Reference member could not be verified.');
+      await _markInvalidFields(
+        <String>['Reference member mobile number'],
+        'Reference member could not be verified.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     return true;
@@ -1634,13 +1777,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (!_emailOtpSent) {
-      _showMessage('Please send OTP first.');
+      await _markInvalidFields(<String>['Enter OTP'], 'Please send OTP first.');
       return false;
     }
 
     final enteredOtp = _emailOtpController.text.trim();
     if (enteredOtp.length != 6) {
-      _showMessage('Enter valid 6 digit OTP.');
+      await _markInvalidFields(<String>['Enter OTP'], 'Enter valid 6 digit OTP.');
       return false;
     }
 
@@ -1663,7 +1806,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     if (!verified) {
-      _showMessage('Invalid or expired email OTP.');
+      await _markInvalidFields(<String>['Enter OTP'], 'Invalid or expired email OTP.');
       return false;
     }
 
@@ -1686,50 +1829,63 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _sendingEmailOtp = true;
     });
 
-    final dispatch = await _emailOtpService.sendVerificationOtp(
-      email,
-      purpose: EmailOtpPurpose.registration,
-      memberName: _nameController.text.trim(),
-    );
+    try {
+      final dispatch = await _emailOtpService.sendVerificationOtp(
+        email,
+        purpose: EmailOtpPurpose.registration,
+        memberName: _nameController.text.trim(),
+      );
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    if (!dispatch.success) {
+      if (!dispatch.success) {
+        setState(() {
+          _sendingEmailOtp = false;
+          _showOtpSendButton = true;
+        });
+        _showMessage(dispatch.error ?? 'Unable to send email OTP.');
+        return;
+      }
+
+      // Start resend countdown timer
+      _otpResendTimer?.cancel();
       setState(() {
         _sendingEmailOtp = false;
+        _emailOtpSent = true;
+        _otpResendSeconds = 60;
+        _showOtpSendButton = false;
       });
-      _showMessage(dispatch.error ?? 'Unable to send email OTP.');
-      return;
-    }
 
-    // Start resend countdown timer
-    _otpResendTimer?.cancel();
-    setState(() {
-      _sendingEmailOtp = false;
-      _emailOtpSent = true;
-      _otpResendSeconds = 60;
-    });
+      _otpResendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) {
+          _otpResendTimer?.cancel();
+          return;
+        }
+        setState(() {
+          if (_otpResendSeconds > 0) {
+            _otpResendSeconds--;
+          } else {
+            _otpResendTimer?.cancel();
+          }
+        });
+      });
 
-    _otpResendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _showMessage('OTP sent to $email');
+    } catch (_) {
       if (!mounted) {
-        _otpResendTimer?.cancel();
         return;
       }
       setState(() {
-        if (_otpResendSeconds > 0) {
-          _otpResendSeconds--;
-        } else {
-          _otpResendTimer?.cancel();
-        }
+        _sendingEmailOtp = false;
+        _showOtpSendButton = true;
       });
-    });
-
-    _showMessage('OTP sent to $email');
+      _showMessage('Unable to send email OTP right now. Please try again.');
+    }
   }
 
-  Future<bool> _validateHomeStep() async {
+  Future<bool> _validateHomeStep({bool showFeedback = true}) async {
     final homeDistrict = _homeDistrictController.text.trim();
     final homeVillageMohalla = _homeVillageMohallaController.text.trim();
     final homeGaliNo = _homeGaliNoController.text.trim();
@@ -1741,41 +1897,86 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         homeGaliNo.isEmpty ||
         homePoliceStation.isEmpty ||
         homeTehsil.isEmpty) {
-      _showMessage('Complete all home details.');
+      await _markInvalidFields(
+        <String>[
+          if (homeDistrict.isEmpty) 'Home District',
+          if (homeVillageMohalla.isEmpty) 'Village / Mohalla',
+          if (homeGaliNo.isEmpty) 'Gali No.',
+          if (homePoliceStation.isEmpty) 'Home Police Station',
+          if (homeTehsil.isEmpty) 'Home Tehsil',
+        ],
+        'Complete all home details.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (homeDistrict.length < 2) {
-      _showMessage('Enter a valid home district.');
+      await _markInvalidFields(
+        <String>['Home District'],
+        'Enter a valid home district.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     return true;
   }
 
-  Future<bool> _validatePostingStep() async {
+  Future<bool> _validatePostingStep({bool showFeedback = true}) async {
     final postingDistrict = _postingDistrictController.text.trim();
     final postingStation = _postingLocationController.text.trim();
+    final postingGps = _postingPlaceLocationController.text.trim();
 
     if (postingDistrict.isEmpty || postingStation.isEmpty) {
-      _showMessage('Complete all posting details.');
+      await _markInvalidFields(
+        <String>[
+          if (postingDistrict.isEmpty) 'Posting District',
+          if (postingStation.isEmpty) 'Posting Police Station',
+        ],
+        'Complete all posting details.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (postingDistrict.length < 2) {
-      _showMessage('Enter a valid posting district.');
+      await _markInvalidFields(
+        <String>['Posting District'],
+        'Enter a valid posting district.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (!_isAcceptableStationValue(postingStation)) {
-      _showMessage('Enter a valid police station name.');
+      await _markInvalidFields(
+        <String>['Posting Police Station'],
+        'Enter a valid police station name.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    if (postingGps.isEmpty) {
+      await _markInvalidFields(
+        <String>['Posting Place Location (Auto-fetched GPS)'],
+        'Please fetch posting place GPS location using the button.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     return true;
   }
 
-  bool _validateServiceStep() {
+  Future<bool> _validateServiceStep({bool showFeedback = true}) async {
 
     final department = _departmentController.text.trim();
     final postRank = _postRankController.text.trim();
@@ -1799,17 +2000,43 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         postingWorkAs.isEmpty ||
         whatsapp.isEmpty ||
         callingContact.isEmpty) {
-      _showMessage('Complete all posting details.');
+      await _markInvalidFields(
+        <String>[
+          if (department.isEmpty) 'Sub Department',
+          if (postRank.isEmpty) 'Rank',
+          if (officialName.isEmpty) 'Official Name',
+          if (batchYear.isEmpty) 'Batch Year',
+          if (gender.isEmpty) 'Gender',
+          if (maritalStatus.isEmpty) 'Marital Status',
+          if (postingCategory.isEmpty) 'Posting Category',
+          if (postingWorkAs.isEmpty) 'Posting Work As',
+          if (whatsapp.isEmpty) 'Whatsapp Number',
+          if (callingContact.isEmpty) 'Calling Contact No.',
+        ],
+        'Complete all posting details.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (postRank == 'Other' && customRank.isEmpty) {
-      _showMessage('Please enter rank when you select Other.');
+      await _markInvalidFields(
+        <String>['Enter rank name'],
+        'Please enter rank when you select Other.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (!_namePattern.hasMatch(officialName)) {
-      _showMessage('Enter a valid official name.');
+      await _markInvalidFields(
+        <String>['Official Name'],
+        'Enter a valid official name.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
@@ -1819,13 +2046,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         batch == null ||
         batch < 1970 ||
         batch > currentYear) {
-      _showMessage('Enter a valid batch year.');
+      await _markInvalidFields(
+        <String>['Batch Year'],
+        'Enter a valid batch year.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
     if (!_mobilePattern.hasMatch(whatsapp) ||
         !_mobilePattern.hasMatch(callingContact)) {
-      _showMessage('Complete all posting details with valid phone numbers.');
+      await _markInvalidFields(
+        <String>[
+          if (!_mobilePattern.hasMatch(whatsapp)) 'Whatsapp Number',
+          if (!_mobilePattern.hasMatch(callingContact)) 'Calling Contact No.',
+        ],
+        'Complete all posting details with valid phone numbers.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
 
@@ -1840,9 +2080,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return RegExp(r"^[A-Za-z0-9 .,'()/-]{3,}$").hasMatch(trimmed);
   }
 
-  bool _validateDocumentsStep() {
+  Future<bool> _validateDocumentsStep({bool showFeedback = true}) async {
     if (_selfie == null) {
-      _showMessage('Upload selfie to continue.');
+      await _markInvalidFields(
+        <String>['Selfie photo'],
+        'Upload selfie to continue.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
       return false;
     }
     return true;
@@ -1854,20 +2099,40 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _submit() async {
-    final homeValid = await _validateHomeStep();
-    final postingValid = await _validatePostingStep();
-    final serviceValid = _validateServiceStep();
-    if (!_validateIdentityStep() ||
-        !_emailVerified ||
-        !homeValid ||
-        !postingValid ||
-        !serviceValid ||
-        !_validateDocumentsStep()) {
+    if (!await _validateIdentityStep(showFeedback: false)) {
+      await _goToStep(0);
+      await _validateIdentityStep();
+      return;
+    }
+    if (!_emailVerified) {
+      await _goToStep(1);
+      _showMessage('Please verify your email before submitting registration.');
+      return;
+    }
+    if (!await _validateHomeStep(showFeedback: false)) {
+      await _goToStep(2);
+      await _validateHomeStep();
+      return;
+    }
+    if (!await _validatePostingStep(showFeedback: false)) {
+      await _goToStep(3);
+      await _validatePostingStep();
+      return;
+    }
+    if (!await _validateServiceStep(showFeedback: false)) {
+      await _goToStep(4);
+      await _validateServiceStep();
+      return;
+    }
+    if (!await _validateDocumentsStep(showFeedback: false)) {
+      await _goToStep(5);
+      await _validateDocumentsStep();
       return;
     }
 
     final unique = await _ensureIdentityNotDuplicateInCloud();
     if (!unique) {
+      await _goToStep(0);
       return;
     }
 
@@ -1875,111 +2140,106 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _submitting = true;
     });
 
-    final selfieBytes = await _selfie!.readAsBytes();
-    final mediaService = widget.repository.cloudService;
-    final now = DateTime.now();
-    final baseName = now.microsecondsSinceEpoch;
-    final selfieUrl = await mediaService.uploadImageBytes(
-      bytes: selfieBytes,
-      folder: 'member-docs',
-      fileName: 'selfie_$baseName.jpg',
-    );
-    String? idCardUrl;
-    if (_idCardPhoto != null) {
-      final idCardBytes = await _idCardPhoto!.readAsBytes();
-      idCardUrl = await mediaService.uploadImageBytes(
-        bytes: idCardBytes,
+    try {
+      final selfieBytes = await _selfie!.readAsBytes();
+      final mediaService = widget.repository.cloudService;
+      final now = DateTime.now();
+      final baseName = now.microsecondsSinceEpoch;
+      final selfieUrl = await mediaService.uploadImageBytes(
+        bytes: selfieBytes,
         folder: 'member-docs',
-        fileName: 'id_card_$baseName.jpg',
+        fileName: 'selfie_$baseName.jpg',
       );
-    }
+      String? idCardUrl;
+      if (_idCardPhoto != null) {
+        final idCardBytes = await _idCardPhoto!.readAsBytes();
+        idCardUrl = await mediaService.uploadImageBytes(
+          bytes: idCardBytes,
+          folder: 'member-docs',
+          fileName: 'id_card_$baseName.jpg',
+        );
+      }
 
-    if (selfieUrl == null || (_idCardPhoto != null && idCardUrl == null)) {
+      if (selfieUrl == null || (_idCardPhoto != null && idCardUrl == null)) {
+        final uploadError = mediaService.lastUploadError;
+        final message = (uploadError == null || uploadError.isEmpty)
+            ? 'Unable to upload documents to cloud. Please retry.'
+            : 'Unable to upload documents to cloud: $uploadError';
+        _showMessage(message);
+        return;
+      }
+
+      final mobile = _mobileController.text.trim();
+      final effectiveRank = _postRankController.text.trim() == 'Other'
+        ? _customRankController.text.trim()
+        : _postRankController.text.trim();
+      final member = Member(
+        id: now.microsecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        mobileNumber: mobile,
+        userId: 'u_$mobile',
+          email: _emailController.text.trim(),
+        passwordHash: widget.authService.hashPassword(mobile),
+        mpin: _mpinController.text.trim(),
+        referenceMobileNumber: _referenceController.text.trim(),
+        referenceMemberName: _referenceMember?.name,
+        selfiePath: selfieUrl,
+        idCardPhotoPath: idCardUrl,
+        homeDistrict: _homeDistrictController.text.trim(),
+        homeState: _homeStateController.text.trim(),
+        postingDistrict: _postingDistrictController.text.trim(),
+        postingState: _postingStateController.text.trim(),
+        postingLocation: _postingLocationController.text.trim(),
+        department: _departmentController.text.trim(),
+        postRank: effectiveRank,
+        officialName: _officialNameController.text.trim(),
+        batchYear: _batchYearController.text.trim(),
+        gender: _genderController.text.trim(),
+        maritalStatus: _maritalStatusController.text.trim(),
+        postingCategory: _postingCategoryController.text.trim(),
+        postingWorkAs: _postingWorkAsController.text.trim(),
+        whatsappNumber: _whatsappController.text.trim(),
+        callingContactNumber: _callingNumberController.text.trim(),
+        postingPlaceLocation: _postingPlaceLocationController.text.trim(),
+        pendingUpdatePayload: jsonEncode(<String, dynamic>{
+          'biometricEnabled': _biometricVerified,
+        }),
+        homeVillageMohalla: _homeVillageMohallaController.text.trim(),
+        homeGaliNo: _homeGaliNoController.text.trim(),
+        homePostOffice: '',
+        homePoliceStation: _homePoliceStationController.text.trim(),
+        homeTehsil: _homeTehsilController.text.trim(),
+        homeVillageLocation: '',
+        appointmentDate: now,
+        role: 'Member',
+        lastUpdated: now,
+        passwordUpdatedAt: now,
+        isApproved: false,
+      );
+      final saved = await widget.repository.saveMember(member);
+
+      if (!saved) {
+        final cloudError = mediaService.lastWriteError;
+        final message = (cloudError == null || cloudError.isEmpty)
+            ? 'Unable to create registration in cloud. Please retry.'
+            : 'Unable to create registration in cloud: $cloudError';
+        _showMessage(message);
+        return;
+      }
+
       if (!mounted) {
         return;
       }
-      setState(() {
-        _submitting = false;
-      });
-      final uploadError = mediaService.lastUploadError;
-      final message = (uploadError == null || uploadError.isEmpty)
-          ? 'Unable to upload documents to cloud. Please retry.'
-          : 'Unable to upload documents to cloud: $uploadError';
-      _showMessage(message);
-      return;
-    }
-
-    final mobile = _mobileController.text.trim();
-    final effectiveRank = _postRankController.text.trim() == 'Other'
-      ? _customRankController.text.trim()
-      : _postRankController.text.trim();
-    final member = Member(
-      id: now.microsecondsSinceEpoch.toString(),
-      name: _nameController.text.trim(),
-      mobileNumber: mobile,
-      userId: 'u_$mobile',
-        email: _emailController.text.trim(),
-      passwordHash: widget.authService.hashPassword(mobile),
-      mpin: _mpinController.text.trim(),
-      referenceMobileNumber: _referenceController.text.trim(),
-      referenceMemberName: _referenceMember?.name,
-      selfiePath: selfieUrl,
-      idCardPhotoPath: idCardUrl,
-      homeDistrict: _homeDistrictController.text.trim(),
-      homeState: _homeStateController.text.trim(),
-      postingDistrict: _postingDistrictController.text.trim(),
-      postingState: _postingStateController.text.trim(),
-      postingLocation: _postingLocationController.text.trim(),
-      department: _departmentController.text.trim(),
-      postRank: effectiveRank,
-      officialName: _officialNameController.text.trim(),
-      batchYear: _batchYearController.text.trim(),
-      gender: _genderController.text.trim(),
-      maritalStatus: _maritalStatusController.text.trim(),
-      postingCategory: _postingCategoryController.text.trim(),
-      postingWorkAs: _postingWorkAsController.text.trim(),
-      whatsappNumber: _whatsappController.text.trim(),
-      callingContactNumber: _callingNumberController.text.trim(),
-      postingPlaceLocation: _postingPlaceLocationController.text.trim(),
-      pendingUpdatePayload: jsonEncode(<String, dynamic>{
-        'biometricEnabled': _biometricVerified,
-      }),
-      homeVillageMohalla: _homeVillageMohallaController.text.trim(),
-      homeGaliNo: _homeGaliNoController.text.trim(),
-      homePostOffice: '',
-      homePoliceStation: _homePoliceStationController.text.trim(),
-      homeTehsil: _homeTehsilController.text.trim(),
-      homeVillageLocation: '',
-      appointmentDate: now,
-      role: 'Member',
-      lastUpdated: now,
-      passwordUpdatedAt: now,
-      isApproved: false,
-    );
-    final saved = await widget.repository.saveMember(member);
-
-    if (!saved) {
-      if (!mounted) {
-        return;
+      Navigator.of(context).pop(member);
+    } catch (error) {
+      _showMessage('Registration failed due to invalid or incomplete data: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
       }
-      setState(() {
-        _submitting = false;
-      });
-      final cloudError = mediaService.lastWriteError;
-      final message = (cloudError == null || cloudError.isEmpty)
-          ? 'Unable to create registration in cloud. Please retry.'
-          : 'Unable to create registration in cloud: $cloudError';
-      _showMessage(message);
-      return;
     }
-
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _submitting = false;
-    });
-    Navigator.of(context).pop(member);
   }
 
   Future<void> _primeFormOptions() async {
@@ -2164,7 +2424,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       });
       _showMessage('Posting location captured.');
     } catch (_) {
-      _showMessage('Unable to capture location. You can paste map link manually.');
+      _showMessage('Unable to capture location right now. Please try again.');
     } finally {
       if (mounted) {
         setState(() {

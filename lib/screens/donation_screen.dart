@@ -727,8 +727,22 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _openUpiApp() async {
-    final uri = Uri.parse(_upiUri);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse(_upiUri);
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open UPI app. Please retry.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open UPI app. Please retry.')),
+      );
+    }
   }
 
   Future<void> _pickProofScreenshot() async {
@@ -743,11 +757,25 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _openAdminChat() async {
-    final message = Uri.encodeComponent(
-      'Hello Admin, I have made a donation and uploaded payment proof for verification.',
-    );
-    final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final message = Uri.encodeComponent(
+        'Hello Admin, I have made a donation and uploaded payment proof for verification.',
+      );
+      final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open admin chat. Please retry.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open admin chat. Please retry.')),
+      );
+    }
   }
 
   Future<void> _submitDonation() async {
@@ -887,18 +915,27 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Future<void> _autoShareProofToAdmin(String? screenshotUrl) async {
-    final proofLine = (screenshotUrl == null || screenshotUrl.isEmpty)
-        ? 'Proof URL: not attached'
-        : 'Proof URL: $screenshotUrl';
-    final message = Uri.encodeComponent(
-      'Donation submitted for verification.\n'
-      'Member: ${widget.currentUser.name}\n'
-      'Mobile: ${widget.currentUser.mobileNumber}\n'
-      'Amount: ${_amountController.text.trim()}\n'
-      '$proofLine',
-    );
-    final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final proofLine = (screenshotUrl == null || screenshotUrl.isEmpty)
+          ? 'Proof URL: not attached'
+          : 'Proof URL: $screenshotUrl';
+      final message = Uri.encodeComponent(
+        'Donation submitted for verification.\n'
+        'Member: ${widget.currentUser.name}\n'
+        'Mobile: ${widget.currentUser.mobileNumber}\n'
+        'Amount: ${_amountController.text.trim()}\n'
+        '$proofLine',
+      );
+      final uri = Uri.parse('https://wa.me/91$_activeAdminMobile?text=$message');
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to share proof to admin automatically.')),
+      );
+    }
   }
 
   Future<void> _savePaymentSettings() async {

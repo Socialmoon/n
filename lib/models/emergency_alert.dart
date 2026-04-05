@@ -24,7 +24,7 @@ class EmergencyAlert {
       'id': id,
       'memberId': memberId,
       'memberName': memberName,
-      'timestamp': timestamp.toIso8601String(),
+      'timestamp': timestamp.toUtc().toIso8601String(),
       'message': message,
       'location': location,
     };

@@ -143,6 +143,9 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
             colorScheme: colorScheme,
             useMaterial3: true,
             visualDensity: VisualDensity.compact,
+            snackBarTheme: const SnackBarThemeData(
+              behavior: SnackBarBehavior.floating,
+            ),
             textTheme: GoogleFonts.manropeTextTheme().copyWith(
               bodyLarge: GoogleFonts.manrope(fontSize: 14.5),
               bodyMedium: GoogleFonts.manrope(fontSize: 13.5),

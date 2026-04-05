@@ -369,33 +369,57 @@ class _AdminMemberDetailsScreen extends StatelessWidget {
   }
 
   static Uri? _postingLocationUri(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) {
       return null;
     }
-    final parsed = Uri.tryParse(raw.trim());
+
+    final parsed = Uri.tryParse(text);
     if (parsed != null && parsed.hasScheme) {
       return parsed;
     }
-    return null;
+
+    final direct = RegExp(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$')
+        .firstMatch(text);
+    if (direct != null) {
+      final lat = direct.group(1)!;
+      final lng = direct.group(2)!;
+      return Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    }
+
+    final encoded = Uri.encodeComponent(text);
+    return Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
   }
 
   static Future<void> _openPhone(String mobile) async {
-    final uri = Uri.parse('tel:$mobile');
-    await launchUrl(uri);
+    try {
+      final uri = Uri.parse('tel:$mobile');
+      await launchUrl(uri);
+    } catch (_) {
+      return;
+    }
   }
 
   static Future<void> _openWhatsApp(String mobile) async {
-    final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) {
+    try {
+      final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.isEmpty) {
+        return;
+      }
+      final normalized = digits.length > 10 ? digits : '91$digits';
+      final uri = Uri.parse('https://wa.me/$normalized');
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
       return;
     }
-    final normalized = digits.length > 10 ? digits : '91$digits';
-    final uri = Uri.parse('https://wa.me/$normalized');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   static Future<void> _openUri(Uri uri) async {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      return;
+    }
   }
 
   static String? _displayValue(String? value) {

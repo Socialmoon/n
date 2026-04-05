@@ -9,6 +9,7 @@ import '../core/time_utils.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
+import 'radius_members_map_screen.dart';
 
 enum _MemberFilterMode {
   district,
@@ -409,8 +410,8 @@ class _MembersScreenState extends State<MembersScreen> {
                 onPressed: () => _openRadiusMap(filteredMembers),
                 icon: const Icon(Icons.map_outlined),
                 label: Text(isHindi
-                    ? 'मैप पर सभी सदस्य दिखाएं'
-                    : 'Show All In-Range Members on Map'),
+                    ? 'मैप पर पिन से सदस्य देखें'
+                    : 'Show In-Range Members as Pins'),
               ),
             ],
             if (appliedFilters.isNotEmpty) ...<Widget>[
@@ -754,19 +755,37 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   Future<void> _openPhone(String mobile) async {
-    final uri = Uri.parse('tel:$mobile');
-    await launchUrl(uri);
+    try {
+      final uri = Uri.parse('tel:$mobile');
+      final opened = await launchUrl(uri);
+      if (!opened && mounted) {
+        _showMessage('Unable to open phone dialer.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Unable to open phone dialer.');
+      }
+    }
   }
 
   Future<void> _openWhatsApp(String mobile) async {
-    final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) {
-      _showMessage('WhatsApp number not available.');
-      return;
+    try {
+      final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.isEmpty) {
+        _showMessage('WhatsApp number not available.');
+        return;
+      }
+      final normalized = digits.length > 10 ? digits : '91$digits';
+      final uri = Uri.parse('https://wa.me/$normalized');
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        _showMessage('Unable to open WhatsApp.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Unable to open WhatsApp.');
+      }
     }
-    final normalized = digits.length > 10 ? digits : '91$digits';
-    final uri = Uri.parse('https://wa.me/$normalized');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openMemberDetails(Member member) async {
@@ -855,31 +874,42 @@ class _MembersScreenState extends State<MembersScreen> {
       return;
     }
 
-    final inRangeCoordinates = filteredMembers
-        .map(_memberPostingCoordinates)
-        .whereType<_LatLng>()
+    final inRangePoints = filteredMembers
+        .map((member) {
+          final location = _memberPostingCoordinates(member);
+          if (location == null) {
+            return null;
+          }
+          return RadiusMapPoint(
+            member: member,
+            latitude: location.latitude,
+            longitude: location.longitude,
+          );
+        })
+        .whereType<RadiusMapPoint>()
         .toList();
 
-    if (inRangeCoordinates.isEmpty) {
+    if (inRangePoints.isEmpty) {
       _showMessage('No in-range members with valid posting coordinates.');
       return;
     }
 
-    // Keep URL length manageable for Google Maps by limiting waypoints.
-    final cappedCoordinates = inRangeCoordinates.take(20).toList();
-    final waypoints = cappedCoordinates
-        .map((item) => '${item.latitude},${item.longitude}')
-        .join('|');
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&origin=${coords.latitude},${coords.longitude}&destination=${coords.latitude},${coords.longitude}&waypoints=$waypoints',
-    );
-
-    if (inRangeCoordinates.length > cappedCoordinates.length) {
-      _showMessage(
-        'Showing first ${cappedCoordinates.length} members on map due to map waypoint limit.',
-      );
+    if (!mounted) {
+      return;
     }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => RadiusMembersMapScreen(
+          origin: RadiusMapPoint(
+            member: widget.currentUser,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          ),
+          members: inRangePoints,
+        ),
+      ),
+    );
   }
 
   _LatLng? _currentSharedCoordinates() {

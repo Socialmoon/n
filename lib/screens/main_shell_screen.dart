@@ -117,36 +117,40 @@ class _MainShellScreenState extends State<MainShellScreen> {
           index: _index,
           children: tabs,
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: _switchTab,
-          destinations: <NavigationDestination>[
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: isHindi ? 'होम' : 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups_rounded),
-              label: isHindi ? 'सदस्य' : 'Members',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.forum_outlined),
-              selectedIcon: Icon(Icons.forum_rounded),
-              label: isHindi ? 'फीड' : 'Feed',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.volunteer_activism_outlined),
-              selectedIcon: Icon(Icons.volunteer_activism_rounded),
-              label: isHindi ? 'डोनेशन' : 'Donations',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: isHindi ? 'अकाउंट' : 'Account',
-            ),
-          ],
+        bottomNavigationBar: SafeArea(
+          top: false,
+          maintainBottomViewPadding: true,
+          child: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: _switchTab,
+            destinations: <NavigationDestination>[
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: isHindi ? 'होम' : 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.groups_outlined),
+                selectedIcon: Icon(Icons.groups_rounded),
+                label: isHindi ? 'सदस्य' : 'Members',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.forum_outlined),
+                selectedIcon: Icon(Icons.forum_rounded),
+                label: isHindi ? 'फीड' : 'Feed',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.volunteer_activism_outlined),
+                selectedIcon: Icon(Icons.volunteer_activism_rounded),
+                label: isHindi ? 'डोनेशन' : 'Donations',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: isHindi ? 'अकाउंट' : 'Account',
+              ),
+            ],
+          ),
         ),
       ),
     );

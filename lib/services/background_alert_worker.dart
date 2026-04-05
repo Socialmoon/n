@@ -26,7 +26,7 @@ void backgroundAlertCallbackDispatcher() {
       }
 
       final uri = Uri.parse(
-        '${SupabaseConfig.url}/rest/v1/emergency_alerts?select=id,member_name,message&order=timestamp.desc&limit=1',
+        '${SupabaseConfig.url}/rest/v1/emergency_alerts?select=id,member_name,message&order=created_at.desc&limit=1',
       );
       final response = await http.get(
         uri,

@@ -306,6 +306,8 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
           _avatarUrlByMobile[normalized] = selfieUrl;
         });
       }
+    }).catchError((_) {
+      // Ignore lookup errors and keep the local fallback avatar.
     }).whenComplete(() {
       _avatarLookupInFlight.remove(normalized);
     });
@@ -330,11 +332,16 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
       return;
     }
 
-    final created = await widget.helpFeedService.createPost(
-      member: widget.currentUser,
-      category: result.category,
-      message: result.message,
-    );
+    bool created = false;
+    try {
+      created = await widget.helpFeedService.createPost(
+        member: widget.currentUser,
+        category: result.category,
+        message: result.message,
+      );
+    } catch (_) {
+      created = false;
+    }
 
     if (!mounted) {
       return;
@@ -351,8 +358,17 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   }
 
   Future<void> _openPhone(String mobile) async {
-    final uri = Uri.parse('tel:$mobile');
-    await launchUrl(uri);
+    try {
+      final uri = Uri.parse('tel:$mobile');
+      await launchUrl(uri);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open phone dialer.')),
+      );
+    }
   }
 
   Future<void> _openPostDetail(HelpPost post) async {

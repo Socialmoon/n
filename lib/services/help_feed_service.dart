@@ -31,24 +31,27 @@ class HelpFeedService {
     if (!_cloudService.isConfigured) {
       return;
     }
+    try {
+      final cloudPosts = await _cloudService.fetchHelpPosts();
+      final cloudComments = await _cloudService.fetchHelpComments();
+      final now = DateTime.now().toUtc();
+      final activePosts = cloudPosts
+          .where((post) => now.difference(post.createdAt.toUtc()) < _postExpiry)
+          .toList();
+      final activePostIds = activePosts.map((post) => post.id).toSet();
+      final activeComments = cloudComments
+          .where((comment) => activePostIds.contains(comment.postId))
+          .toList();
 
-    final cloudPosts = await _cloudService.fetchHelpPosts();
-    final cloudComments = await _cloudService.fetchHelpComments();
-    final now = DateTime.now().toUtc();
-    final activePosts = cloudPosts
-      .where((post) => now.difference(post.createdAt.toUtc()) < _postExpiry)
-        .toList();
-    final activePostIds = activePosts.map((post) => post.id).toSet();
-    final activeComments = cloudComments
-        .where((comment) => activePostIds.contains(comment.postId))
-        .toList();
-
-    _posts
-      ..clear()
-      ..addAll(activePosts);
-    _comments
-      ..clear()
-      ..addAll(activeComments);
+      _posts
+        ..clear()
+        ..addAll(activePosts);
+      _comments
+        ..clear()
+        ..addAll(activeComments);
+    } catch (_) {
+      return;
+    }
   }
 
   Future<bool> createPost({
@@ -69,13 +72,18 @@ class HelpFeedService {
     );
 
     _posts.add(post);
-    final saved = await _cloudService.insertHelpPost(post);
-    if (!saved) {
+    try {
+      final saved = await _cloudService.insertHelpPost(post);
+      if (!saved) {
+        _posts.removeWhere((item) => item.id == post.id);
+        return false;
+      }
+      await load();
+      return true;
+    } catch (_) {
       _posts.removeWhere((item) => item.id == post.id);
       return false;
     }
-    await load();
-    return true;
   }
 
   Future<bool> addComment({
@@ -94,13 +102,18 @@ class HelpFeedService {
     );
 
     _comments.add(comment);
-    final saved = await _cloudService.insertHelpComment(comment);
-    if (!saved) {
+    try {
+      final saved = await _cloudService.insertHelpComment(comment);
+      if (!saved) {
+        _comments.removeWhere((item) => item.id == comment.id);
+        return false;
+      }
+      await load();
+      return true;
+    } catch (_) {
       _comments.removeWhere((item) => item.id == comment.id);
       return false;
     }
-    await load();
-    return true;
   }
 
   Future<bool> deletePost(String postId) async {
@@ -108,8 +121,20 @@ class HelpFeedService {
     final previousComments = List<HelpComment>.from(_comments);
     _posts.removeWhere((post) => post.id == postId);
     _comments.removeWhere((comment) => comment.postId == postId);
-    final deleted = await _cloudService.deleteHelpPost(postId);
-    if (!deleted) {
+    try {
+      final deleted = await _cloudService.deleteHelpPost(postId);
+      if (!deleted) {
+        _posts
+          ..clear()
+          ..addAll(previousPosts);
+        _comments
+          ..clear()
+          ..addAll(previousComments);
+        return false;
+      }
+      await load();
+      return true;
+    } catch (_) {
       _posts
         ..clear()
         ..addAll(previousPosts);
@@ -118,21 +143,26 @@ class HelpFeedService {
         ..addAll(previousComments);
       return false;
     }
-    await load();
-    return true;
   }
 
   Future<bool> deleteComment(String commentId) async {
     final previousComments = List<HelpComment>.from(_comments);
     _comments.removeWhere((comment) => comment.id == commentId);
-    final deleted = await _cloudService.deleteHelpComment(commentId);
-    if (!deleted) {
+    try {
+      final deleted = await _cloudService.deleteHelpComment(commentId);
+      if (!deleted) {
+        _comments
+          ..clear()
+          ..addAll(previousComments);
+        return false;
+      }
+      await load();
+      return true;
+    } catch (_) {
       _comments
         ..clear()
         ..addAll(previousComments);
       return false;
     }
-    await load();
-    return true;
   }
 }

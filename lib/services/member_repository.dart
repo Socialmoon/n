@@ -66,11 +66,15 @@ class MemberRepository {
       return;
     }
 
-    final cloudMembers = await _cloudService.fetchMembers();
-    if (cloudMembers.isNotEmpty) {
-      _members
-        ..clear()
-        ..addAll(cloudMembers);
+    try {
+      final cloudMembers = await _cloudService.fetchMembers();
+      if (cloudMembers.isNotEmpty) {
+        _members
+          ..clear()
+          ..addAll(cloudMembers);
+        return;
+      }
+    } catch (_) {
       return;
     }
   }
@@ -87,15 +91,24 @@ class MemberRepository {
       previous = _members[index];
       _members[index] = member;
     }
-    final success = await _cloudService.upsertMember(member);
-    if (!success) {
+    try {
+      final success = await _cloudService.upsertMember(member);
+      if (!success) {
+        if (index == -1) {
+          _members.removeWhere((item) => item.id == member.id);
+        } else if (previous != null) {
+          _members[index] = previous;
+        }
+      }
+      return success;
+    } catch (_) {
       if (index == -1) {
         _members.removeWhere((item) => item.id == member.id);
       } else if (previous != null) {
         _members[index] = previous;
       }
+      return false;
     }
-    return success;
   }
 
   Future<void> seedAdminIfNeeded() async {
@@ -119,13 +132,17 @@ class MemberRepository {
     if (!_cloudService.isConfigured) {
       return;
     }
-    final cloudMembers = await _cloudService.fetchMembers();
-    if (cloudMembers.isEmpty) {
+    try {
+      final cloudMembers = await _cloudService.fetchMembers();
+      if (cloudMembers.isEmpty) {
+        return;
+      }
+      _members
+        ..clear()
+        ..addAll(cloudMembers);
+    } catch (_) {
       return;
     }
-    _members
-      ..clear()
-      ..addAll(cloudMembers);
   }
 
   Future<Member?> fetchByMobileFromCloud(String mobileNumber) async {
@@ -133,17 +150,21 @@ class MemberRepository {
     if (normalized.isEmpty) {
       return null;
     }
-    final member = await _cloudService.fetchMemberByMobile(normalized);
-    if (member == null) {
+    try {
+      final member = await _cloudService.fetchMemberByMobile(normalized);
+      if (member == null) {
+        return null;
+      }
+      final index = _members.indexWhere((item) => item.id == member.id);
+      if (index == -1) {
+        _members.add(member);
+      } else {
+        _members[index] = member;
+      }
+      return member;
+    } catch (_) {
       return null;
     }
-    final index = _members.indexWhere((item) => item.id == member.id);
-    if (index == -1) {
-      _members.add(member);
-    } else {
-      _members[index] = member;
-    }
-    return member;
   }
 
   Future<Member?> fetchByEmailFromCloud(String email) async {
@@ -151,17 +172,21 @@ class MemberRepository {
     if (normalized.isEmpty) {
       return null;
     }
-    final member = await _cloudService.fetchMemberByEmail(normalized);
-    if (member == null) {
+    try {
+      final member = await _cloudService.fetchMemberByEmail(normalized);
+      if (member == null) {
+        return null;
+      }
+      final index = _members.indexWhere((item) => item.id == member.id);
+      if (index == -1) {
+        _members.add(member);
+      } else {
+        _members[index] = member;
+      }
+      return member;
+    } catch (_) {
       return null;
     }
-    final index = _members.indexWhere((item) => item.id == member.id);
-    if (index == -1) {
-      _members.add(member);
-    } else {
-      _members[index] = member;
-    }
-    return member;
   }
 
   Member? findByMobile(String mobileNumber) {

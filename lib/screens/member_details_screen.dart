@@ -267,8 +267,22 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
   }
 
   Future<void> _openMap(double lat, double lng) async {
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open maps. Please retry.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open maps. Please retry.')),
+      );
+    }
   }
 
   Uri? _postingLocationUri(String? value) {
@@ -291,7 +305,21 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
   }
 
   Future<void> _openUri(Uri uri) async {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open link. Please retry.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open link. Please retry.')),
+      );
+    }
   }
 
   Future<void> _downloadMemberDetails(BuildContext context) async {

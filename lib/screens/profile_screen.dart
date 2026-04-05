@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
@@ -1261,6 +1263,8 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   List<String> _homeStationOptions = <String>[];
   List<String> _postingStationOptions = <String>[];
   bool _fetchingPostingLocation = false;
+  final Map<String, GlobalKey> _fieldKeys = <String, GlobalKey>{};
+  final Set<String> _invalidFieldIds = <String>{};
 
   @override
   void initState() {
@@ -1403,25 +1407,205 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
     onSelected?.call(selected);
   }
 
+  GlobalKey _fieldKey(String fieldId) {
+    return _fieldKeys.putIfAbsent(fieldId, () => GlobalKey());
+  }
+
+  void _clearFieldError(String fieldId) {
+    if (!_invalidFieldIds.contains(fieldId)) {
+      return;
+    }
+    setState(() {
+      _invalidFieldIds.remove(fieldId);
+    });
+  }
+
+  Future<void> _markInvalidFields(
+    List<String> fieldIds,
+    String firstMessage,
+  ) async {
+    setState(() {
+      _invalidFieldIds
+        ..clear()
+        ..addAll(fieldIds);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(firstMessage)));
+    if (fieldIds.isEmpty) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) {
+      return;
+    }
+    final fieldContext = _fieldKeys[fieldIds.first]?.currentContext;
+    if (fieldContext != null) {
+      await Scrollable.ensureVisible(
+        fieldContext,
+        duration: const Duration(milliseconds: 250),
+        alignment: 0.18,
+      );
+    }
+  }
+
+  InputDecoration _fieldDecoration(String label, {bool hasError = false}) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: hasError ? Colors.redAccent : const Color(0xFFDCCFB3)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF0F3A4A), width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+      counterText: '',
+      errorText: hasError ? 'Please check this field.' : null,
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    String? fieldId,
+    bool readOnly = false,
+    TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    final id = fieldId ?? label;
+    return TextField(
+      key: _fieldKey(id),
+      controller: controller,
+      readOnly: readOnly,
+      keyboardType: keyboardType,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
+      onChanged: (value) {
+        if (value.trim().isNotEmpty) {
+          _clearFieldError(id);
+        }
+      },
+      decoration: _fieldDecoration(label, hasError: _invalidFieldIds.contains(id)),
+    );
+  }
+
   Widget _buildSelectionField(
     TextEditingController controller,
     String label, {
-    required VoidCallback onTap,
+    String? fieldId,
+    required Future<void> Function() onTap,
     String? hint,
   }) {
+    final id = fieldId ?? label;
     return GestureDetector(
-      onTap: onTap,
+      key: _fieldKey(id),
+      onTap: () async {
+        await onTap();
+        if (controller.text.trim().isNotEmpty) {
+          _clearFieldError(id);
+        }
+      },
       child: AbsorbPointer(
         child: TextField(
           controller: controller,
-          decoration: InputDecoration(
-            labelText: label,
+          decoration: _fieldDecoration(label, hasError: _invalidFieldIds.contains(id)).copyWith(
             hintText: hint,
             suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
           ),
         ),
       ),
     );
+  }
+
+  Future<bool> _validateAndHighlight() async {
+    final missing = <String>[];
+
+    void require(String label, String value) {
+      if (value.trim().isEmpty) {
+        missing.add(label);
+      }
+    }
+
+    require('Home State', widget.homeStateController.text);
+    require('Home District', widget.homeDistrictController.text);
+    require('Posting State', widget.postingStateController.text);
+    require('Posting District', widget.postingDistrictController.text);
+    require('Posting Location', widget.postingLocationController.text);
+    require('Whatsapp Number', widget.whatsappController.text);
+    require('Calling Contact Number', widget.callingContactController.text);
+    require('Posting Place Location (GPS)', widget.postingPlaceLocationController.text);
+    require('Home Village / Mohalla', widget.homeVillageMohallaController.text);
+    require('Home Gali No', widget.homeGaliNoController.text);
+    require('Home Police Station', widget.homePoliceStationController.text);
+    require('Home Tehsil', widget.homeTehsilController.text);
+
+    if (missing.isNotEmpty) {
+      await _markInvalidFields(
+        missing,
+        'Please fill the highlighted fields before submitting.',
+      );
+      return false;
+    }
+
+    if (!_isValidContactNumber(widget.whatsappController.text) ||
+        !_isValidContactNumber(widget.callingContactController.text)) {
+      await _markInvalidFields(
+        <String>[
+          if (!_isValidContactNumber(widget.whatsappController.text)) 'Whatsapp Number',
+          if (!_isValidContactNumber(widget.callingContactController.text)) 'Calling Contact Number',
+        ],
+        'Whatsapp and Calling contact must be 10-digit numbers.',
+      );
+      return false;
+    }
+
+    if (widget.homeDistrictController.text.trim().length < 2 ||
+        widget.postingDistrictController.text.trim().length < 2) {
+      await _markInvalidFields(
+        <String>[
+          if (widget.homeDistrictController.text.trim().length < 2) 'Home District',
+          if (widget.postingDistrictController.text.trim().length < 2) 'Posting District',
+        ],
+        'Enter valid home and posting district names.',
+      );
+      return false;
+    }
+
+    if (!_isAcceptableStationValue(widget.homePoliceStationController.text.trim())) {
+      await _markInvalidFields(
+        <String>['Home Police Station'],
+        'Enter a valid home police station name.',
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _isValidContactNumber(String value) {
+    if (value.isEmpty) {
+      return true;
+    }
+    return RegExp(r'^[0-9]{10}$').hasMatch(value);
+  }
+
+  bool _isAcceptableStationValue(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length < 3) {
+      return false;
+    }
+    return RegExp(r"^[A-Za-z0-9 .,'()/-]{3,}$").hasMatch(trimmed);
   }
 
   Future<void> _fetchCurrentPostingLocation() async {
@@ -1512,14 +1696,12 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.homeStateController,
-              decoration: const InputDecoration(labelText: 'Home State'),
-            ),
+            _buildTextField(widget.homeStateController, 'Home State', fieldId: 'Home State'),
             const SizedBox(height: 8),
             _buildSelectionField(
               widget.homeDistrictController,
               'Home District',
+              fieldId: 'Home District',
               hint: 'Tap to choose district',
               onTap: () => _pickFromList(
                 title: 'Select Home District',
@@ -1533,14 +1715,12 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.postingStateController,
-              decoration: const InputDecoration(labelText: 'Posting State'),
-            ),
+            _buildTextField(widget.postingStateController, 'Posting State', fieldId: 'Posting State'),
             const SizedBox(height: 8),
             _buildSelectionField(
               widget.postingDistrictController,
               'Posting District',
+              fieldId: 'Posting District',
               hint: 'Tap to choose district',
               onTap: () => _pickFromList(
                 title: 'Select Posting District',
@@ -1554,6 +1734,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
             _buildSelectionField(
               widget.postingLocationController,
               'Posting Location',
+              fieldId: 'Posting Location',
               hint: 'Tap to choose station or use typed value',
               onTap: () => _pickFromList(
                 title: 'Select Posting Location',
@@ -1563,25 +1744,28 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.whatsappController,
-              decoration: const InputDecoration(labelText: 'Whatsapp Number'),
+            _buildTextField(
+              widget.whatsappController,
+              'Whatsapp Number',
+              fieldId: 'Whatsapp Number',
               keyboardType: TextInputType.phone,
               inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
               maxLength: 10,
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.callingContactController,
-              decoration: const InputDecoration(labelText: 'Calling Contact Number'),
+            _buildTextField(
+              widget.callingContactController,
+              'Calling Contact Number',
+              fieldId: 'Calling Contact Number',
               keyboardType: TextInputType.phone,
               inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
               maxLength: 10,
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.postingPlaceLocationController,
-              decoration: const InputDecoration(labelText: 'Posting Place Location (GPS)'),
+            _buildTextField(
+              widget.postingPlaceLocationController,
+              'Posting Place Location (GPS)',
+              fieldId: 'Posting Place Location (GPS)',
               readOnly: true,
             ),
             const SizedBox(height: 8),
@@ -1598,19 +1782,22 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.homeVillageMohallaController,
-              decoration: const InputDecoration(labelText: 'Home Village / Mohalla'),
+            _buildTextField(
+              widget.homeVillageMohallaController,
+              'Home Village / Mohalla',
+              fieldId: 'Home Village / Mohalla',
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.homeGaliNoController,
-              decoration: const InputDecoration(labelText: 'Home Gali No'),
+            _buildTextField(
+              widget.homeGaliNoController,
+              'Home Gali No',
+              fieldId: 'Home Gali No',
             ),
             const SizedBox(height: 8),
             _buildSelectionField(
               widget.homePoliceStationController,
               'Home Police Station',
+              fieldId: 'Home Police Station',
               hint: 'Tap to choose station',
               onTap: () => _pickFromList(
                 title: 'Select Home Police Station',
@@ -1620,20 +1807,14 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: widget.homeTehsilController,
-              decoration: const InputDecoration(labelText: 'Home Tehsil'),
+            _buildTextField(
+              widget.homeTehsilController,
+              'Home Tehsil',
+              fieldId: 'Home Tehsil',
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: widget.saving
-                  ? null
-                  : () async {
-                      final success = await widget.onSave();
-                      if (success && context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
+              onPressed: widget.saving ? null : _submitUpdate,
               icon: const Icon(Icons.save_outlined),
               label: Text(widget.saving ? 'Saving...' : 'Submit Update Request'),
             ),
@@ -1641,6 +1822,20 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submitUpdate() async {
+    if (!await _validateAndHighlight()) {
+      return;
+    }
+    final navigator = Navigator.of(context);
+    final success = await widget.onSave();
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      navigator.pop();
+    }
   }
 
   Widget _infoRow(String label, String value) {

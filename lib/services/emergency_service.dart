@@ -27,7 +27,7 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
   bool _isAppInForeground = true;
   bool _syncInProgress = false;
 
-  List<EmergencyAlert> get alerts => List.unmodifiable(_alerts.reversed);
+  List<EmergencyAlert> get alerts => List.unmodifiable(_alerts);
 
   Future<void> load() async {
     if (!_cloudService.isConfigured) {
@@ -70,19 +70,18 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       memberId: member.id,
       memberName: member.name,
-      timestamp: DateTime.now(),
+      timestamp: DateTime.now().toUtc(),
       message: message,
       location: member.postingLocation,
     );
-    _alerts.add(alert);
-    notifyListeners();
-    _lastLocallyTriggeredAlertId = alert.id;
-    final saved = await _cloudService.insertAlert(alert);
-    if (!saved) {
-      _alerts.removeWhere((item) => item.id == alert.id);
-      notifyListeners();
+    final savedAlert = await _cloudService.insertAlert(alert);
+    if (savedAlert == null) {
       return false;
     }
+
+    _alerts.insert(0, savedAlert);
+    notifyListeners();
+    _lastLocallyTriggeredAlertId = savedAlert.id;
 
     await _syncFromCloud(showLocalNotificationForNew: false);
 
@@ -97,7 +96,7 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
         body: '${member.name}: ${message.trim().isEmpty ? 'Immediate assistance required' : message.trim()}',
       );
     }
-    return saved;
+    return true;
   }
 
   Future<void> _syncFromCloud({
@@ -127,7 +126,7 @@ class EmergencyService extends ChangeNotifier with WidgetsBindingObserver {
 
       _alerts
         ..clear()
-        ..addAll(cloudAlerts.reversed);
+        ..addAll(cloudAlerts);
       notifyListeners();
 
       if (!showLocalNotificationForNew || newAlerts.isEmpty) {
