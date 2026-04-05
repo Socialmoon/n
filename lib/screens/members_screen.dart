@@ -60,13 +60,23 @@ class _MembersScreenState extends State<MembersScreen> {
     'Others',
   ];
 
+  static const List<String> _rankOptions = <String>[
+    'Constable',
+    'HC',
+    'Computer Operator',
+    'ASI',
+    'SI',
+    'Inspector',
+    'Other',
+  ];
+
   bool _refreshing = false;
   bool _updatingLiveLocation = false;
   bool _locatingDevice = false;
   bool _showOptionalFilters = false;
   _MemberFilterMode? _filterMode;
   String? _selectedDistrict;
-  String? _optionalPostingLocation;
+  String? _optionalRank;
   String? _optionalSubDepartment;
   String? _optionalCategory;
   _LatLng? _deviceCoordinates;
@@ -145,14 +155,13 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   List<Member> _applyOptionalFilters(List<Member> members) {
-    final postingLocation = (_optionalPostingLocation ?? '').trim().toLowerCase();
+    final rank = (_optionalRank ?? '').trim().toLowerCase();
     final subDepartment = (_optionalSubDepartment ?? '').trim().toLowerCase();
     final category = (_optionalCategory ?? '').trim().toLowerCase();
 
     final filtered = members.where((member) {
-      final postingLocationValue = member.postingLocation.trim().toLowerCase();
-      final postingLocationMatch =
-          postingLocation.isEmpty || postingLocationValue == postingLocation;
+      final rankValue = _displayValue(member.postRank ?? '').trim().toLowerCase();
+      final rankMatch = rank.isEmpty || rankValue == rank;
       final subDepartmentValue = (member.department ?? '').trim().toLowerCase();
       final subDepartmentMatch =
           subDepartment.isEmpty || subDepartmentValue == subDepartment;
@@ -161,7 +170,7 @@ class _MembersScreenState extends State<MembersScreen> {
         .toLowerCase();
       final categoryMatch = category.isEmpty || categoryValue == category;
 
-      return postingLocationMatch && subDepartmentMatch && categoryMatch;
+      return rankMatch && subDepartmentMatch && categoryMatch;
     }).toList();
 
     return _sortByDistanceIfAvailable(filtered);
@@ -326,13 +335,16 @@ class _MembersScreenState extends State<MembersScreen> {
       .map(_displayValue)
       .where((value) => value.trim().isNotEmpty)
       .toList())..sort();
-    final postingLocations = _uniqueCaseInsensitive(
-      _allVisibleMembers
-        .map((member) => member.postingLocation.trim())
-        .where((value) => value.isNotEmpty)
-        .toList(),
-    )..sort();
-    final appliedFilters = _appliedFilterLabels(isHindi);
+    final ranks = _uniqueCaseInsensitive(<String>[
+      ..._rankOptions,
+      ..._allVisibleMembers
+          .map((member) => (member.postRank ?? '').trim())
+          .where((value) => value.isNotEmpty),
+    ]
+      .map(_displayValue)
+      .where((value) => value.trim().isNotEmpty)
+      .toList())..sort();
+    final appliedFilters = _appliedFilterChips(isHindi);
     final isRadiusSelected = _filterMode == _MemberFilterMode.currentLocation;
 
     return Card(
@@ -358,8 +370,20 @@ class _MembersScreenState extends State<MembersScreen> {
               runSpacing: 8,
               children: <Widget>[
                 ChoiceChip(
-                  label: Text(isHindi ? 'जिले से' : 'By District'),
+                  label: Text(
+                    isHindi ? 'जिले से' : 'By District',
+                    style: TextStyle(
+                      color: _filterMode == _MemberFilterMode.district
+                          ? Colors.white
+                          : const Color(0xFF1D4ED8),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   selected: _filterMode == _MemberFilterMode.district,
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  selectedColor: const Color(0xFF2563EB),
+                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                  checkmarkColor: Colors.white,
                   onSelected: (_) {
                     setState(() {
                       _filterMode = _MemberFilterMode.district;
@@ -434,14 +458,7 @@ class _MembersScreenState extends State<MembersScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: appliedFilters
-                    .map(
-                      (label) => Chip(
-                        label: Text(label),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )
-                    .toList(),
+                children: appliedFilters,
               ),
             ],
             const SizedBox(height: 12),
@@ -494,6 +511,7 @@ class _MembersScreenState extends State<MembersScreen> {
                     : 'Sub Department (Optional)',
                 value: _optionalSubDepartment,
                 options: subDepartments,
+                accentColor: const Color(0xFFD97706),
                 onChanged: (value) {
                   setState(() {
                     _optionalSubDepartment = _normalizeFilterValue(value);
@@ -504,16 +522,17 @@ class _MembersScreenState extends State<MembersScreen> {
               const SizedBox(height: 8),
               _buildTypeablePickerField(
                 labelText: isHindi
-                    ? 'पोस्टिंग लोकेशन (वैकल्पिक)'
-                    : 'Posting Location (Optional)',
-                value: _optionalPostingLocation,
-                options: postingLocations,
+                    ? 'रैंक (वैकल्पिक)'
+                    : 'Rank (Optional)',
+                value: _optionalRank,
+                options: ranks,
+                accentColor: const Color(0xFF0F766E),
                 onChanged: (value) {
                   setState(() {
-                    _optionalPostingLocation = _normalizeFilterValue(value);
+                    _optionalRank = _normalizeFilterValue(value);
                   });
                 },
-                emptyLabel: isHindi ? 'सभी पोस्टिंग लोकेशन' : 'All Posting Locations',
+                emptyLabel: isHindi ? 'सभी रैंक' : 'All Ranks',
               ),
               const SizedBox(height: 8),
               _buildTypeablePickerField(
@@ -522,6 +541,7 @@ class _MembersScreenState extends State<MembersScreen> {
                     : 'Posting Category (Optional)',
                 value: _optionalCategory,
                 options: categories.map(_displayValue).toList(),
+                accentColor: const Color(0xFF7C3AED),
                 onChanged: (value) {
                   setState(() {
                     _optionalCategory = _normalizeFilterValue(value);
@@ -535,7 +555,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 child: TextButton.icon(
                   onPressed: () {
                     setState(() {
-                      _optionalPostingLocation = null;
+                      _optionalRank = null;
                       _optionalSubDepartment = null;
                       _optionalCategory = null;
                     });
@@ -551,43 +571,68 @@ class _MembersScreenState extends State<MembersScreen> {
     );
   }
 
-  List<String> _appliedFilterLabels(bool isHindi) {
-    final labels = <String>[];
-    if (_filterMode == _MemberFilterMode.district) {
-      final district = (_selectedDistrict ?? '').trim();
-      if (district.isNotEmpty) {
-        labels.add('${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'जिला' : 'District'}: $district');
-      }
-    } else if (_filterMode == _MemberFilterMode.currentLocation) {
-      labels.add(
-        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
-        '${isHindi ? 'रेडियस' : 'Radius'}: 100 km',
+  List<Widget> _appliedFilterChips(bool isHindi) {
+    final chips = <Widget>[];
+
+    void addChip(String label, Color bg, Color fg) {
+      chips.add(
+        Chip(
+          label: Text(
+            label,
+            style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: bg,
+          side: BorderSide(color: fg.withAlpha(80)),
+          visualDensity: VisualDensity.compact,
+        ),
       );
     }
 
-    final postingLocation = (_optionalPostingLocation ?? '').trim();
-    if (postingLocation.isNotEmpty) {
-      labels.add(
-        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
-        '${isHindi ? 'पोस्टिंग लोकेशन' : 'Posting Location'}: $postingLocation',
+    if (_filterMode == _MemberFilterMode.district) {
+      final district = (_selectedDistrict ?? '').trim();
+      if (district.isNotEmpty) {
+        addChip(
+          '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'जिला' : 'District'}: $district',
+          const Color(0xFFEFF6FF),
+          const Color(0xFF1D4ED8),
+        );
+      }
+    } else if (_filterMode == _MemberFilterMode.currentLocation) {
+      addChip(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'रेडियस' : 'Radius'}: 100 km',
+        const Color(0xFFEAF7EE),
+        const Color(0xFF1F7A3A),
+      );
+    }
+
+    final rank = (_optionalRank ?? '').trim();
+    if (rank.isNotEmpty) {
+      addChip(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'रैंक' : 'Rank'}: $rank',
+        const Color(0xFFE6FFFA),
+        const Color(0xFF0F766E),
       );
     }
 
     final subDepartment = (_optionalSubDepartment ?? '').trim();
     if (subDepartment.isNotEmpty) {
-      labels.add(
-        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
-        '${isHindi ? 'उप विभाग' : 'Sub Department'}: $subDepartment',
+      addChip(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'उप विभाग' : 'Sub Department'}: $subDepartment',
+        const Color(0xFFFFF7ED),
+        const Color(0xFFD97706),
       );
     }
+
     final category = (_optionalCategory ?? '').trim();
     if (category.isNotEmpty) {
-      labels.add(
-        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - '
-        '${isHindi ? 'कैटेगरी' : 'Category'}: $category',
+      addChip(
+        '${isHindi ? 'लागू फ़िल्टर' : 'Applied Filter'} - ${isHindi ? 'कैटेगरी' : 'Category'}: $category',
+        const Color(0xFFF3E8FF),
+        const Color(0xFF7C3AED),
       );
     }
-    return labels;
+
+    return chips;
   }
 
   Widget _buildMemberCard(Member member) {
@@ -1035,6 +1080,7 @@ class _MembersScreenState extends State<MembersScreen> {
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    Color accentColor = const Color(0xFF0F3A4A),
     String? emptyLabel,
   }) {
     final selectedValue = (value ?? '').trim();
@@ -1056,8 +1102,17 @@ class _MembersScreenState extends State<MembersScreen> {
           key: ValueKey<String>('picker_$labelText::${hasValue ? selectedValue : '__empty__'}'),
           decoration: InputDecoration(
             labelText: labelText,
+            labelStyle: TextStyle(color: accentColor),
             hintText: emptyLabel,
             suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: accentColor.withAlpha(100)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: accentColor, width: 1.4),
+            ),
           ),
           isEmpty: !hasValue,
           child: Text(

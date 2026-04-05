@@ -213,9 +213,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: <Widget>[
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[Color(0xFFF5F9FC), Color(0xFFEFF4F8)],
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: <Widget>[
+            _buildProfileHeroCard(user),
+            const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -299,6 +309,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 18),
+          _sectionHeader(
+            title: 'Profile Actions',
+            subtitle: 'Manage your basic details and requests.',
+          ),
           const SizedBox(height: 16),
           Card(
             child: Padding(
@@ -430,6 +445,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          _sectionHeader(
+            title: 'Verified Information',
+            subtitle: 'These details are maintained by admin verification.',
+          ),
           const SizedBox(height: 16),
           Card(
             child: Padding(
@@ -485,6 +505,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           if (user.isAdmin) ...<Widget>[
+            const SizedBox(height: 18),
+            _sectionHeader(
+              title: 'Admin Controls',
+              subtitle: 'Open moderation and donation management pages.',
+            ),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -535,8 +560,148 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeroCard(Member user) {
+    final image = _profileImageProvider();
+    final statusLabel = user.isBlocked ? 'Blocked' : 'Active';
+    final statusColor = user.isBlocked ? const Color(0xFFB3261E) : const Color(0xFF1F7A3A);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFF0F3A4A), Color(0xFF2A6473)],
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x220D2D39),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: const Color(0x33FFFFFF),
+                backgroundImage: image,
+                child: image == null
+                    ? const Icon(Icons.person_outline, color: Colors.white, size: 30)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${user.role} • ${user.postingDistrict}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFFE7F1F5)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _buildHeroPill(
+                icon: Icons.phone_outlined,
+                label: user.mobileNumber,
+                background: const Color(0x26FFFFFF),
+                foreground: Colors.white,
+              ),
+              _buildHeroPill(
+                icon: Icons.location_on_outlined,
+                label: user.postingLocation,
+                background: const Color(0x26FFFFFF),
+                foreground: Colors.white,
+              ),
+              _buildHeroPill(
+                icon: user.isBlocked ? Icons.block_outlined : Icons.verified_outlined,
+                label: statusLabel,
+                background: statusColor.withAlpha(40),
+                foreground: Colors.white,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroPill({
+    required IconData icon,
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader({required String title, required String subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: const TextStyle(color: Color(0xFF5A6B74)),
+        ),
+      ],
     );
   }
 

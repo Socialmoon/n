@@ -343,11 +343,6 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
   }
 
   bool _requiresPostingDetailsUpdate(Member member) {
-    final postingLocation = member.postingLocation.trim();
-    final postingPlaceLocation = member.postingPlaceLocation?.trim() ?? '';
-    if (postingLocation.isEmpty || postingPlaceLocation.isEmpty) {
-      return true;
-    }
     return DateTime.now().difference(member.lastUpdated).inDays >=
         _postingDetailsRefreshAfter.inDays;
   }
