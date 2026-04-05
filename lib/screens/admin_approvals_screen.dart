@@ -415,6 +415,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final member = widget.member;
+    final safeBottom = MediaQuery.of(context).viewPadding.bottom;
     final title = widget.isUpdateApproval
         ? 'Update Approval Review'
         : 'New Member Approval Review';
@@ -429,7 +430,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
       body: Stack(
         children: <Widget>[
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + safeBottom + 12),
             children: <Widget>[
               _header(member),
               if (widget.isUpdateApproval && requestedFields.isNotEmpty) ...<Widget>[
@@ -482,7 +483,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                     _row('Posting Location', member.postingLocation),
                     _row('Posting Category', member.postingCategory),
                     _row('Posting Work As', member.postingWorkAs),
-                    _row('Posting Place Location Link', member.postingPlaceLocation),
+                    _postingPlaceLocationRow(member.postingPlaceLocation),
                     _row('Emergency Contact', member.emergencyContact),
                     _row('Role', member.role),
                     _row('Approved', member.isApproved ? 'Yes' : 'No'),
@@ -643,6 +644,55 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
             child: Text(label, style: const TextStyle(color: Color(0xFF5A6B74))),
           ),
           Expanded(child: Text(text)),
+        ],
+      ),
+    );
+  }
+
+  Widget _postingPlaceLocationRow(String? rawValue) {
+    final raw = (rawValue ?? '').trim();
+    final uri = _postingLocationUri(raw);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const SizedBox(
+            width: 160,
+            child: Text(
+              'Posting Place Location Link',
+              style: TextStyle(color: Color(0xFF5A6B74)),
+            ),
+          ),
+          Expanded(
+            child: raw.isEmpty
+                ? const Text(
+                    'Not uploaded. Mark for later and inform admin.',
+                    style: TextStyle(
+                      color: Color(0xFFB3261E),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(raw),
+                      const SizedBox(height: 6),
+                      if (uri != null)
+                        OutlinedButton.icon(
+                          onPressed: () => _openUri(uri),
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('Open Posting Map'),
+                        )
+                      else
+                        const Text(
+                          'Map link format not recognized. Please verify this value.',
+                          style: TextStyle(color: Color(0xFFB3261E)),
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );

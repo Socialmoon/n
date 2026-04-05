@@ -220,6 +220,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: <Widget>[
               _buildScreenHeader(keyboardOpen),
@@ -1130,47 +1131,45 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildBottomBar() {
     final safeBottom = MediaQuery.of(context).viewPadding.bottom;
-    return AnimatedPadding(
+    final bottomPadding = safeBottom > 0 ? safeBottom + 8 : 16.0;
+    return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: safeBottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFFCF6),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-          border: Border(top: BorderSide(color: _border)),
-        ),
-        child: Row(
-          children: <Widget>[
-            if (_currentStep > 0)
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _ink,
-                    side: const BorderSide(color: _border),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: _submitting ? null : _previousStep,
-                  child: const Text('Back'),
-                ),
-              ),
-            if (_currentStep > 0) const SizedBox(width: 12),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFFCF6),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        border: Border(top: BorderSide(color: _border)),
+      ),
+      child: Row(
+        children: <Widget>[
+          if (_currentStep > 0)
             Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _ink,
-                  foregroundColor: Colors.white,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _ink,
+                  side: const BorderSide(color: _border),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onPressed: _submitting ? null : _handlePrimaryAction,
-                child: Text(_currentStep == _steps.length - 1
-                    ? (_submitting ? 'Registering...' : 'Submit registration')
-                    : 'Continue'),
+                onPressed: _submitting ? null : _previousStep,
+                child: const Text('Back'),
               ),
             ),
-          ],
-        ),
+          if (_currentStep > 0) const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _ink,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: _submitting ? null : _handlePrimaryAction,
+              child: Text(_currentStep == _steps.length - 1
+                  ? (_submitting ? 'Registering...' : 'Submit registration')
+                  : 'Continue'),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -528,6 +528,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _openUpdateInfoPage() async {
     final previousValues = <String, String>{
+      'Full Name': _nameController.text.trim(),
+      'Official Name': _officialNameController.text.trim(),
+      'Sub Department': _departmentController.text.trim(),
+      'Rank': _postRankController.text.trim(),
+      'Batch Year': _batchYearController.text.trim(),
+      'Gender': _genderController.text.trim(),
+      'Marital Status': _maritalStatusController.text.trim(),
+      'Posting Category': _postingCategoryController.text.trim(),
+      'Posting Work As': _postingWorkAsController.text.trim(),
       'Posting Location': _postingLocationController.text.trim(),
       'Home State': _homeStateController.text.trim(),
       'Home District': _homeDistrictController.text.trim(),
@@ -538,6 +547,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Posting Place Location': _postingPlaceLocationController.text.trim(),
       'Home Village / Mohalla': _homeVillageMohallaController.text.trim(),
       'Home Gali No': _homeGaliNoController.text.trim(),
+      'Home Post Office': _homePostOfficeController.text.trim(),
       'Home Police Station': _homePoliceStationController.text.trim(),
       'Home Tehsil': _homeTehsilController.text.trim(),
     };
@@ -545,6 +555,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => _ProfileUpdateInfoScreen(
+          nameController: _nameController,
+          officialNameController: _officialNameController,
+          departmentController: _departmentController,
+          postRankController: _postRankController,
+          batchYearController: _batchYearController,
+          genderController: _genderController,
+          maritalStatusController: _maritalStatusController,
+          postingCategoryController: _postingCategoryController,
+          postingWorkAsController: _postingWorkAsController,
           postingLocationController: _postingLocationController,
           homeStateController: _homeStateController,
           homeDistrictController: _homeDistrictController,
@@ -555,6 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           postingPlaceLocationController: _postingPlaceLocationController,
           homeVillageMohallaController: _homeVillageMohallaController,
           homeGaliNoController: _homeGaliNoController,
+          homePostOfficeController: _homePostOfficeController,
           homePoliceStationController: _homePoliceStationController,
           homeTehsilController: _homeTehsilController,
           previousValues: previousValues,
@@ -688,11 +708,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final homePoliceStation = _homePoliceStationController.text.trim();
     final whatsappNumber = _whatsappController.text.trim();
     final callingContactNumber = _callingContactController.text.trim();
+    final department = _departmentController.text.trim();
+    final postRank = _postRankController.text.trim();
+    final officialName = _officialNameController.text.trim();
+    final batchYear = _batchYearController.text.trim();
+    final gender = _genderController.text.trim();
+    final maritalStatus = _maritalStatusController.text.trim();
+    final postingCategory = _postingCategoryController.text.trim();
+    final postingWorkAs = _postingWorkAsController.text.trim();
     final currentProfile = _currentPublicProfileSnapshot(widget.currentUser);
     final currentPostingLocation =
         (currentProfile['postingLocation'] ?? '').toString().trim();
     final postingLocationChanged =
         postingLocation.toLowerCase() != currentPostingLocation.toLowerCase();
+    final yearRegex = RegExp(r'^[0-9]{4}$');
+    final parsedBatchYear = int.tryParse(batchYear);
+    final currentYear = DateTime.now().year;
 
     if (name.isEmpty) {
       _showMessage('Name cannot be empty.');
@@ -731,6 +762,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!_isValidContactNumber(whatsappNumber) ||
         !_isValidContactNumber(callingContactNumber)) {
       _showMessage('WhatsApp and Calling contact must be 10-digit numbers.');
+      return false;
+    }
+
+    if (department.isEmpty ||
+        postRank.isEmpty ||
+        officialName.isEmpty ||
+        batchYear.isEmpty ||
+        gender.isEmpty ||
+        maritalStatus.isEmpty ||
+        postingCategory.isEmpty ||
+        postingWorkAs.isEmpty) {
+      _showMessage('Please complete all service details before saving.');
+      return false;
+    }
+
+    if (!_namePattern.hasMatch(officialName)) {
+      _showMessage('Enter a valid official name.');
+      return false;
+    }
+
+    if (!yearRegex.hasMatch(batchYear) ||
+        parsedBatchYear == null ||
+        parsedBatchYear < 1970 ||
+        parsedBatchYear > currentYear) {
+      _showMessage('Enter a valid batch year.');
       return false;
     }
 
@@ -801,6 +857,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'homeDistrict': _homeDistrictController.text.trim(),
         'postingState': _postingStateController.text.trim(),
         'postingDistrict': _postingDistrictController.text.trim(),
+        'department': _departmentController.text.trim(),
+        'postRank': _postRankController.text.trim(),
+        'officialName': _officialNameController.text.trim(),
+        'batchYear': _batchYearController.text.trim(),
+        'gender': _genderController.text.trim(),
+        'maritalStatus': _maritalStatusController.text.trim(),
+        'postingCategory': _postingCategoryController.text.trim(),
+        'postingWorkAs': _postingWorkAsController.text.trim(),
         'whatsappNumber': _whatsappController.text.trim(),
         'callingContactNumber': _callingContactController.text.trim(),
         'postingPlaceLocation': _postingPlaceLocationController.text.trim(),
@@ -1220,6 +1284,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _ProfileUpdateInfoScreen extends StatefulWidget {
   const _ProfileUpdateInfoScreen({
+    required this.nameController,
+    required this.officialNameController,
+    required this.departmentController,
+    required this.postRankController,
+    required this.batchYearController,
+    required this.genderController,
+    required this.maritalStatusController,
+    required this.postingCategoryController,
+    required this.postingWorkAsController,
     required this.postingLocationController,
     required this.homeStateController,
     required this.homeDistrictController,
@@ -1230,6 +1303,7 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.postingPlaceLocationController,
     required this.homeVillageMohallaController,
     required this.homeGaliNoController,
+    required this.homePostOfficeController,
     required this.homePoliceStationController,
     required this.homeTehsilController,
     required this.previousValues,
@@ -1237,6 +1311,15 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
     required this.onSave,
   });
 
+  final TextEditingController nameController;
+  final TextEditingController officialNameController;
+  final TextEditingController departmentController;
+  final TextEditingController postRankController;
+  final TextEditingController batchYearController;
+  final TextEditingController genderController;
+  final TextEditingController maritalStatusController;
+  final TextEditingController postingCategoryController;
+  final TextEditingController postingWorkAsController;
   final TextEditingController postingLocationController;
   final TextEditingController homeStateController;
   final TextEditingController homeDistrictController;
@@ -1247,6 +1330,7 @@ class _ProfileUpdateInfoScreen extends StatefulWidget {
   final TextEditingController postingPlaceLocationController;
   final TextEditingController homeVillageMohallaController;
   final TextEditingController homeGaliNoController;
+  final TextEditingController homePostOfficeController;
   final TextEditingController homePoliceStationController;
   final TextEditingController homeTehsilController;
   final Map<String, String> previousValues;
@@ -1265,6 +1349,54 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   bool _fetchingPostingLocation = false;
   final Map<String, GlobalKey> _fieldKeys = <String, GlobalKey>{};
   final Set<String> _invalidFieldIds = <String>{};
+  static const List<String> _subDepartments = <String>[
+    'Civil Police',
+    'P.A.C',
+    'Fire Service',
+    'Jail Warden',
+    'Armed Police',
+    'UPSSF',
+    'GRP',
+    'Dial 112',
+    'LIU',
+    'Radio Department',
+    'Others',
+  ];
+  static const List<String> _rankOptions = <String>[
+    'Constable',
+    'HC',
+    'Computer Operator',
+    'ASI',
+    'SI',
+    'Inspector',
+    'Other',
+  ];
+  static const List<String> _genderOptions = <String>['Male', 'Female', 'Other'];
+  static const List<String> _maritalStatusOptions = <String>[
+    'Single',
+    'Married',
+    'Divorced',
+    'Widowed',
+  ];
+  static const List<String> _postingCategories = <String>[
+    'Reserve Police Line',
+    'Circle Police Office',
+    'Police Station',
+    'Fire Station',
+    'District Police Office/Branch',
+    'Other Police Office/Branch',
+    'Battalion',
+    'Range Police Office',
+    'Zone Police Office',
+    'Police Head Quarter Office',
+    'District Jail',
+  ];
+  static const List<String> _postingWorkOptions = <String>[
+    'Field Work',
+    'Office Work',
+    'Court Work',
+    'Others',
+  ];
 
   @override
   void initState() {
@@ -1537,6 +1669,15 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
       }
     }
 
+    require('Full Name', widget.nameController.text);
+    require('Official Name', widget.officialNameController.text);
+    require('Sub Department', widget.departmentController.text);
+    require('Rank', widget.postRankController.text);
+    require('Batch Year', widget.batchYearController.text);
+    require('Gender', widget.genderController.text);
+    require('Marital Status', widget.maritalStatusController.text);
+    require('Posting Category', widget.postingCategoryController.text);
+    require('Posting Work As', widget.postingWorkAsController.text);
     require('Home State', widget.homeStateController.text);
     require('Home District', widget.homeDistrictController.text);
     require('Posting State', widget.postingStateController.text);
@@ -1570,6 +1711,37 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
       return false;
     }
 
+    final namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
+    if (!namePattern.hasMatch(widget.nameController.text.trim())) {
+      await _markInvalidFields(
+        <String>['Full Name'],
+        'Enter a valid full name (letters and spaces only).',
+      );
+      return false;
+    }
+
+    if (!namePattern.hasMatch(widget.officialNameController.text.trim())) {
+      await _markInvalidFields(
+        <String>['Official Name'],
+        'Enter a valid official name.',
+      );
+      return false;
+    }
+
+    final batchYear = widget.batchYearController.text.trim();
+    final parsedBatchYear = int.tryParse(batchYear);
+    final currentYear = DateTime.now().year;
+    if (!RegExp(r'^[0-9]{4}$').hasMatch(batchYear) ||
+        parsedBatchYear == null ||
+        parsedBatchYear < 1970 ||
+        parsedBatchYear > currentYear) {
+      await _markInvalidFields(
+        <String>['Batch Year'],
+        'Enter a valid batch year.',
+      );
+      return false;
+    }
+
     if (widget.homeDistrictController.text.trim().length < 2 ||
         widget.postingDistrictController.text.trim().length < 2) {
       await _markInvalidFields(
@@ -1590,7 +1762,46 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
       return false;
     }
 
+    if (!_isAcceptableStationValue(widget.postingLocationController.text.trim())) {
+      await _markInvalidFields(
+        <String>['Posting Location'],
+        'Enter a valid posting location name.',
+      );
+      return false;
+    }
+
     return true;
+  }
+
+  List<String> _batchYears() {
+    final currentYear = DateTime.now().year;
+    return List<String>.generate(currentYear - 1969, (index) {
+      return (currentYear - index).toString();
+    });
+  }
+
+  Widget _sectionCard(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDCCFB3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
   }
 
   bool _isValidContactNumber(String value) {
@@ -1696,122 +1907,222 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            _buildTextField(widget.homeStateController, 'Home State', fieldId: 'Home State'),
-            const SizedBox(height: 8),
-            _buildSelectionField(
-              widget.homeDistrictController,
-              'Home District',
-              fieldId: 'Home District',
-              hint: 'Tap to choose district',
-              onTap: () => _pickFromList(
-                title: 'Select Home District',
-                options: _districtOptions,
-                controller: widget.homeDistrictController,
-                allowCustomValue: true,
-                onSelected: (_) {
-                  widget.homePoliceStationController.clear();
-                  unawaited(_loadHomeStationOptions());
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(widget.postingStateController, 'Posting State', fieldId: 'Posting State'),
-            const SizedBox(height: 8),
-            _buildSelectionField(
-              widget.postingDistrictController,
-              'Posting District',
-              fieldId: 'Posting District',
-              hint: 'Tap to choose district',
-              onTap: () => _pickFromList(
-                title: 'Select Posting District',
-                options: _districtOptions,
-                controller: widget.postingDistrictController,
-                allowCustomValue: true,
-                onSelected: (_) => unawaited(_loadPostingStationOptions()),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildSelectionField(
-              widget.postingLocationController,
-              'Posting Location',
-              fieldId: 'Posting Location',
-              hint: 'Tap to choose station or use typed value',
-              onTap: () => _pickFromList(
-                title: 'Select Posting Location',
-                options: _postingStationOptions,
-                controller: widget.postingLocationController,
-                allowCustomValue: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.whatsappController,
-              'Whatsapp Number',
-              fieldId: 'Whatsapp Number',
-              keyboardType: TextInputType.phone,
-              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-              maxLength: 10,
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.callingContactController,
-              'Calling Contact Number',
-              fieldId: 'Calling Contact Number',
-              keyboardType: TextInputType.phone,
-              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-              maxLength: 10,
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.postingPlaceLocationController,
-              'Posting Place Location (GPS)',
-              fieldId: 'Posting Place Location (GPS)',
-              readOnly: true,
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                onPressed: _fetchingPostingLocation ? null : _fetchCurrentPostingLocation,
-                icon: const Icon(Icons.my_location_outlined),
-                label: Text(
-                  _fetchingPostingLocation
-                      ? 'Fetching current location...'
-                      : 'Fetch current location',
+            _sectionCard('Identity and Service Details', <Widget>[
+              _buildTextField(widget.nameController, 'Full Name', fieldId: 'Full Name'),
+              const SizedBox(height: 8),
+              _buildTextField(widget.officialNameController, 'Official Name', fieldId: 'Official Name'),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.departmentController,
+                'Sub Department',
+                fieldId: 'Sub Department',
+                hint: 'Tap to choose department',
+                onTap: () => _pickFromList(
+                  title: 'Select Sub Department',
+                  options: _subDepartments,
+                  controller: widget.departmentController,
+                  allowCustomValue: true,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.homeVillageMohallaController,
-              'Home Village / Mohalla',
-              fieldId: 'Home Village / Mohalla',
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.homeGaliNoController,
-              'Home Gali No',
-              fieldId: 'Home Gali No',
-            ),
-            const SizedBox(height: 8),
-            _buildSelectionField(
-              widget.homePoliceStationController,
-              'Home Police Station',
-              fieldId: 'Home Police Station',
-              hint: 'Tap to choose station',
-              onTap: () => _pickFromList(
-                title: 'Select Home Police Station',
-                options: _homeStationOptions,
-                controller: widget.homePoliceStationController,
-                allowCustomValue: true,
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.postRankController,
+                'Rank',
+                fieldId: 'Rank',
+                hint: 'Tap to choose rank',
+                onTap: () => _pickFromList(
+                  title: 'Select Rank',
+                  options: _rankOptions,
+                  controller: widget.postRankController,
+                  allowCustomValue: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
-              widget.homeTehsilController,
-              'Home Tehsil',
-              fieldId: 'Home Tehsil',
-            ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.batchYearController,
+                'Batch Year',
+                fieldId: 'Batch Year',
+                hint: 'Tap to choose batch year',
+                onTap: () => _pickFromList(
+                  title: 'Select Batch Year',
+                  options: _batchYears(),
+                  controller: widget.batchYearController,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.genderController,
+                'Gender',
+                fieldId: 'Gender',
+                hint: 'Tap to choose gender',
+                onTap: () => _pickFromList(
+                  title: 'Select Gender',
+                  options: _genderOptions,
+                  controller: widget.genderController,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.maritalStatusController,
+                'Marital Status',
+                fieldId: 'Marital Status',
+                hint: 'Tap to choose marital status',
+                onTap: () => _pickFromList(
+                  title: 'Select Marital Status',
+                  options: _maritalStatusOptions,
+                  controller: widget.maritalStatusController,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.postingCategoryController,
+                'Posting Category',
+                fieldId: 'Posting Category',
+                hint: 'Tap to choose posting category',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting Category',
+                  options: _postingCategories,
+                  controller: widget.postingCategoryController,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.postingWorkAsController,
+                'Posting Work As',
+                fieldId: 'Posting Work As',
+                hint: 'Tap to choose posting work type',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting Work As',
+                  options: _postingWorkOptions,
+                  controller: widget.postingWorkAsController,
+                ),
+              ),
+            ]),
+            _sectionCard('Posting and Contact Details', <Widget>[
+              _buildTextField(widget.postingStateController, 'Posting State', fieldId: 'Posting State'),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.postingDistrictController,
+                'Posting District',
+                fieldId: 'Posting District',
+                hint: 'Tap to choose district',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting District',
+                  options: _districtOptions,
+                  controller: widget.postingDistrictController,
+                  allowCustomValue: true,
+                  onSelected: (_) => unawaited(_loadPostingStationOptions()),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.postingLocationController,
+                'Posting Location',
+                fieldId: 'Posting Location',
+                hint: 'Tap to choose station or use typed value',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting Location',
+                  options: _postingStationOptions,
+                  controller: widget.postingLocationController,
+                  allowCustomValue: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.whatsappController,
+                'Whatsapp Number',
+                fieldId: 'Whatsapp Number',
+                keyboardType: TextInputType.phone,
+                inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                maxLength: 10,
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.callingContactController,
+                'Calling Contact Number',
+                fieldId: 'Calling Contact Number',
+                keyboardType: TextInputType.phone,
+                inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                maxLength: 10,
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.postingPlaceLocationController,
+                'Posting Place Location (GPS)',
+                fieldId: 'Posting Place Location (GPS)',
+                readOnly: true,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: _fetchingPostingLocation ? null : _fetchCurrentPostingLocation,
+                  icon: const Icon(Icons.my_location_outlined),
+                  label: Text(
+                    _fetchingPostingLocation
+                        ? 'Fetching current location...'
+                        : 'Fetch current location',
+                  ),
+                ),
+              ),
+            ]),
+            _sectionCard('Home Address Details', <Widget>[
+              _buildTextField(widget.homeStateController, 'Home State', fieldId: 'Home State'),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.homeDistrictController,
+                'Home District',
+                fieldId: 'Home District',
+                hint: 'Tap to choose district',
+                onTap: () => _pickFromList(
+                  title: 'Select Home District',
+                  options: _districtOptions,
+                  controller: widget.homeDistrictController,
+                  allowCustomValue: true,
+                  onSelected: (_) {
+                    widget.homePoliceStationController.clear();
+                    unawaited(_loadHomeStationOptions());
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.homeVillageMohallaController,
+                'Home Village / Mohalla',
+                fieldId: 'Home Village / Mohalla',
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.homeGaliNoController,
+                'Home Gali No',
+                fieldId: 'Home Gali No',
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.homePostOfficeController,
+                'Home Post Office',
+                fieldId: 'Home Post Office',
+              ),
+              const SizedBox(height: 8),
+              _buildSelectionField(
+                widget.homePoliceStationController,
+                'Home Police Station',
+                fieldId: 'Home Police Station',
+                hint: 'Tap to choose station',
+                onTap: () => _pickFromList(
+                  title: 'Select Home Police Station',
+                  options: _homeStationOptions,
+                  controller: widget.homePoliceStationController,
+                  allowCustomValue: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                widget.homeTehsilController,
+                'Home Tehsil',
+                fieldId: 'Home Tehsil',
+              ),
+            ]),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: widget.saving ? null : _submitUpdate,

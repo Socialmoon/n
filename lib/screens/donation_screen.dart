@@ -75,9 +75,21 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   String get _upiUri {
-    final amount = _amountController.text.trim();
-    final amountPart = amount.isEmpty ? '' : '&am=$amount';
-    return 'upi://pay?pa=$_activeUpiId&pn=${Uri.encodeComponent(_activeUpiName)}$amountPart&cu=INR';
+    final amountText = _amountController.text.trim();
+    final amount = double.tryParse(amountText);
+    final query = <String, String>{
+      'pa': _activeUpiId.trim(),
+      'pn': _activeUpiName.trim(),
+      'cu': 'INR',
+    };
+    if (amount != null && amount > 0) {
+      query['am'] = amount.toStringAsFixed(2);
+    }
+    return Uri(
+      scheme: 'upi',
+      host: 'pay',
+      queryParameters: query,
+    ).toString();
   }
 
   @override
@@ -728,8 +740,30 @@ class _DonationScreenState extends State<DonationScreen> {
 
   Future<void> _openUpiApp() async {
     try {
+      if (!_upiPattern.hasMatch(_activeUpiId.trim())) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('UPI ID is invalid. Please check payment settings.')),
+          );
+        }
+        return;
+      }
+
       final uri = Uri.parse(_upiUri);
-      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final canOpen = await canLaunchUrl(uri);
+      if (!canOpen) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No UPI app found on this device.')),
+          );
+        }
+        return;
+      }
+
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalNonBrowserApplication,
+      );
       if (!opened && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Unable to open UPI app. Please retry.')),
