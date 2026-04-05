@@ -482,7 +482,10 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                     _row('Posting Location', member.postingLocation),
                     _row('Posting Category', member.postingCategory),
                     _row('Posting Work As', member.postingWorkAs),
-                    _postingPlaceLocationRow(member.postingPlaceLocation),
+                    _postingPlaceLocationRow(
+                      postingPlaceLocationRaw: member.postingPlaceLocation,
+                      postingLocationRaw: member.postingLocation,
+                    ),
                     _row('Emergency Contact', member.emergencyContact),
                     _row('Role', member.role),
                     _row('Approved', member.isApproved ? 'Yes' : 'No'),
@@ -660,9 +663,16 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
     );
   }
 
-  Widget _postingPlaceLocationRow(String? rawValue) {
-    final raw = (rawValue ?? '').trim();
-    final uri = _postingLocationUri(raw);
+  Widget _postingPlaceLocationRow({
+    required String? postingPlaceLocationRaw,
+    required String? postingLocationRaw,
+  }) {
+    final raw = (postingPlaceLocationRaw ?? '').trim();
+    final postingLocation = (postingLocationRaw ?? '').trim();
+    final gpsUri = _postingLocationUri(raw);
+    final locationUri = postingLocation.isEmpty
+        ? null
+        : _postingLocationUri(postingLocation);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -677,32 +687,49 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
             ),
           ),
           Expanded(
-            child: raw.isEmpty
-                ? const Text(
-                    'Not uploaded. Mark for later and inform admin.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (raw.isEmpty)
+                  const Text(
+                    'GPS not uploaded. Use posting location map fallback below.',
                     style: TextStyle(
                       color: Color(0xFFB3261E),
                       fontWeight: FontWeight.w600,
                     ),
                   )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(raw),
-                      const SizedBox(height: 6),
-                      if (uri != null)
-                        OutlinedButton.icon(
-                          onPressed: () => _openUri(uri),
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Open Posting Map'),
-                        )
-                      else
-                        const Text(
-                          'Map link format not recognized. Please verify this value.',
-                          style: TextStyle(color: Color(0xFFB3261E)),
-                        ),
-                    ],
+                else ...<Widget>[
+                  Text(raw),
+                  const SizedBox(height: 6),
+                ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    OutlinedButton.icon(
+                      onPressed: gpsUri == null ? null : () => _openUri(gpsUri),
+                      icon: const Icon(Icons.pin_drop_outlined),
+                      label: const Text('Open Posting GPS Map'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: locationUri == null
+                          ? null
+                          : () => _openUri(locationUri),
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('Open Posting Location Map'),
+                    ),
+                  ],
+                ),
+                if (gpsUri == null && raw.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'GPS format not recognized. Verify posting GPS value.',
+                      style: TextStyle(color: Color(0xFFB3261E)),
+                    ),
                   ),
+              ],
+            ),
           ),
         ],
       ),

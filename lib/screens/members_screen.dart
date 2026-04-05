@@ -333,6 +333,7 @@ class _MembersScreenState extends State<MembersScreen> {
         .toList(),
     )..sort();
     final appliedFilters = _appliedFilterLabels(isHindi);
+    final isRadiusSelected = _filterMode == _MemberFilterMode.currentLocation;
 
     return Card(
       child: Padding(
@@ -366,9 +367,23 @@ class _MembersScreenState extends State<MembersScreen> {
                   },
                 ),
                 ChoiceChip(
-                  label: Text(isHindi ? '100 किमी रेडियस' : 'By 100 km Radius'),
-                  selected: _filterMode == _MemberFilterMode.currentLocation,
+                  label: Text(
+                    isHindi ? '100 किमी रेडियस' : 'By 100 km Radius',
+                    style: TextStyle(
+                      color: isRadiusSelected ? Colors.white : const Color(0xFF1F7A3A),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  selected: isRadiusSelected,
+                  backgroundColor: const Color(0xFFEAF7EE),
+                  selectedColor: const Color(0xFF1F9D45),
+                  side: const BorderSide(color: Color(0xFF6DC28D)),
+                  checkmarkColor: Colors.white,
                   onSelected: (_) {
+                    if (_distanceOriginCoordinates() == null) {
+                      _showEnableCurrentLocationPopup();
+                      return;
+                    }
                     setState(() {
                       _filterMode = _MemberFilterMode.currentLocation;
                     });
@@ -908,6 +923,24 @@ class _MembersScreenState extends State<MembersScreen> {
           ),
           members: inRangePoints,
         ),
+      ),
+    );
+  }
+
+  void _showEnableCurrentLocationPopup() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Current Location'),
+        content: const Text(
+          'To use 100 km radius filter, please enable and share your current location first.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }

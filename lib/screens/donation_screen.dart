@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -749,24 +750,47 @@ class _DonationScreenState extends State<DonationScreen> {
         return;
       }
 
-      final uri = Uri.parse(_upiUri);
-      final canOpen = await canLaunchUrl(uri);
-      if (!canOpen) {
+      if (kIsWeb) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No UPI app found on this device.')),
+            const SnackBar(
+              content: Text('UPI apps open only on mobile device. Please use Android/iPhone app.'),
+            ),
           );
         }
         return;
       }
 
-      final opened = await launchUrl(
+      final uri = Uri.parse(_upiUri);
+
+      // canLaunchUrl can be false on some devices even when launch works.
+      var opened = await launchUrl(
         uri,
         mode: LaunchMode.externalNonBrowserApplication,
       );
+
+      if (!opened) {
+        opened = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+
+      if (!opened && defaultTargetPlatform == TargetPlatform.android) {
+        final intentUri = Uri.parse(
+          'intent://pay?${uri.query}#Intent;scheme=upi;end',
+        );
+        opened = await launchUrl(
+          intentUri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+
       if (!opened && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to open UPI app. Please retry.')),
+          const SnackBar(
+            content: Text('No UPI app found on this device. Install any UPI app and retry.'),
+          ),
         );
       }
     } catch (_) {

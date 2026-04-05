@@ -556,12 +556,13 @@ class SupabaseService {
     }
 
     try {
+      final bearer = _restBearerToken();
       final uri = Uri.parse('${SupabaseConfig.url}/rest/v1/donations');
       final response = await http.post(
         uri,
         headers: <String, String>{
           'apikey': SupabaseConfig.anonKey,
-          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Authorization': 'Bearer $bearer',
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal',
         },
@@ -667,12 +668,13 @@ class SupabaseService {
     }
 
     try {
+      final bearer = _restBearerToken();
       final uri = Uri.parse('${SupabaseConfig.url}/rest/v1/app_settings');
       final response = await http.post(
         uri,
         headers: <String, String>{
           'apikey': SupabaseConfig.anonKey,
-          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Authorization': 'Bearer $bearer',
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates,return=minimal',
         },
@@ -732,6 +734,7 @@ class SupabaseService {
     }
 
     try {
+      final bearer = _restBearerToken();
       final encodedPath = path
           .split('/')
           .map(Uri.encodeComponent)
@@ -743,7 +746,7 @@ class SupabaseService {
         uri,
         headers: <String, String>{
           'apikey': SupabaseConfig.anonKey,
-          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Authorization': 'Bearer $bearer',
           'Content-Type': contentType,
           'x-upsert': 'true',
         },
@@ -768,6 +771,14 @@ class SupabaseService {
       return normalized;
     }
     return '${normalized.substring(0, 260)}...';
+  }
+
+  String _restBearerToken() {
+    final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (accessToken != null && accessToken.trim().isNotEmpty) {
+      return accessToken;
+    }
+    return SupabaseConfig.anonKey;
   }
 
   String _detectImageContentType(Uint8List bytes) {
