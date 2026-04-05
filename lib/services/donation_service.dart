@@ -160,7 +160,9 @@ class DonationService {
     required String adminMobile,
     String? customQrImageUrl,
   }) async {
+    _lastOperationError = null;
     if (!actor.isAdmin) {
+      _lastOperationError = 'Only admins can update UPI/QR settings.';
       return false;
     }
     final previousUpiId = _upiId;
@@ -195,6 +197,7 @@ class DonationService {
         _upiName = previousUpiName;
         _adminMobile = previousAdminMobile;
         _customQrImageUrl = previousCustomQrImageUrl;
+        _lastOperationError = _cloudService.lastWriteError;
         return false;
       }
 
@@ -204,6 +207,7 @@ class DonationService {
       _upiName = previousUpiName;
       _adminMobile = previousAdminMobile;
       _customQrImageUrl = previousCustomQrImageUrl;
+      _lastOperationError = _cloudService.lastWriteError;
       return false;
     }
   }
@@ -311,6 +315,7 @@ class DonationService {
   }
 
   Future<String?> uploadCustomQrImage(XFile qrImage) async {
+    _lastOperationError = null;
     final bytes = await qrImage.readAsBytes();
     final now = DateTime.now().microsecondsSinceEpoch;
     final uploaded = await _cloudService.uploadImageBytes(
@@ -329,6 +334,7 @@ class DonationService {
     );
     if (!saved) {
       _customQrImageUrl = previousCustomQrImageUrl;
+      _lastOperationError = _cloudService.lastWriteError;
       return null;
     }
     return uploaded;

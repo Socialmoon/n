@@ -9,6 +9,7 @@ import 'core/brand.dart';
 import 'models/member.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
+import 'screens/posting_details_update_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/app_language_service.dart';
@@ -36,6 +37,7 @@ class ApneSaathiApp extends StatefulWidget {
 class _ApneSaathiAppState extends State<ApneSaathiApp> {
   static const Duration _startupTimeout = Duration(seconds: 8);
   static const Duration _autoLogoutAfter = Duration(minutes: 5);
+  static const Duration _postingDetailsRefreshAfter = Duration(days: 180);
 
   final SupabaseService _supabaseService = SupabaseService();
   late final MemberRepository _repository =
@@ -247,6 +249,18 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                         _startInactivityTimer();
                       },
                     )
+                  : _requiresPostingDetailsUpdate(_currentUser!)
+                      ? PostingDetailsUpdateScreen(
+                          currentUser: _currentUser!,
+                          repository: _repository,
+                          forceUpdate: true,
+                          onUpdated: (member) {
+                            setState(() {
+                              _currentUser = member;
+                            });
+                            _startInactivityTimer();
+                          },
+                        )
                   : MainShellScreen(
                       currentUser: _currentUser!,
                       repository: _repository,
@@ -326,5 +340,15 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
         content: Text('You were logged out due to inactivity.'),
       ),
     );
+  }
+
+  bool _requiresPostingDetailsUpdate(Member member) {
+    final postingLocation = member.postingLocation.trim();
+    final postingPlaceLocation = member.postingPlaceLocation?.trim() ?? '';
+    if (postingLocation.isEmpty || postingPlaceLocation.isEmpty) {
+      return true;
+    }
+    return DateTime.now().difference(member.lastUpdated).inDays >=
+        _postingDetailsRefreshAfter.inDays;
   }
 }

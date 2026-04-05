@@ -16,6 +16,7 @@ import '../services/donation_service.dart';
 import '../services/email_otp_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
+import 'posting_details_update_screen.dart';
 import 'admin_approvals_screen.dart';
 import 'admin_donation_leaderboard_screen.dart';
 import 'admin_payment_reviews_screen.dart';
@@ -404,6 +405,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.pin_drop_outlined),
+                    title: const Text('Update posting details'),
+                    subtitle: const Text(
+                      'Open separate page to refresh posting location and posting GPS.',
+                    ),
+                    trailing: FilledButton.tonal(
+                      onPressed: _openPostingDetailsUpdatePage,
+                      child: const Text('Open'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerRight,
                     child: FilledButton.icon(
@@ -583,6 +597,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openPostingDetailsUpdatePage() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => PostingDetailsUpdateScreen(
+          currentUser: widget.currentUser,
+          repository: widget.repository,
+          onUpdated: (updated) {
+            widget.onProfileUpdated?.call(updated);
+          },
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Widget _buildSuggestionChips({

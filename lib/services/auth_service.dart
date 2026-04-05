@@ -249,9 +249,6 @@ class AuthService {
       return const AuthResult(
           error: 'Your registration is pending admin approval.');
     }
-    if (effectiveMember.needsProfileRefresh) {
-      return const AuthResult(error: 'Profile update required before login.');
-    }
     if (effectiveMember.needsPasswordRefresh) {
       return const AuthResult(error: 'Password renewal required before login.');
     }

@@ -648,18 +648,45 @@ class SupabaseService {
     required String value,
   }) async {
     _lastWriteError = null;
-    if (!await _ensureWriteSession()) {
-      _lastWriteError = 'No authenticated Supabase session for write.';
+    if (!await _ensureInitialized()) {
+      _lastWriteError = 'Supabase not initialized.';
       return false;
     }
+
+    final hasSession = await _ensureWriteSession();
+    if (hasSession) {
+      try {
+        await Supabase.instance.client.from('app_settings').upsert(
+          <String, dynamic>{'key': key, 'value': value},
+          onConflict: 'key',
+        );
+        return true;
+      } catch (error) {
+        debugPrint('Supabase SDK upsertAppSetting failed: $error');
+      }
+    }
+
     try {
-      await Supabase.instance.client
-          .from('app_settings')
-          .upsert(<String, dynamic>{'key': key, 'value': value}, onConflict: 'key');
-      return true;
+      final uri = Uri.parse('${SupabaseConfig.url}/rest/v1/app_settings');
+      final response = await http.post(
+        uri,
+        headers: <String, String>{
+          'apikey': SupabaseConfig.anonKey,
+          'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal',
+        },
+        body: jsonEncode(<String, dynamic>{'key': key, 'value': value}),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return true;
+      }
+      _lastWriteError = _extractApiError(response.body) ??
+          'App setting update failed (HTTP ${response.statusCode}).';
+      return false;
     } catch (error) {
-      _lastWriteError = error.toString();
-      debugPrint('Supabase upsertAppSetting failed: $error');
+      _lastWriteError = _compactError(error.toString());
+      debugPrint('Supabase REST upsertAppSetting failed: $error');
       return false;
     }
   }

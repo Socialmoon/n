@@ -415,7 +415,6 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final member = widget.member;
-    final safeBottom = MediaQuery.of(context).viewPadding.bottom;
     final title = widget.isUpdateApproval
         ? 'Update Approval Review'
         : 'New Member Approval Review';
@@ -430,7 +429,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
       body: Stack(
         children: <Widget>[
           ListView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + safeBottom + 12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: <Widget>[
               _header(member),
               if (widget.isUpdateApproval && requestedFields.isNotEmpty) ...<Widget>[
@@ -506,29 +505,6 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-              if (widget.isUpdateApproval)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    FilledButton.tonalIcon(
-                      onPressed: _working ? null : () => _resolveUpdate(true),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Approve Update'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _working ? null : () => _resolveUpdate(false),
-                      icon: const Icon(Icons.cancel_outlined),
-                      label: const Text('Reject Update'),
-                    ),
-                  ],
-                )
-              else
-                FilledButton.icon(
-                  onPressed: _working ? null : _approveMember,
-                  icon: const Icon(Icons.verified_outlined),
-                  label: const Text('Approve Member'),
-                ),
             ],
           ),
           if (_working)
@@ -539,6 +515,41 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
               child: LinearProgressIndicator(),
             ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: widget.isUpdateApproval
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _working ? null : () => _resolveUpdate(true),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Approve Update'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _working ? null : () => _resolveUpdate(false),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: const Text('Reject Update'),
+                    ),
+                  ),
+                ],
+              )
+            : SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _working ? null : _approveMember,
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('Approve Member'),
+                ),
+              ),
       ),
     );
   }
