@@ -14,6 +14,7 @@ import '../services/auth_service.dart';
 import '../services/email_otp_service.dart';
 import '../services/location_suggestion_service.dart';
 import '../services/member_repository.dart';
+import 'terms_privacy_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({
@@ -36,12 +37,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   static const Color _border = Color(0xFFE1D8C8);
 
   static const List<String> _steps = <String>[
-    'Identity',
-    'Verify Email',
-    'Home Details',
+    'Basic Detail',
+    'Verify Self Email',
+    'Verify Referral Email',
     'Posting Details',
-    'Service Details',
-    'Documents',
+    'Home Details',
+    'Photos',
     'Review',
   ];
 
@@ -52,38 +53,57 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _emailOtpController = TextEditingController();
   final _mpinController = TextEditingController();
   final _referenceController = TextEditingController();
+  final _referenceEmailController = TextEditingController();
+  final _referenceEmailOtpController = TextEditingController();
   final _departmentController = TextEditingController();
+  final _departmentOtherController = TextEditingController();
   final _postRankController = TextEditingController();
   final _customRankController = TextEditingController();
   final _genderController = TextEditingController();
+  final _genderOtherController = TextEditingController();
   final _maritalStatusController = TextEditingController();
+  final _maritalStatusOtherController = TextEditingController();
   final _postingCategoryController = TextEditingController();
+  final _postingCategoryOtherController = TextEditingController();
   final _postingWorkAsController = TextEditingController();
+  final _postingWorkAsOtherController = TextEditingController();
   final _homeStateController = TextEditingController(text: 'Uttar Pradesh');
+  final _homeStateOtherController = TextEditingController();
   final _postingStateController = TextEditingController(text: 'Uttar Pradesh');
+  final _postingStateOtherController = TextEditingController();
   final _officialNameController = TextEditingController();
   final _batchYearController = TextEditingController();
+  final _batchYearOtherController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _callingNumberController = TextEditingController();
   final _postingPlaceLocationController = TextEditingController();
   final _homeDistrictController = TextEditingController();
+  final _homeDistrictOtherController = TextEditingController();
   final _postingDistrictController = TextEditingController();
+  final _postingDistrictOtherController = TextEditingController();
   final _postingLocationController = TextEditingController();
+  final _postingLocationOtherController = TextEditingController();
   final _homeVillageMohallaController = TextEditingController();
   final _homeGaliNoController = TextEditingController();
   final _homePostOfficeController = TextEditingController();
   final _homePoliceStationController = TextEditingController();
+  final _homePoliceStationOtherController = TextEditingController();
   final _homeTehsilController = TextEditingController();
+  final _homeTehsilOtherController = TextEditingController();
+  final _homeStateCountyController = TextEditingController();
   XFile? _selfie;
   XFile? _idCardPhoto;
   Member? _referenceMember;
   int _currentStep = 0;
   bool _submitting = false;
-  final LocationSuggestionService _locationSuggestions =
-      LocationSuggestionService();
+  final LocationSuggestionService _locationSuggestions = LocationSuggestionService();
+  List<String> _allStateOptions = <String>[];
   List<String> _allDistrictOptions = <String>[];
+  List<String> _homeDistrictOptions = <String>[];
+  List<String> _postingDistrictOptions = <String>[];
   List<String> _allHomeStationOptions = <String>[];
   List<String> _allPostingStationOptions = <String>[];
+  List<String> _allPostingPlaceOptions = <String>[];
   final LocalAuthentication _localAuthentication = LocalAuthentication();
   final EmailOtpService _emailOtpService = EmailOtpService();
   bool _biometricSupported = false;
@@ -92,15 +112,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _emailOtpSent = false;
   bool _sendingEmailOtp = false;
   bool _verifyingEmailOtp = false;
+  bool _referenceEmailVerified = false;
+  bool _referenceEmailOtpSent = false;
+  bool _sendingReferenceEmailOtp = false;
+  bool _verifyingReferenceEmailOtp = false;
   bool _showOtpSendButton = false;
   bool _checkingBiometric = false;
   bool _capturingPostingLocation = false;
   bool _uploadPostingGpsLater = false;
   bool _officialNameEditedByUser = false;
+  bool _acceptedTerms = false;
   Timer? _otpResendTimer;
   int _otpResendSeconds = 0;
+  Timer? _referenceOtpResendTimer;
+  int _referenceOtpResendSeconds = 0;
   final Map<String, GlobalKey> _fieldKeys = <String, GlobalKey>{};
   final Set<String> _invalidFieldIds = <String>{};
+  final Map<String, String> _fieldErrors = <String, String>{};
 
   static const List<String> _subDepartments = <String>[
     'Civil Police',
@@ -118,7 +146,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   static const List<String> _rankOptions = <String>[
     'Constable',
-    'HC',
+    'Head Constable',
     'Computer Operator',
     'ASI',
     'SI',
@@ -137,27 +165,96 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     'Married',
     'Divorced',
     'Widowed',
+    'Other',
   ];
 
   static const List<String> _postingCategories = <String>[
     'Reserve Police Line',
-    'Circle Police Office',
+    'LIU',
     'Police Station',
-    'Fire Station',
-    'District Police Office/Branch',
-    'Other Police Office/Branch',
-    'Battalion',
+    'Fire station',
+    'District Police Office Branch',
+    'Other Branch/Unit office',
+    'Battalion Force',
     'Range Police Office',
     'Zone Police Office',
-    'Police Head Quarter Office',
+    'Police Head Quarter office',
     'District Jail',
+    'Adt. CP office',
+    'Commissionerate Police office',
+    'Joint CP office',
+    'SP/SSP/DCP office',
+    'Adt. SP/ASP/Adt. CP Office',
+    'CO/ACP office',
+    'DSP office',
+    'RI office',
+    'DCR Office',
+    'CCR Office',
+    'PTC',
+    'PTS',
+    'Police Acadmy MBD',
+    'ATC',
+    'Court Security',
+    'PSO',
+    'Other',
   ];
 
   static const List<String> _postingWorkOptions = <String>[
     'Field Work',
     'Office Work',
     'Court Work',
-    'Others',
+    'Gunner/PSO',
+    'IC/OP',
+    'SHO/SO',
+    'Branch Incharge',
+    'Cell Incharge',
+    'Driver',
+    'Other',
+  ];
+
+  static const List<String> _postingPlaceOptions = <String>[
+    'SPO Office',
+    'Cyber Police Station',
+    'Cyber Cell',
+    'Mahila Thana',
+    'SOG',
+    'Surveillance Cell',
+    'Traffic Police Office',
+    'Traffic Police Line',
+    'Armourer',
+    'Head Clerk Branch',
+    'Reader Branch',
+    'Account Branch',
+    'A.H.T.U.',
+    'MT Branch',
+    'Confidential Office',
+    'Reserve Police',
+    'District Fire Station',
+    'Sub District Fire Station',
+    'Jail Office',
+    'Jail Security',
+    'Writt Cell',
+    'Mahila Cell',
+    'Shikayat Janch Prakosth',
+    'Passport Cell',
+    'CCTNS Cell',
+    'DCRB',
+    'Narcotics Cell',
+    'IGRS Cell',
+    'Dispatch Cell',
+    'Nyaik Samman Cell',
+    'LIU',
+    'Others Unit/Branch',
+    'Monitoring Cell',
+    'Media Cell',
+    'Trinetr Cell',
+    'Crime Branch',
+    'Police Canteen',
+    'Gas Agency',
+    'District Field Unit',
+    'Anti Power Theft',
+    'Samman Cell',
+    'Other',
   ];
 
   static final RegExp _namePattern = RegExp(r"^[A-Za-z][A-Za-z .'-]{1,59}$");
@@ -180,29 +277,46 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _emailOtpController.dispose();
     _mpinController.dispose();
     _referenceController.dispose();
+    _referenceEmailController.dispose();
+    _referenceEmailOtpController.dispose();
     _departmentController.dispose();
+    _departmentOtherController.dispose();
     _postRankController.dispose();
     _customRankController.dispose();
     _genderController.dispose();
+    _genderOtherController.dispose();
     _maritalStatusController.dispose();
+    _maritalStatusOtherController.dispose();
     _postingCategoryController.dispose();
+    _postingCategoryOtherController.dispose();
     _postingWorkAsController.dispose();
+    _postingWorkAsOtherController.dispose();
     _homeStateController.dispose();
+    _homeStateOtherController.dispose();
     _postingStateController.dispose();
+    _postingStateOtherController.dispose();
     _officialNameController.dispose();
     _batchYearController.dispose();
+    _batchYearOtherController.dispose();
     _whatsappController.dispose();
     _callingNumberController.dispose();
     _postingPlaceLocationController.dispose();
     _homeDistrictController.dispose();
+    _homeDistrictOtherController.dispose();
     _postingDistrictController.dispose();
+    _postingDistrictOtherController.dispose();
     _postingLocationController.dispose();
+    _postingLocationOtherController.dispose();
     _homeVillageMohallaController.dispose();
     _homeGaliNoController.dispose();
     _homePostOfficeController.dispose();
     _homePoliceStationController.dispose();
+    _homePoliceStationOtherController.dispose();
     _homeTehsilController.dispose();
+    _homeTehsilOtherController.dispose();
+    _homeStateCountyController.dispose();
     _otpResendTimer?.cancel();
+    _referenceOtpResendTimer?.cancel();
     super.dispose();
   }
 
@@ -236,9 +350,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   children: <Widget>[
                     _buildIdentityStep(),
                     _buildEmailVerificationStep(),
-                    _buildHomeDetailsStep(),
+                    _buildReferralStep(),
                     _buildPostingDetailsStep(),
-                    _buildServiceDetailsStep(),
+                    _buildHomeDetailsStep(),
                     _buildDocumentsStep(),
                     _buildReviewStep(),
                   ],
@@ -290,13 +404,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         ),
                       ),
                       SizedBox(height: 2),
-                      Text(
-                        'Complete details carefully for quick approval',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF5B6470),
-                        ),
-                      ),
+                      SizedBox.shrink(),
                     ],
                   ),
                 ),
@@ -335,40 +443,134 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildIdentityStep() {
     return _buildStepPage(
-      title: 'Identity and referral',
-      subtitle: 'Enter the member identity and confirm the referring member.',
+      title: 'Basic detail',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // Identity Fields Section
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F5ED),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE8DCC8)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE2CB),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.badge_outlined, color: _ink, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Identity profile',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildTextField(
+                  _nameController,
+                  'Full Name',
+                  isRequired: true,
+                  onChanged: _syncOfficialNameFromIdentity,
+                ),
+                _buildTextField(
+                  _mobileController,
+                  'Mobile No.',
+                  isRequired: true,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  digitsOnly: true,
+                ),
+                _buildTextField(
+                  _mpinController,
+                  'Security M-PIN',
+                  isRequired: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  digitsOnly: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FB),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const Text(
-                  'Personal Information',
+                  'Biometric verification',
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                     color: _ink,
                   ),
                 ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  _nameController,
-                  'Full name',
-                  isRequired: true,
-                  onChanged: _syncOfficialNameFromIdentity,
+                const SizedBox(height: 8),
+                _buildFingerprintOption(),
+                const SizedBox(height: 8),
+                Text(
+                  _biometricSupported
+                      ? 'Use device biometrics to approve this registration on supported devices.'
+                      : 'Biometric verification is unavailable on this device.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6470)),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailVerificationStep() {
+    return _buildStepPage(
+      title: 'Verify self email',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8EC),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Self email OTP verification',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 _buildTextField(
                   _emailController,
-                  'Email address',
+                  'Self Email Address',
                   isRequired: true,
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (_) {
@@ -382,138 +584,40 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     }
                   },
                 ),
-                _buildTextField(
-                  _mobileController,
-                  'Mobile number',
-                  isRequired: true,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  digitsOnly: true,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Security Section
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDDE5ED)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Security',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
+                const SizedBox(height: 14),
+                if (!_emailVerified)
+                  FilledButton.icon(
+                    onPressed: _sendingEmailOtp ? null : _sendRegistrationEmailOtp,
+                    icon: _sendingEmailOtp
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          )
+                        : const Icon(Icons.send_outlined),
+                    label: Text(_sendingEmailOtp
+                        ? 'Sending OTP...'
+                        : (_emailOtpSent && _otpResendSeconds > 0
+                            ? 'Resend in $_otpResendSeconds s'
+                            : (_emailOtpSent ? 'Resend OTP' : 'Send OTP'))),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  _mpinController,
-                  'Create 6 digit M-PIN',
-                  isRequired: true,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  digitsOnly: true,
-                ),
-                const SizedBox(height: 8),
-                _buildFingerprintOption(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Reference Member Section
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9F5EE),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEDD9BC)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Referring Member',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _referenceController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: _fieldDecoration(
-                    'Reference member mobile number',
-                    isRequired: true,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _referenceMember = widget.repository.findByMobile(value.trim());
-                    });
-                  },
-                ),
-                if (_referenceMember != null) ...<Widget>[
+                if (_emailOtpSent) ...<Widget>[
                   const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1E7D3),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE0CEAA)),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: _ink,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.verified_user_outlined,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                _referenceMember!.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  color: _ink,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_referenceMember!.role} • ${_referenceMember!.postingLocation}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF6B7580),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  TextField(
+                    controller: _emailOtpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    enabled: !_verifyingEmailOtp && !_emailVerified,
+                    inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (value) {
+                      if (value.trim().length == 6 && !_verifyingEmailOtp) {
+                        unawaited(_verifyRegistrationEmail());
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Email OTP',
+                      hintText: '000000',
+                      prefixIcon: Icon(Icons.lock_outline),
                     ),
                   ),
                 ],
@@ -525,163 +629,80 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildEmailVerificationStep() {
-    final bool canResend = _otpResendSeconds == 0 && !_sendingEmailOtp;
-    
+  Widget _buildReferralStep() {
     return _buildStepPage(
-      title: 'Verify your email',
-      subtitle: 'We will send a one-time passcode to your email address.',
+      title: 'Verify referral email',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDDE5ED)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
             ),
-            child: Row(
-              children: <Widget>[
-                const Icon(Icons.email_outlined, color: _ink, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Text(
-                        'Email address',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7580),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _emailController.text.trim(),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: _ink,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _emailVerified
-                  ? const Color(0xFFE8F5ED)
-                  : (_sendingEmailOtp ? const Color(0xFFF5F3EE) : const Color(0xFFFDF4E3)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _emailVerified
-                    ? const Color(0xFF9CCDB0)
-                    : (_sendingEmailOtp ? const Color(0xFFE8D5B5) : const Color(0xFFE0D0AE)),
-              ),
-            ),
-            child: Row(
-              children: <Widget>[
-                Icon(
-                  _emailVerified ? Icons.verified : Icons.info_outlined,
-                  color: _emailVerified ? const Color(0xFF2E7D32) : const Color(0xFF825A0F),
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _emailVerified
-                        ? '✓ Email verified successfully'
-                        : (_sendingEmailOtp ? 'Sending OTP...' : 'OTP will be sent to your email'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: _emailVerified ? const Color(0xFF2E7D32) : const Color(0xFF5A4A23),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _emailOtpController,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            enabled: _emailOtpSent && !_verifyingEmailOtp && !_emailVerified,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            onChanged: (value) {
-              final otp = value.trim();
-              if (!_emailOtpSent || _emailVerified || _verifyingEmailOtp) {
-                return;
-              }
-              if (otp.length == 6) {
-                unawaited(_verifyRegistrationEmail());
-              }
-            },
-            decoration: InputDecoration(
-              labelText: 'Enter OTP',
-              hintText: '000000',
-              prefixIcon: const Icon(Icons.lock_outline),
-              helperText: _emailOtpSent && !_emailVerified 
-                  ? 'Check your email for the 6-digit code'
-                  : null,
-            ),
-          ),
-          if (_sendingEmailOtp || !_emailOtpSent) const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                if (!_emailVerified)
-                  if (_showOtpSendButton || _emailOtpSent)
+                const Text(
+                  'Referring member mobile no.',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
+                ),
+                const SizedBox(height: 10),
+                _buildTextField(
+                  _referenceController,
+                  'Referring Mobile No.',
+                  isRequired: true,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  digitsOnly: true,
+                  onChanged: (_) => _syncReferenceMember(),
+                ),
+                const SizedBox(height: 10),
+                if (_referenceMember != null) _buildReferenceMemberCard(_referenceMember!),
+                const SizedBox(height: 12),
+                const Text(
+                  'Referral email OTP',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
+                ),
+                const SizedBox(height: 12),
+                if (!_referenceEmailVerified)
                   FilledButton.icon(
-                    onPressed: canResend ? _sendRegistrationEmailOtp : null,
-                    icon: _sendingEmailOtp
+                    onPressed: _sendingReferenceEmailOtp ? null : _sendReferenceEmailOtp,
+                    icon: _sendingReferenceEmailOtp
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                           )
-                        : const Icon(Icons.send_outlined),
-                    label: Text(
-                      _sendingEmailOtp
-                          ? 'Sending OTP...'
-                          : (_emailOtpSent && _otpResendSeconds > 0
-                              ? 'Resend in ${_otpResendSeconds}s'
-                              : (_emailOtpSent ? 'Resend OTP' : 'Send OTP')),
+                        : const Icon(Icons.mark_email_read_outlined),
+                    label: Text(_sendingReferenceEmailOtp
+                        ? 'Sending OTP...'
+                        : (_referenceEmailOtpSent && _referenceOtpResendSeconds > 0
+                            ? 'Resend in $_referenceOtpResendSeconds s'
+                            : (_referenceEmailOtpSent ? 'Resend OTP' : 'Send OTP'))),
+                  ),
+                if (_referenceEmailOtpSent) ...<Widget>[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _referenceEmailOtpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    enabled: !_verifyingReferenceEmailOtp && !_referenceEmailVerified,
+                    inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (value) {
+                      if (value.trim().length == 6 && !_verifyingReferenceEmailOtp) {
+                        unawaited(_verifyReferenceEmailOtp());
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Referral OTP',
+                      hintText: '000000',
+                      prefixIcon: Icon(Icons.password_outlined),
                     ),
                   ),
-                if (_emailOtpSent && !_emailVerified && _verifyingEmailOtp)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 8),
-                        Text('Verifying OTP...'),
-                      ],
-                    ),
-                  ),
+                ],
               ],
             ),
           ),
@@ -693,15 +714,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildHomeDetailsStep() {
     return _buildStepPage(
       title: 'Home details',
-      subtitle: 'Fill your home address and station details.',
       child: Column(
         children: <Widget>[
           _buildChunkCard(
             title: 'Home details',
-            subtitle: 'You can type your own state, district and station if not listed.',
             initiallyExpanded: true,
             children: <Widget>[
-              _buildTextField(_homeStateController, 'Home State'),
+              _buildSelectionField(
+                _homeStateController,
+                'Home State',
+                isRequired: true,
+                hint: 'Tap to choose state',
+                onTap: () => _pickFromList(
+                  title: 'Select Home State',
+                  options: _allStateOptions,
+                  controller: _homeStateController,
+                  allowCustomValue: true,
+                  onSelected: (_) {
+                    setState(() {
+                      _homeDistrictController.clear();
+                      _homePoliceStationController.clear();
+                    });
+                    unawaited(_loadHomeDistrictOptions());
+                    unawaited(_loadHomeStationOptions());
+                  },
+                ),
+              ),
               _buildSelectionField(
                 _homeDistrictController,
                 'Home District',
@@ -709,10 +747,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 hint: 'Tap to choose from district list',
                 onTap: () => _pickFromList(
                   title: 'Select Home District',
-                  options: _allDistrictOptions,
+                  options: _homeDistrictOptions,
                   controller: _homeDistrictController,
                   allowCustomValue: true,
                   onSelected: (_) {
+                    setState(() {
+                      _homePoliceStationController.clear();
+                    });
                     unawaited(_loadHomeStationOptions());
                   },
                 ),
@@ -742,16 +783,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildPostingDetailsStep() {
     return _buildStepPage(
       title: 'Posting details',
-      subtitle: 'Provide your current district and posting station details.',
       child: Column(
         children: <Widget>[
           _buildChunkCard(
-            title: 'Current posting details',
-            subtitle:
-                'Upload only police station (or near station) location for accurate member map.',
+            title: 'Posting location details',
             initiallyExpanded: true,
             children: <Widget>[
-              _buildTextField(_postingStateController, 'Posting State', readOnly: true),
+              _buildSelectionField(
+                _postingStateController,
+                'Posting State',
+                isRequired: true,
+                hint: 'Tap to choose state',
+                onTap: () => _pickFromList(
+                  title: 'Select Posting State',
+                  options: _allStateOptions,
+                  controller: _postingStateController,
+                  allowCustomValue: true,
+                  onSelected: (_) {
+                    setState(() {
+                      _postingDistrictController.clear();
+                      _postingLocationController.clear();
+                      _postingPlaceLocationController.clear();
+                    });
+                    unawaited(_loadPostingDistrictOptions());
+                    unawaited(_loadPostingStationOptions());
+                    unawaited(_loadPostingPlaceOptions());
+                  },
+                ),
+              ),
               _buildSelectionField(
                 _postingDistrictController,
                 'Posting District',
@@ -759,39 +818,44 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 hint: 'Tap to choose district',
                 onTap: () => _pickFromList(
                   title: 'Select Posting District',
-                  options: _allDistrictOptions,
+                  options: _postingDistrictOptions,
                   controller: _postingDistrictController,
                   allowCustomValue: true,
                   onSelected: (_) {
+                    setState(() {
+                      _postingLocationController.clear();
+                    });
                     unawaited(_loadPostingStationOptions());
                   },
                 ),
               ),
-              _buildSelectionField(
-                _postingLocationController,
-                'Posting Police Station',
+              _buildDropdownField(
+                _departmentController,
+                'Sub Department',
+                _subDepartments,
                 isRequired: true,
-                hint: 'Tap to choose police station',
-                onTap: () => _pickFromList(
-                  title: 'Select Posting Police Station',
-                  options: _allPostingStationOptions,
-                  controller: _postingLocationController,
-                  allowCustomValue: true,
-                ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Please upload location of your police station or very near to it.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
-                  ),
-                ),
+              _buildDropdownField(
+                _postingCategoryController,
+                'Posting Category',
+                _postingCategories,
+                isRequired: true,
+                onChanged: (value) {
+                  setState(() {
+                    _postingLocationController.clear();
+                    _postingLocationOtherController.clear();
+                  });
+                  if (value == 'Police Station') {
+                    unawaited(_loadPostingStationOptions());
+                  } else {
+                    unawaited(_loadPostingPlaceOptions());
+                  }
+                },
               ),
+              _buildPostingPlaceField(),
               _buildTextField(
                 _postingPlaceLocationController,
-                'Posting Place Location (Auto-fetched GPS)',
+                'Posting GPS Location',
                 isRequired: !_uploadPostingGpsLater,
                 readOnly: true,
               ),
@@ -800,14 +864,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _uploadPostingGpsLater,
                 onChanged: (value) {
+                  final uploadLater = value ?? false;
                   setState(() {
-                    _uploadPostingGpsLater = value ?? false;
+                    _uploadPostingGpsLater = uploadLater;
                   });
+                  if (uploadLater) {
+                    _clearFieldError('Posting GPS Location');
+                  }
                 },
                 title: const Text('Upload posting GPS later'),
-                subtitle: const Text(
-                  'You can submit now and update posting place location from profile later.',
-                ),
               ),
               Align(
                 alignment: Alignment.centerLeft,
@@ -823,49 +888,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildServiceDetailsStep() {
-    return _buildStepPage(
-      title: 'Service details',
-      subtitle: 'These details are used in member cards and filters.',
-      child: Column(
-        children: <Widget>[
+          const SizedBox(height: 12),
           _buildChunkCard(
             title: 'Service profile details',
-            subtitle: 'These details will be used in member cards and filters.',
             initiallyExpanded: true,
             children: <Widget>[
-              _buildDropdownField(
-                _departmentController,
-                'Sub Department',
-                _subDepartments,
-                isRequired: true,
-              ),
-              _buildDropdownField(_postRankController, 'Rank', _rankOptions, isRequired: true),
-              if (_postRankController.text == 'Other')
-                _buildTextField(_customRankController, 'Enter rank name'),
+              const SizedBox(height: 10),
               _buildTextField(
                 _officialNameController,
                 'Official Name',
                 isRequired: true,
                 onChanged: _markOfficialNameEdited,
               ),
+              _buildDropdownField(_postRankController, 'Rank', _rankOptions, isRequired: true),
+              if (_postRankController.text == 'Other')
+                _buildTextField(_customRankController, 'Enter rank name', uppercase: true),
               _buildDropdownField(_batchYearController, 'Batch Year', _batchYears(), isRequired: true),
               _buildDropdownField(_genderController, 'Gender', _genderOptions, isRequired: true),
               _buildDropdownField(
                 _maritalStatusController,
                 'Marital Status',
                 _maritalStatusOptions,
-                isRequired: true,
-              ),
-              _buildDropdownField(
-                _postingCategoryController,
-                'Posting Category',
-                _postingCategories,
                 isRequired: true,
               ),
               _buildDropdownField(
@@ -897,28 +940,60 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  Widget _buildPostingPlaceField() {
+    final isPoliceStation = _postingCategoryController.text.trim() == 'Police Station';
+    final options = isPoliceStation ? _allPostingStationOptions : _allPostingPlaceOptions;
+    final label = isPoliceStation ? 'Posting Police Station' : 'Posting Place Name';
+    final hint = isPoliceStation ? 'Tap to choose police station' : 'Tap to choose place name';
+    final title = isPoliceStation ? 'Select Posting Police Station' : 'Select Posting Place Name';
+
+    return _buildSelectionField(
+      _postingLocationController,
+      label,
+      fieldId: 'Posting Place Name',
+      isRequired: true,
+      hint: hint,
+      onTap: () => _pickFromList(
+        title: title,
+        options: options,
+        controller: _postingLocationController,
+        allowCustomValue: true,
+      ),
+    );
+  }
+
   Widget _buildDocumentsStep() {
     return _buildStepPage(
-      title: 'Documents and selfie',
-      subtitle:
-          'Selfie is required. ID card upload is optional but recommended.',
+      title: 'Photos',
       child: Column(
         children: <Widget>[
           _buildUploadTile(
             title: 'Selfie photo',
-            subtitle: 'Use camera capture for live verification.',
             icon: Icons.camera_alt_outlined,
             onTap: _pickSelfie,
           ),
           if (_selfie != null) _buildImagePreview(_selfie!),
           const SizedBox(height: 12),
           _buildUploadTile(
-            title: 'ID card photo',
-            subtitle: 'Optional: upload member identification card image.',
+            title: 'ID proof photo',
             icon: Icons.badge_outlined,
             onTap: _pickIdCardPhoto,
           ),
           if (_idCardPhoto != null) _buildImagePreview(_idCardPhoto!),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F3EC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _border),
+            ),
+            child: const Text(
+              'A selfie is required so the admin can confirm the profile photo before approval.',
+              style: TextStyle(height: 1.45),
+            ),
+          ),
         ],
       ),
     );
@@ -927,69 +1002,75 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget _buildReviewStep() {
     return _buildStepPage(
       title: 'Review and submit',
-      subtitle:
-          'Check the registration summary before creating the member profile.',
       child: Column(
         children: <Widget>[
           _buildSummaryRow('Full name', _nameController.text.trim()),
+          _buildSummaryRow('Self email', _emailController.text.trim()),
           _buildSummaryRow('Mobile', _mobileController.text.trim()),
-          _buildSummaryRow('Email', _emailController.text.trim()),
-          _buildSummaryRow(
-            'Fingerprint setup',
-            _biometricVerified ? 'Verified on this device' : 'Not verified',
-          ),
-          _buildSummaryRow(
-            'Reference',
-            _referenceMember?.name ?? _referenceController.text.trim(),
-          ),
-            _buildSummaryRow('Home State', _homeStateController.text.trim()),
-            _buildSummaryRow('Home District', _homeDistrictController.text.trim()),
-            _buildSummaryRow('Home Tehsil', _homeTehsilController.text.trim()),
-            _buildSummaryRow(
-              'Home Police Station', _homePoliceStationController.text.trim()),
-            _buildSummaryRow(
-              'Village / Mohalla', _homeVillageMohallaController.text.trim()),
-            _buildSummaryRow('Gali No.', _homeGaliNoController.text.trim()),
-            _buildSummaryRow('Posting State', _postingStateController.text.trim()),
-            _buildSummaryRow(
-              'Posting District', _postingDistrictController.text.trim()),
-            _buildSummaryRow(
-              'Posting Police Station', _postingLocationController.text.trim()),
-            _buildSummaryRow(
-              'Posting GPS',
-              _postingPlaceLocationController.text.trim().isEmpty
-                  ? (_uploadPostingGpsLater
-                      ? 'Will upload later'
-                      : 'Not captured')
-                  : 'Captured',
-            ),
-            _buildSummaryRow('Sub Department', _departmentController.text.trim()),
-            _buildSummaryRow(
-            'Rank',
-            _postRankController.text.trim() == 'Other'
-              ? _customRankController.text.trim()
-              : _postRankController.text.trim(),
-            ),
-            _buildSummaryRow('Official Name', _officialNameController.text.trim()),
-            _buildSummaryRow('Batch Year', _batchYearController.text.trim()),
-            _buildSummaryRow('Gender', _genderController.text.trim()),
-            _buildSummaryRow('Marital Status', _maritalStatusController.text.trim()),
-            _buildSummaryRow(
-              'Posting Category', _postingCategoryController.text.trim()),
-            _buildSummaryRow('Posting Work As', _postingWorkAsController.text.trim()),
-            _buildSummaryRow('Whatsapp', _whatsappController.text.trim()),
-            _buildSummaryRow('Calling Contact', _callingNumberController.text.trim()),
+          _buildSummaryRow('M-PIN', '******'),
+          _buildSummaryRow('Biometric', _biometricVerified ? 'Verified' : 'Not verified'),
+          _buildSummaryRow('Referring mobile', _referenceController.text.trim()),
+          _buildSummaryRow('Referring email', _referenceMember?.email?.trim() ?? '-'),
+          _buildSummaryRow('Ref email OTP', _referenceEmailVerified ? 'Verified' : 'Pending'),
+          _buildSummaryRow('Posting state', _effectiveValue(_postingStateController, _postingStateOtherController)),
+          _buildSummaryRow('Posting district', _effectiveValue(_postingDistrictController, _postingDistrictOtherController)),
+          _buildSummaryRow('Posting category', _effectiveValue(_postingCategoryController, _postingCategoryOtherController)),
+          _buildSummaryRow('Posting place', _effectiveValue(_postingLocationController, _postingLocationOtherController)),
+          _buildSummaryRow('Posting GPS', _postingPlaceLocationController.text.trim().isEmpty ? (_uploadPostingGpsLater ? 'Will upload later' : 'Not captured') : 'Captured'),
+          _buildSummaryRow('Sub department', _effectiveValue(_departmentController, _departmentOtherController)),
+          _buildSummaryRow('Official name', _officialNameController.text.trim()),
+          _buildSummaryRow('Rank', _effectiveValue(_postRankController, _customRankController)),
+          _buildSummaryRow('Batch year', _effectiveValue(_batchYearController, _batchYearOtherController)),
+          _buildSummaryRow('Gender', _effectiveValue(_genderController, _genderOtherController)),
+          _buildSummaryRow('Marital status', _effectiveValue(_maritalStatusController, _maritalStatusOtherController)),
+          _buildSummaryRow('Work type', _effectiveValue(_postingWorkAsController, _postingWorkAsOtherController)),
+          _buildSummaryRow('WhatsApp', _whatsappController.text.trim()),
+          _buildSummaryRow('Calling', _callingNumberController.text.trim()),
+          _buildSummaryRow('Home state', _effectiveValue(_homeStateController, _homeStateOtherController)),
+          _buildSummaryRow('Home district', _effectiveValue(_homeDistrictController, _homeDistrictOtherController)),
+          _buildSummaryRow('Home police station', _effectiveValue(_homePoliceStationController, _homePoliceStationOtherController)),
+          _buildSummaryRow('Home village', _homeVillageMohallaController.text.trim()),
+          _buildSummaryRow('Post office', _homePostOfficeController.text.trim()),
+          _buildSummaryRow('Gali no.', _homeGaliNoController.text.trim()),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFFF4EBD8),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: const Text(
-              'Registration remains pending until admin approval. Once approved, sign in with the M-PIN set above.',
-              style: TextStyle(height: 1.4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Registration remains pending until admin approval.',
+                  style: TextStyle(height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TermsPrivacyScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Read terms and privacy'),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _acceptedTerms,
+                  onChanged: (value) {
+                    setState(() {
+                      _acceptedTerms = value ?? false;
+                    });
+                  },
+                  title: const Text('I agree to the terms and privacy policy'),
+                ),
+              ],
             ),
           ),
         ],
@@ -999,7 +1080,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildStepPage({
     required String title,
-    required String subtitle,
     required Widget child,
   }) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -1033,12 +1113,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 letterSpacing: 0.2,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: const TextStyle(color: Color(0xFF5A6B74), height: 1.4),
-            ),
-            const SizedBox(height: 14),
             const Divider(
               height: 1,
               thickness: 1,
@@ -1054,7 +1128,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Widget _buildUploadTile({
     required String title,
-    required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
   }) {
@@ -1082,9 +1155,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 children: <Widget>[
                   Text(title,
                       style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: const TextStyle(color: Color(0xFF5A6B74))),
                 ],
               ),
             ),
@@ -1267,6 +1337,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
     bool digitsOnly = false,
+    bool uppercase = false,
     bool readOnly = false,
     ValueChanged<String>? onChanged,
     VoidCallback? onTap,
@@ -1281,7 +1352,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       maxLength: maxLength,
       inputFormatters: digitsOnly
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
-          : null,
+          : (uppercase
+            ? <TextInputFormatter>[_UpperCaseTextFormatter()]
+            : null),
       onChanged: (value) {
         if (value.trim().isNotEmpty) {
           _clearFieldError(id);
@@ -1292,14 +1365,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       decoration: _fieldDecoration(
         label,
         isRequired: isRequired,
-        hasError: _invalidFieldIds.contains(id),
+        errorText: _fieldErrors[id],
       ),
     );
   }
 
   Widget _buildChunkCard({
     required String title,
-    required String subtitle,
     required List<Widget> children,
     bool initiallyExpanded = false,
   }) {
@@ -1320,10 +1392,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         title: Text(
           title,
           style: const TextStyle(fontWeight: FontWeight.w700, color: _ink),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
         ),
         children: children,
       ),
@@ -1353,7 +1421,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           decoration: _fieldDecoration(label, isRequired: isRequired).copyWith(
             hintText: hint,
             suffixIcon: const Icon(Icons.arrow_drop_down_rounded),
-            errorText: _invalidFieldIds.contains(id) ? 'Please check this field.' : null,
+            errorText: _fieldErrors[id],
           ),
         ),
       ),
@@ -1364,7 +1432,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     TextEditingController controller,
     String label,
     List<String> options,
-    {String? fieldId, bool isRequired = false,}
+    {String? fieldId, bool isRequired = false, ValueChanged<String>? onChanged,}
   ) {
     final id = fieldId ?? label;
     final current = controller.text.trim();
@@ -1391,11 +1459,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             }
             _clearFieldError(id);
           });
+          onChanged?.call(value ?? '');
         },
         decoration: _fieldDecoration(
           label,
           isRequired: isRequired,
-          hasError: _invalidFieldIds.contains(id),
+          errorText: _fieldErrors[id],
         ),
       ),
     );
@@ -1404,7 +1473,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   InputDecoration _fieldDecoration(
     String label, {
     bool isRequired = false,
-    bool hasError = false,
+    String? errorText,
   }) {
     final labelText = isRequired ? '$label *' : label;
     return InputDecoration(
@@ -1425,7 +1494,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _border),
       ),
-      errorText: hasError ? 'Please check this field.' : null,
+      errorText: errorText,
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
@@ -1448,6 +1517,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     setState(() {
       _invalidFieldIds.remove(fieldId);
+      _fieldErrors.remove(fieldId);
     });
   }
 
@@ -1460,6 +1530,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _invalidFieldIds
         ..clear()
         ..addAll(fieldIds);
+      _fieldErrors
+        ..clear()
+        ..addEntries(fieldIds.map((id) => MapEntry<String, String>(id, firstMessage)));
     });
     if (showMessage) {
       _showMessage(firstMessage);
@@ -1494,6 +1567,203 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   void _markOfficialNameEdited(String value) {
     _officialNameEditedByUser = value.trim().isNotEmpty;
+  }
+
+  String _selectedValue(
+    TextEditingController controller,
+    TextEditingController otherController,
+  ) {
+    final selected = controller.text.trim();
+    if (selected == 'Other') {
+      return otherController.text.trim();
+    }
+    return selected;
+  }
+
+  String _effectiveValue(
+    TextEditingController controller,
+    TextEditingController otherController,
+  ) {
+    final value = _selectedValue(controller, otherController).trim();
+    if (controller.text.trim() == 'Other') {
+      return value.toUpperCase();
+    }
+    return value;
+  }
+
+  void _syncReferenceMember() {
+    final mobile = _referenceController.text.trim();
+
+    final byMobile = widget.repository.findByMobile(mobile);
+
+    setState(() {
+      if (mobile.isEmpty) {
+        _referenceMember = null;
+      } else {
+        _referenceMember = byMobile;
+      }
+
+      if (_referenceEmailVerified) {
+        _referenceEmailVerified = false;
+        _referenceEmailOtpSent = false;
+        _referenceEmailOtpController.clear();
+        _referenceOtpResendTimer?.cancel();
+        _referenceOtpResendSeconds = 0;
+      }
+    });
+
+    if (_referenceMember != null &&
+        !_referenceEmailVerified &&
+        !_sendingReferenceEmailOtp &&
+        !_referenceEmailOtpSent) {
+      unawaited(_sendReferenceEmailOtp());
+    }
+  }
+
+  Widget _buildReferenceMemberCard(Member member) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6ECD5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: _ink,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified_user_outlined, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  member.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${member.email ?? 'No email on file'} • ${member.role}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6470)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendReferenceEmailOtp() async {
+    final member = _referenceMember;
+    final email = member?.email?.trim() ?? '';
+    if (member == null) {
+      _showMessage('Enter a valid referral mobile number first.');
+      return;
+    }
+
+    if (email.isEmpty) {
+      _showMessage('No email is attached to this referral mobile number.');
+      return;
+    }
+
+    setState(() {
+      _sendingReferenceEmailOtp = true;
+    });
+
+    try {
+      final dispatch = await _emailOtpService.sendVerificationOtp(
+        email,
+        purpose: EmailOtpPurpose.registration,
+        memberName: member.name,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!dispatch.success) {
+        setState(() {
+          _sendingReferenceEmailOtp = false;
+        });
+        _showMessage(dispatch.error ?? 'Unable to send referral OTP.');
+        return;
+      }
+
+      _referenceOtpResendTimer?.cancel();
+      setState(() {
+        _sendingReferenceEmailOtp = false;
+        _referenceEmailOtpSent = true;
+        _referenceOtpResendSeconds = 600;
+      });
+
+      _referenceOtpResendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) {
+          _referenceOtpResendTimer?.cancel();
+          return;
+        }
+        setState(() {
+          if (_referenceOtpResendSeconds > 0) {
+            _referenceOtpResendSeconds--;
+          } else {
+            _referenceOtpResendTimer?.cancel();
+          }
+        });
+      });
+
+      _showMessage('OTP sent to referring member email.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _sendingReferenceEmailOtp = false;
+      });
+      _showMessage('Unable to send referral OTP right now.');
+    }
+  }
+
+  Future<bool> _verifyReferenceEmailOtp() async {
+    if (_referenceEmailVerified) {
+      return true;
+    }
+
+    final email = _referenceMember?.email?.trim() ?? '';
+    final otp = _referenceEmailOtpController.text.trim();
+    if (email.isEmpty || otp.length != 6) {
+      return false;
+    }
+
+    setState(() {
+      _verifyingReferenceEmailOtp = true;
+    });
+
+    final verified = await _emailOtpService.verifyOtp(email: email, otp: otp);
+
+    if (!mounted) {
+      return false;
+    }
+
+    setState(() {
+      _verifyingReferenceEmailOtp = false;
+    });
+
+    if (!verified) {
+      _showMessage('Invalid or expired referral OTP.');
+      return false;
+    }
+
+    setState(() {
+      _referenceEmailVerified = true;
+    });
+    return true;
   }
 
   Future<void> _pickSelfie() async {
@@ -1597,17 +1867,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!await _validateIdentityStep()) {
         return;
       }
-      final unique = await _ensureIdentityNotDuplicateInCloud();
-      if (!unique) {
-        return;
-      }
       await _goToStep(1);
       return;
     }
 
     if (_currentStep == 1) {
-      if (!_emailVerified) {
-        _showMessage('Please verify your email OTP before continuing.');
+      if (!await _validateSelfEmailStep()) {
         return;
       }
       await _goToStep(2);
@@ -1615,7 +1880,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_currentStep == 2) {
-      if (!await _validateHomeStep()) {
+      if (!await _validateReferralStep()) {
         return;
       }
       await _goToStep(3);
@@ -1631,7 +1896,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_currentStep == 4) {
-      if (!await _validateServiceStep()) {
+      if (!await _validateHomeStep()) {
         return;
       }
       await _goToStep(5);
@@ -1646,7 +1911,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    await _submit();
+    if (_currentStep == 6) {
+      if (!await _validateReviewStep()) {
+        return;
+      }
+      await _submit();
+    }
   }
 
   Future<void> _goToStep(int step) async {
@@ -1658,14 +1928,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
-
-    // First visit: auto-send OTP. Manual button appears only on send failure.
-    if (step == 1 && !_emailVerified && !_emailOtpSent && !_sendingEmailOtp) {
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      if (mounted) {
-        await _sendRegistrationEmailOtp();
-      }
-    }
   }
 
   Future<void> _previousStep() async {
@@ -1679,18 +1941,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final name = _nameController.text.trim();
     final mobile = _mobileController.text.trim();
     final mpin = _mpinController.text.trim();
-    final email = _emailController.text.trim();
-    final reference = _referenceController.text.trim();
-    if (name.isEmpty || mobile.isEmpty || email.isEmpty || reference.isEmpty || mpin.isEmpty) {
+    if (name.isEmpty || mobile.isEmpty || mpin.isEmpty) {
       await _markInvalidFields(
         <String>[
-          if (name.isEmpty) 'Full name',
-          if (email.isEmpty) 'Email address',
-          if (mobile.isEmpty) 'Mobile number',
-          if (mpin.isEmpty) 'Create 6 digit M-PIN',
-          if (reference.isEmpty) 'Reference member mobile number',
+          if (name.isEmpty) 'Full Name',
+          if (mobile.isEmpty) 'Mobile No.',
+          if (mpin.isEmpty) 'Security M-PIN',
         ],
-        'Enter full name, mobile number, email, M-PIN and reference mobile number.',
+        'Complete your personal information first.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1698,30 +1956,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (!_namePattern.hasMatch(name)) {
       await _markInvalidFields(
-        <String>['Full name'],
+        <String>['Full Name'],
         'Enter a valid full name (letters and spaces only).',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
       return false;
     }
-    if (!_mobilePattern.hasMatch(mobile) || !_mobilePattern.hasMatch(reference)) {
+    if (!_mobilePattern.hasMatch(mobile)) {
       await _markInvalidFields(
-        <String>[
-          if (!_mobilePattern.hasMatch(mobile)) 'Mobile number',
-          if (!_mobilePattern.hasMatch(reference)) 'Reference member mobile number',
-        ],
-        'Mobile numbers must be 10 digits.',
-        showMessage: showFeedback,
-        scroll: showFeedback,
-      );
-      return false;
-    }
-    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
-    if (!emailRegex.hasMatch(email)) {
-      await _markInvalidFields(
-        <String>['Email address'],
-        'Enter a valid email address.',
+        <String>['Mobile No.'],
+        'Mobile number must be 10 digits.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1729,17 +1974,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (mpin.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(mpin)) {
       await _markInvalidFields(
-        <String>['Create 6 digit M-PIN'],
+        <String>['Security M-PIN'],
         'M-PIN must be exactly 6 digits.',
-        showMessage: showFeedback,
-        scroll: showFeedback,
-      );
-      return false;
-    }
-    if (mobile == reference) {
-      await _markInvalidFields(
-        <String>['Reference member mobile number'],
-        'Reference mobile must be different from member mobile.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1747,8 +1983,36 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (widget.repository.findByMobile(mobile) != null) {
       await _markInvalidFields(
-        <String>['Mobile number'],
+        <String>['Mobile No.'],
         'Mobile number already registered.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+    if (_biometricSupported && !_biometricVerified) {
+      _showMessage('Please complete biometric verification on this device.');
+      return false;
+    }
+    return true;
+  }
+
+  Future<bool> _validateSelfEmailStep({bool showFeedback = true}) async {
+    final email = _emailController.text.trim();
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (email.isEmpty) {
+      await _markInvalidFields(
+        <String>['Self Email Address'],
+        'Enter your self email address.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+    if (!emailRegex.hasMatch(email)) {
+      await _markInvalidFields(
+        <String>['Self Email Address'],
+        'Enter a valid email address.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1756,20 +2020,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (widget.repository.findByEmail(email) != null) {
       await _markInvalidFields(
-        <String>['Email address'],
+        <String>['Self Email Address'],
         'Email already registered.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
       return false;
     }
-    if (_referenceMember == null) {
-      await _markInvalidFields(
-        <String>['Reference member mobile number'],
-        'Reference member could not be verified.',
-        showMessage: showFeedback,
-        scroll: showFeedback,
-      );
+    if (!_emailVerified) {
+      _showMessage('Verify your self email OTP before continuing.');
       return false;
     }
     return true;
@@ -1790,6 +2049,53 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showMessage('Email already registered in system.');
       return false;
     }
+    return true;
+  }
+
+  Future<bool> _validateReferralStep({bool showFeedback = true}) async {
+    final mobile = _referenceController.text.trim();
+    final errors = <String>[];
+    if (mobile.isEmpty) {
+      errors.add('Referring Mobile No.');
+    }
+    if (_referenceMember == null) {
+      errors.add('Referring member');
+    }
+    if (!_referenceEmailVerified) {
+      errors.add('Referral OTP');
+    }
+
+    if (errors.isNotEmpty) {
+      await _markInvalidFields(
+        errors,
+        'Complete and verify the referral details first.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    final memberEmail = _referenceMember!.email?.trim().toLowerCase() ?? '';
+    if (memberEmail.isEmpty) {
+      await _markInvalidFields(
+        <String>['Referring member'],
+        'No email is attached to this referral mobile number.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    if (_referenceMember!.mobileNumber.trim() != mobile) {
+      await _markInvalidFields(
+        <String>['Referring Mobile No.'],
+        'Referral mobile does not match the linked member.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
     return true;
   }
 
@@ -1835,7 +2141,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() {
       _emailVerified = true;
     });
-    _showMessage('Email verified successfully.');
     return true;
   }
 
@@ -1876,7 +2181,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       setState(() {
         _sendingEmailOtp = false;
         _emailOtpSent = true;
-        _otpResendSeconds = 60;
+        _otpResendSeconds = 300;
         _showOtpSendButton = false;
       });
 
@@ -1908,36 +2213,42 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<bool> _validateHomeStep({bool showFeedback = true}) async {
-    final homeDistrict = _homeDistrictController.text.trim();
+    final homeState = _selectedValue(_homeStateController, _homeStateOtherController);
+    final homeDistrict = _effectiveValue(_homeDistrictController, _homeDistrictOtherController);
     final homeVillageMohalla = _homeVillageMohallaController.text.trim();
     final homeGaliNo = _homeGaliNoController.text.trim();
-    final homePoliceStation = _homePoliceStationController.text.trim();
+    final homePoliceStation = _effectiveValue(_homePoliceStationController, _homePoliceStationOtherController);
     final homeTehsil = _homeTehsilController.text.trim();
+    final homePostOffice = _homePostOfficeController.text.trim();
 
-    if (homeDistrict.isEmpty ||
+    if (homeState.isEmpty ||
+        homeDistrict.isEmpty ||
         homeVillageMohalla.isEmpty ||
         homeGaliNo.isEmpty ||
         homePoliceStation.isEmpty ||
-        homeTehsil.isEmpty) {
+        homeTehsil.isEmpty ||
+        homePostOffice.isEmpty) {
       await _markInvalidFields(
         <String>[
+          if (homeState.isEmpty) 'Home State',
           if (homeDistrict.isEmpty) 'Home District',
           if (homeVillageMohalla.isEmpty) 'Village / Mohalla',
           if (homeGaliNo.isEmpty) 'Gali No.',
           if (homePoliceStation.isEmpty) 'Home Police Station',
           if (homeTehsil.isEmpty) 'Home Tehsil',
+          if (homePostOffice.isEmpty) 'Post Office',
         ],
-        'Complete all home details.',
+        'Complete all home district details.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
       return false;
     }
 
-    if (homeDistrict.length < 2) {
+    if (homeState.length < 2 || homeDistrict.length < 2) {
       await _markInvalidFields(
-        <String>['Home District'],
-        'Enter a valid home district.',
+        <String>[if (homeState.length < 2) 'Home State', if (homeDistrict.length < 2) 'Home District'],
+        'Enter a valid home state and district.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1948,15 +2259,49 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<bool> _validatePostingStep({bool showFeedback = true}) async {
-    final postingDistrict = _postingDistrictController.text.trim();
-    final postingStation = _postingLocationController.text.trim();
+    final postingState = _selectedValue(_postingStateController, _postingStateOtherController);
+    final postingDistrict = _effectiveValue(_postingDistrictController, _postingDistrictOtherController);
+    final postingCategory = _effectiveValue(_postingCategoryController, _postingCategoryOtherController);
+    final postingPlace = _effectiveValue(_postingLocationController, _postingLocationOtherController);
     final postingGps = _postingPlaceLocationController.text.trim();
+    final department = _effectiveValue(_departmentController, _departmentOtherController);
+    final rank = _effectiveValue(_postRankController, _customRankController);
+    final batchYear = _effectiveValue(_batchYearController, _batchYearOtherController);
+    final gender = _effectiveValue(_genderController, _genderOtherController);
+    final maritalStatus = _effectiveValue(_maritalStatusController, _maritalStatusOtherController);
+    final postingWorkAs = _effectiveValue(_postingWorkAsController, _postingWorkAsOtherController);
+    final officialName = _officialNameController.text.trim();
+    final whatsapp = _whatsappController.text.trim();
+    final callingContact = _callingNumberController.text.trim();
 
-    if (postingDistrict.isEmpty || postingStation.isEmpty) {
+    if (postingState.isEmpty ||
+        postingDistrict.isEmpty ||
+        postingCategory.isEmpty ||
+        postingPlace.isEmpty ||
+        department.isEmpty ||
+        rank.isEmpty ||
+        batchYear.isEmpty ||
+        gender.isEmpty ||
+        maritalStatus.isEmpty ||
+        postingWorkAs.isEmpty ||
+        officialName.isEmpty ||
+        whatsapp.isEmpty ||
+        callingContact.isEmpty) {
       await _markInvalidFields(
         <String>[
+          if (postingState.isEmpty) 'Posting State',
           if (postingDistrict.isEmpty) 'Posting District',
-          if (postingStation.isEmpty) 'Posting Police Station',
+          if (postingCategory.isEmpty) 'Posting Category',
+          if (postingPlace.isEmpty) 'Posting Place Name',
+          if (department.isEmpty) 'Sub Department',
+          if (rank.isEmpty) 'Rank',
+          if (batchYear.isEmpty) 'Batch Year',
+          if (gender.isEmpty) 'Gender',
+          if (maritalStatus.isEmpty) 'Marital Status',
+          if (postingWorkAs.isEmpty) 'Posting Work As',
+          if (officialName.isEmpty) 'Official Name',
+          if (whatsapp.isEmpty) 'WhatsApp No.',
+          if (callingContact.isEmpty) 'Calling No.',
         ],
         'Complete all posting details.',
         showMessage: showFeedback,
@@ -1965,20 +2310,79 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return false;
     }
 
-    if (postingDistrict.length < 2) {
+    if (postingState.length < 2 || postingDistrict.length < 2) {
       await _markInvalidFields(
-        <String>['Posting District'],
-        'Enter a valid posting district.',
+        <String>[if (postingState.length < 2) 'Posting State', if (postingDistrict.length < 2) 'Posting District'],
+        'Enter a valid posting state and district.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
       return false;
     }
 
-    if (!_isAcceptableStationValue(postingStation)) {
+    if (_postingCategoryController.text.trim() == 'Police Station') {
+      if (postingPlace.length < 3) {
+        await _markInvalidFields(
+          <String>['Posting Police Station'],
+          'Select or enter a valid police station.',
+          showMessage: showFeedback,
+          scroll: showFeedback,
+        );
+        return false;
+      }
+    } else if (postingPlace.length < 3) {
       await _markInvalidFields(
-        <String>['Posting Police Station'],
-        'Enter a valid police station name.',
+        <String>['Posting Place Name'],
+        'Select or enter a valid posting place name.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    if (department.length < 2 || rank.length < 2 || postingWorkAs.length < 2) {
+      await _markInvalidFields(
+        <String>[
+          if (department.length < 2) 'Sub Department',
+          if (rank.length < 2) 'Rank',
+          if (postingWorkAs.length < 2) 'Posting Work As',
+        ],
+        'Select valid posting service details.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    final currentYear = DateTime.now().year;
+    final batch = int.tryParse(batchYear);
+    if (!_yearPattern.hasMatch(batchYear) || batch == null || batch < 1970 || batch > currentYear) {
+      await _markInvalidFields(
+        <String>['Batch Year'],
+        'Enter a valid batch year.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    if (!_namePattern.hasMatch(officialName)) {
+      await _markInvalidFields(
+        <String>['Official Name'],
+        'Enter a valid official name.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+
+    if (!_mobilePattern.hasMatch(whatsapp) || !_mobilePattern.hasMatch(callingContact)) {
+      await _markInvalidFields(
+        <String>[
+          if (!_mobilePattern.hasMatch(whatsapp)) 'WhatsApp No.',
+          if (!_mobilePattern.hasMatch(callingContact)) 'Calling No.',
+        ],
+        'Enter valid WhatsApp and calling numbers.',
         showMessage: showFeedback,
         scroll: showFeedback,
       );
@@ -1987,7 +2391,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (postingGps.isEmpty && !_uploadPostingGpsLater) {
       await _markInvalidFields(
-        <String>['Posting Place Location (Auto-fetched GPS)'],
+        <String>['Posting GPS Location'],
         'Please fetch posting GPS location or choose Upload posting GPS later.',
         showMessage: showFeedback,
         scroll: showFeedback,
@@ -2115,6 +2519,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return true;
   }
 
+  Future<bool> _validateReviewStep({bool showFeedback = true}) async {
+    if (!_acceptedTerms) {
+      await _markInvalidFields(
+        <String>['I agree to the terms and privacy policy'],
+        'Please accept the terms before submitting.',
+        showMessage: showFeedback,
+        scroll: showFeedback,
+      );
+      return false;
+    }
+    return true;
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -2126,14 +2543,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       await _validateIdentityStep();
       return;
     }
-    if (!_emailVerified) {
+    if (!await _validateSelfEmailStep(showFeedback: false)) {
       await _goToStep(1);
-      _showMessage('Please verify your email before submitting registration.');
+      await _validateSelfEmailStep();
       return;
     }
-    if (!await _validateHomeStep(showFeedback: false)) {
+    if (!await _validateReferralStep(showFeedback: false)) {
       await _goToStep(2);
-      await _validateHomeStep();
+      await _validateReferralStep();
       return;
     }
     if (!await _validatePostingStep(showFeedback: false)) {
@@ -2141,14 +2558,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       await _validatePostingStep();
       return;
     }
-    if (!await _validateServiceStep(showFeedback: false)) {
+    if (!await _validateHomeStep(showFeedback: false)) {
       await _goToStep(4);
-      await _validateServiceStep();
+      await _validateHomeStep();
       return;
     }
     if (!await _validateDocumentsStep(showFeedback: false)) {
       await _goToStep(5);
       await _validateDocumentsStep();
+      return;
+    }
+    if (!await _validateReviewStep(showFeedback: false)) {
+      await _goToStep(6);
+      await _validateReviewStep();
       return;
     }
 
@@ -2192,34 +2614,44 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       }
 
       final mobile = _mobileController.text.trim();
-      final effectiveRank = _postRankController.text.trim() == 'Other'
-        ? _customRankController.text.trim()
-        : _postRankController.text.trim();
+      final effectiveRank = _effectiveValue(_postRankController, _customRankController);
+      final effectiveDepartment = _effectiveValue(_departmentController, _departmentOtherController);
+      final effectivePostingState = _effectiveValue(_postingStateController, _postingStateOtherController);
+      final effectivePostingDistrict = _effectiveValue(_postingDistrictController, _postingDistrictOtherController);
+      final effectivePostingCategory = _effectiveValue(_postingCategoryController, _postingCategoryOtherController);
+      final effectivePostingPlace = _effectiveValue(_postingLocationController, _postingLocationOtherController);
+      final effectiveBatchYear = _effectiveValue(_batchYearController, _batchYearOtherController);
+      final effectiveGender = _effectiveValue(_genderController, _genderOtherController);
+      final effectiveMaritalStatus = _effectiveValue(_maritalStatusController, _maritalStatusOtherController);
+      final effectivePostingWorkAs = _effectiveValue(_postingWorkAsController, _postingWorkAsOtherController);
+      final effectiveHomeState = _effectiveValue(_homeStateController, _homeStateOtherController);
+      final effectiveHomeDistrict = _effectiveValue(_homeDistrictController, _homeDistrictOtherController);
+      final effectiveHomePoliceStation = _effectiveValue(_homePoliceStationController, _homePoliceStationOtherController);
       final member = Member(
         id: now.microsecondsSinceEpoch.toString(),
         name: _nameController.text.trim(),
         mobileNumber: mobile,
         userId: 'u_$mobile',
-          email: _emailController.text.trim(),
+        email: _emailController.text.trim(),
         passwordHash: widget.authService.hashPassword(mobile),
         mpin: _mpinController.text.trim(),
         referenceMobileNumber: _referenceController.text.trim(),
         referenceMemberName: _referenceMember?.name,
         selfiePath: selfieUrl,
         idCardPhotoPath: idCardUrl,
-        homeDistrict: _homeDistrictController.text.trim(),
-        homeState: _homeStateController.text.trim(),
-        postingDistrict: _postingDistrictController.text.trim(),
-        postingState: _postingStateController.text.trim(),
-        postingLocation: _postingLocationController.text.trim(),
-        department: _departmentController.text.trim(),
+        homeDistrict: effectiveHomeDistrict,
+        homeState: effectiveHomeState,
+        postingDistrict: effectivePostingDistrict,
+        postingState: effectivePostingState,
+        postingLocation: effectivePostingPlace,
+        department: effectiveDepartment,
         postRank: effectiveRank,
         officialName: _officialNameController.text.trim(),
-        batchYear: _batchYearController.text.trim(),
-        gender: _genderController.text.trim(),
-        maritalStatus: _maritalStatusController.text.trim(),
-        postingCategory: _postingCategoryController.text.trim(),
-        postingWorkAs: _postingWorkAsController.text.trim(),
+        batchYear: effectiveBatchYear,
+        gender: effectiveGender,
+        maritalStatus: effectiveMaritalStatus,
+        postingCategory: effectivePostingCategory,
+        postingWorkAs: effectivePostingWorkAs,
         whatsappNumber: _whatsappController.text.trim(),
         callingContactNumber: _callingNumberController.text.trim(),
         postingPlaceLocation: _postingPlaceLocationController.text.trim(),
@@ -2228,8 +2660,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         }),
         homeVillageMohalla: _homeVillageMohallaController.text.trim(),
         homeGaliNo: _homeGaliNoController.text.trim(),
-        homePostOffice: '',
-        homePoliceStation: _homePoliceStationController.text.trim(),
+        homePostOffice: _homePostOfficeController.text.trim(),
+        homePoliceStation: effectiveHomePoliceStation,
         homeTehsil: _homeTehsilController.text.trim(),
         homeVillageLocation: '',
         appointmentDate: now,
@@ -2265,21 +2697,68 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _primeFormOptions() async {
+    final states = await _locationSuggestions.allStates();
     final districts = await _locationSuggestions.allDistricts();
     if (!mounted) {
       return;
     }
     setState(() {
+      _allStateOptions = states;
       _allDistrictOptions = districts;
+      _allPostingPlaceOptions = List<String>.from(_postingPlaceOptions);
     });
+    await _loadHomeDistrictOptions();
+    await _loadPostingDistrictOptions();
     await _loadHomeStationOptions();
     await _loadPostingStationOptions();
   }
 
-  Future<void> _loadHomeStationOptions() async {
-    final stations = await _locationSuggestions.allPoliceStations(
-      district: _homeDistrictController.text,
+  Future<void> _loadHomeDistrictOptions() async {
+    final state = _selectedValue(
+      _homeStateController,
+      _homeStateOtherController,
     );
+    final districts = state.isEmpty || state == 'Other' || !_allStateOptions.contains(state)
+        ? await _locationSuggestions.allDistricts()
+        : await _locationSuggestions.districtsForState(state);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _homeDistrictOptions = districts;
+    });
+  }
+
+  Future<void> _loadPostingDistrictOptions() async {
+    final state = _selectedValue(
+      _postingStateController,
+      _postingStateOtherController,
+    );
+    final districts = state.isEmpty || state == 'Other' || !_allStateOptions.contains(state)
+        ? await _locationSuggestions.allDistricts()
+        : await _locationSuggestions.districtsForState(state);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _postingDistrictOptions = districts;
+    });
+  }
+
+  Future<void> _loadHomeStationOptions() async {
+    final state = _selectedValue(
+      _homeStateController,
+      _homeStateOtherController,
+    );
+    final district = _selectedValue(
+      _homeDistrictController,
+      _homeDistrictOtherController,
+    );
+    final stations = state == 'Uttar Pradesh'
+        ? await _locationSuggestions.allPoliceStations(
+            district: district,
+          )
+        : <String>[];
     if (!mounted) {
       return;
     }
@@ -2288,10 +2767,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
   }
 
+  Future<void> _loadPostingPlaceOptions() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _allPostingPlaceOptions = List<String>.from(_postingPlaceOptions);
+    });
+  }
+
   Future<void> _loadPostingStationOptions() async {
-    final stations = await _locationSuggestions.allPoliceStations(
-      district: _postingDistrictController.text,
+    final state = _selectedValue(
+      _postingStateController,
+      _postingStateOtherController,
     );
+    final district = _selectedValue(
+      _postingDistrictController,
+      _postingDistrictOtherController,
+    );
+    final stations = state == 'Uttar Pradesh'
+        ? await _locationSuggestions.allPoliceStations(
+            district: district,
+          )
+        : <String>[];
     if (!mounted) {
       return;
     }
@@ -2369,7 +2867,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ? Center(
                               child: Text(
                                 allowCustomValue
-                                    ? 'No matches. You can type and save a custom value.'
+                                    ? 'No matches. Select Other to enter a custom value.'
                                     : 'No matches found.',
                               ),
                             )
@@ -2385,13 +2883,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             ),
                     ),
                     if (allowCustomValue)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton.tonal(
-                          onPressed: () => Navigator.of(context)
-                              .pop(searchController.text.trim()),
-                          child: const Text('Use typed value'),
-                        ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.edit_outlined),
+                        title: const Text('Other'),
+                        onTap: () => Navigator.of(context).pop('Other'),
                       ),
                   ],
                 ),
@@ -2407,10 +2903,62 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
+    if (allowCustomValue && selected == 'Other') {
+      final customValue = await _promptForCustomValue(title: title);
+      if (customValue == null || customValue.trim().isEmpty) {
+        return;
+      }
+      setState(() {
+        controller.text = customValue.trim().toUpperCase();
+      });
+      onSelected?.call(controller.text.trim());
+      return;
+    }
+
     setState(() {
       controller.text = selected;
     });
     onSelected?.call(selected);
+  }
+
+  Future<String?> _promptForCustomValue({required String title}) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Enter $title'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            inputFormatters: <TextInputFormatter>[_UpperCaseTextFormatter()],
+            decoration: const InputDecoration(
+              hintText: 'Type custom value',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return value;
+  }
+
+  List<String> _pickerWithOther(List<String> options) {
+    final merged = <String>[...options];
+    if (!merged.any((item) => item.toLowerCase() == 'other')) {
+      merged.add('Other');
+    }
+    return merged;
   }
 
   Future<void> _capturePostingLocation() async {
@@ -2457,4 +3005,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+      composing: TextRange.empty,
+    );
+  }
 }

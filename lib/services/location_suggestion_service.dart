@@ -5,6 +5,13 @@ import 'package:flutter/services.dart';
 class LocationSuggestionService {
   static const String _dataAssetPath = 'police_station_list.csv';
   static const int _defaultSuggestionLimit = 8;
+  static const List<String> _states = <String>[
+    'Uttar Pradesh',
+    'Maharashtra',
+    'Rajasthan',
+    'Uttarakhand',
+    'Bihar',
+  ];
   static const List<String> _upDistricts = <String>[
     'Agra',
     'Aligarh',
@@ -82,6 +89,142 @@ class LocationSuggestionService {
     'Unnao',
     'Varanasi',
   ];
+  static const List<String> _maharashtraDistricts = <String>[
+    'Ahmednagar',
+    'Akola',
+    'Amravati',
+    'Aurangabad',
+    'Beed',
+    'Bhandara',
+    'Buldhana',
+    'Chandrapur',
+    'Dhule',
+    'Gadchiroli',
+    'Gondia',
+    'Hingoli',
+    'Jalgaon',
+    'Jalna',
+    'Kolhapur',
+    'Latur',
+    'Mumbai City',
+    'Mumbai Suburban',
+    'Nagpur',
+    'Nanded',
+    'Nandurbar',
+    'Nashik',
+    'Osmanabad',
+    'Palghar',
+    'Parbhani',
+    'Pune',
+    'Raigad',
+    'Ratnagiri',
+    'Sangli',
+    'Satara',
+    'Sindhudurg',
+    'Solapur',
+    'Thane',
+    'Wardha',
+    'Washim',
+    'Yavatmal',
+  ];
+  static const List<String> _rajasthanDistricts = <String>[
+    'Ajmer',
+    'Alwar',
+    'Balotra',
+    'Banswara',
+    'Baran',
+    'Barmer',
+    'Beawar',
+    'Bharatpur',
+    'Bhilwara',
+    'Bikaner',
+    'Bundi',
+    'Chittorgarh',
+    'Churu',
+    'Dausa',
+    'Deeg',
+    'Didwana-Kuchaman',
+    'Dholpur',
+    'Dungarpur',
+    'Hanumangarh',
+    'Jaipur',
+    'Jaisalmer',
+    'Jalore',
+    'Jhalawar',
+    'Jhunjhunu',
+    'Jodhpur',
+    'Karauli',
+    'Khairthal-Tijara',
+    'Kota',
+    'Kotputli-Behror',
+    'Nagaur',
+    'Pali',
+    'Phalodi',
+    'Pratapgarh',
+    'Rajsamand',
+    'Salumbar',
+    'Sawai Madhopur',
+    'Sikar',
+    'Sirohi',
+    'Sri Ganganagar',
+    'Tonk',
+    'Udaipur',
+  ];
+  static const List<String> _uttarakhandDistricts = <String>[
+    'Almora',
+    'Bageshwar',
+    'Chamoli',
+    'Champawat',
+    'Dehradun',
+    'Haridwar',
+    'Nainital',
+    'Pauri Garhwal',
+    'Pithoragarh',
+    'Rudraprayag',
+    'Tehri Garhwal',
+    'Udham Singh Nagar',
+    'Uttarkashi',
+  ];
+  static const List<String> _biharDistricts = <String>[
+    'Araria',
+    'Arwal',
+    'Aurangabad',
+    'Banka',
+    'Begusarai',
+    'Bhagalpur',
+    'Bhojpur',
+    'Buxar',
+    'Darbhanga',
+    'East Champaran',
+    'Gaya',
+    'Gopalganj',
+    'Jamui',
+    'Jehanabad',
+    'Khagaria',
+    'Kishanganj',
+    'Kaimur',
+    'Katihar',
+    'Lakhisarai',
+    'Madhubani',
+    'Munger',
+    'Madhepura',
+    'Muzaffarpur',
+    'Nalanda',
+    'Nawada',
+    'Patna',
+    'Purnia',
+    'Rohtas',
+    'Saharsa',
+    'Samastipur',
+    'Sheohar',
+    'Sheikhpura',
+    'Saran',
+    'Sitamarhi',
+    'Supaul',
+    'Siwan',
+    'Vaishali',
+    'West Champaran',
+  ];
   static const Map<String, String> _districtAliases = <String, String>{
     'allahabad': 'Prayagraj',
     'faizabad': 'Ayodhya',
@@ -101,7 +244,40 @@ class LocationSuggestionService {
   final Map<String, List<String>> _districtCache = <String, List<String>>{};
   final Map<String, List<String>> _stationCache = <String, List<String>>{};
   final Map<String, List<String>> _districtStations = <String, List<String>>{};
+  final Map<String, List<String>> _districtsByState = <String, List<String>>{};
   bool _loaded = false;
+
+  LocationSuggestionService() {
+    _districtsByState['Uttar Pradesh'] = List<String>.from(_upDistricts);
+    _districtsByState['Maharashtra'] = List<String>.from(_maharashtraDistricts);
+    _districtsByState['Rajasthan'] = List<String>.from(_rajasthanDistricts);
+    _districtsByState['Uttarakhand'] = List<String>.from(_uttarakhandDistricts);
+    _districtsByState['Bihar'] = List<String>.from(_biharDistricts);
+  }
+
+  Future<List<String>> allStates({String query = ''}) async {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return List<String>.from(_states);
+    }
+    return _states
+        .where((state) => state.toLowerCase().contains(normalized))
+        .toList();
+  }
+
+  Future<List<String>> districtsForState(
+    String state, {
+    String query = '',
+  }) async {
+    final districts = _districtsByState[_canonicalStateName(state)] ?? const <String>[];
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return List<String>.from(districts);
+    }
+    return districts
+        .where((district) => district.toLowerCase().contains(normalized))
+        .toList();
+  }
 
   Future<List<String>> suggestDistricts(String query) async {
     await _ensureLoaded();
@@ -283,6 +459,19 @@ class LocationSuggestionService {
       _districtStations.putIfAbsent(district, () => <String>[]);
     }
 
+    for (final district in _maharashtraDistricts) {
+      _districtStations.putIfAbsent(district, () => <String>[]);
+    }
+    for (final district in _rajasthanDistricts) {
+      _districtStations.putIfAbsent(district, () => <String>[]);
+    }
+    for (final district in _uttarakhandDistricts) {
+      _districtStations.putIfAbsent(district, () => <String>[]);
+    }
+    for (final district in _biharDistricts) {
+      _districtStations.putIfAbsent(district, () => <String>[]);
+    }
+
     _loaded = true;
   }
 
@@ -371,6 +560,20 @@ class LocationSuggestionService {
       }
     }
 
+    return trimmed;
+  }
+
+  String _canonicalStateName(String state) {
+    final trimmed = state.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+
+    for (final entry in _states) {
+      if (entry.toLowerCase() == trimmed.toLowerCase()) {
+        return entry;
+      }
+    }
     return trimmed;
   }
 

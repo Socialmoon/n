@@ -39,34 +39,7 @@ class SupabaseService {
     if (!initialized) {
       return false;
     }
-
-    var client = Supabase.instance.client;
-    if (client.auth.currentSession != null) {
-      return true;
-    }
-
-    try {
-      await client.auth.signInAnonymously().timeout(_initTimeout);
-    } catch (error) {
-      debugPrint(
-        'Supabase anonymous sign-in required for writes but failed: $error',
-      );
-      // Retry once after re-initialization to recover from transient auth client state.
-      _initialized = false;
-      await initialize();
-      if (_initialized) {
-        client = Supabase.instance.client;
-        try {
-          await client.auth.signInAnonymously().timeout(_initTimeout);
-        } catch (retryError) {
-          debugPrint(
-            'Supabase anonymous sign-in retry failed: $retryError',
-          );
-        }
-      }
-    }
-
-    return client.auth.currentSession != null;
+    return true;
   }
 
   Future<void> initialize() async {
@@ -83,18 +56,6 @@ class SupabaseService {
           detectSessionInUri: false,
         ),
       ).timeout(_initTimeout);
-
-      final client = Supabase.instance.client;
-      if (client.auth.currentSession == null) {
-        // Best-effort anonymous auth.
-        // If it fails, keep Supabase initialized and continue with anon role access.
-        try {
-          await client.auth.signInAnonymously().timeout(_initTimeout);
-        } catch (error) {
-          debugPrint(
-              'Supabase anonymous sign-in failed, continuing as anon role: $error');
-        }
-      }
 
       _initialized = true;
     } catch (error) {
@@ -868,14 +829,6 @@ class SupabaseService {
     }
 
     final client = Supabase.instance.client;
-    if (client.auth.currentSession == null) {
-      try {
-        await client.auth.signInAnonymously().timeout(_initTimeout);
-      } catch (error) {
-        // Continue with anon key access; some setups allow storage writes to anon role.
-        debugPrint('Supabase anonymous sign-in before upload failed: $error');
-      }
-    }
 
     var path = '$folder/$fileName';
     final contentType = _detectImageContentType(bytes);
