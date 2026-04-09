@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
+import '../core/supabase_image_headers.dart';
 import '../core/time_utils.dart';
 import '../models/donation_entry.dart';
 import '../models/member.dart';
@@ -146,6 +147,7 @@ class _AdminPaymentReviewsScreenState extends State<AdminPaymentReviewsScreen> {
           height: 180,
           width: double.infinity,
           fit: BoxFit.cover,
+          headers: supabaseImageHeaders(),
           errorBuilder: (_, __, ___) => const SizedBox(
             height: 80,
             child: Center(child: Text('Screenshot preview unavailable.')),

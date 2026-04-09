@@ -1053,8 +1053,8 @@ class SupabaseService {
       'referenceMobileNumber':
           (row['reference_mobile_number'] as String?) ?? '',
       'referenceMemberName': row['reference_member_name'] as String?,
-      'selfiePath': row['selfie_path'] as String?,
-      'idCardPhotoPath': row['id_card_photo_path'] as String?,
+      'selfiePath': _normalizeMediaUrl(row['selfie_path'] as String?),
+      'idCardPhotoPath': _normalizeMediaUrl(row['id_card_photo_path'] as String?),
       'homeDistrict': row['home_district'] as String,
       'homeState': row['home_state'] as String?,
       'postingDistrict': row['posting_district'] as String,
@@ -1097,6 +1097,38 @@ class SupabaseService {
       'previousPublicProfileSnapshot':
           row['previous_public_profile_snapshot'] as String?,
     });
+  }
+
+  String? _normalizeMediaUrl(String? rawUrl) {
+    final value = rawUrl?.trim();
+    if (value == null || value.isEmpty) {
+      return rawUrl;
+    }
+
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return value;
+    }
+
+    // Legacy rows may still point at an old Supabase project host.
+    final expectedBase = Uri.parse(SupabaseConfig.url);
+    final isSupabaseStoragePublicPath =
+        uri.path.startsWith('/storage/v1/object/public/');
+    if (!isSupabaseStoragePublicPath) {
+      return value;
+    }
+
+    if (uri.host == expectedBase.host) {
+      return value;
+    }
+
+    return uri
+        .replace(
+          scheme: expectedBase.scheme,
+          host: expectedBase.host,
+          port: expectedBase.hasPort ? expectedBase.port : null,
+        )
+        .toString();
   }
 
   Member? _tryMemberFromRow(Map<String, dynamic> row) {

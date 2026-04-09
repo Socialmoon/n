@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../core/time_utils.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
@@ -740,13 +741,17 @@ class _MembersScreenState extends State<MembersScreen> {
     final lastLogin = member.lastLoginAt == null
         ? 'Never'
         : _formatDateTime(member.lastLoginAt!);
+    final isInRange = _filterMode == _MemberFilterMode.currentLocation &&
+        distanceKm != null;
 
     final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isInRange ? const Color(0xFF6DC28D) : const Color(0xFFE2E8F0),
+        ),
         boxShadow: const <BoxShadow>[
           BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
         ],
@@ -761,7 +766,10 @@ class _MembersScreenState extends State<MembersScreen> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  _buildAvatar(member),
+                  GestureDetector(
+                    onTap: () => _openMemberDetails(member),
+                    child: _buildAvatar(member),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -788,9 +796,18 @@ class _MembersScreenState extends State<MembersScreen> {
                           style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B74)),
                         ),
                         if (distanceKm != null)
-                          Text(
-                            'Distance from you: ${distanceKm.toStringAsFixed(1)} km',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF0F5C6E), fontWeight: FontWeight.w600),
+                          Row(
+                            children: <Widget>[
+                              if (isInRange)
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 4),
+                                  child: Icon(Icons.pin_drop, size: 14, color: Color(0xFF1F9D45)),
+                                ),
+                              Text(
+                                'Distance from you: ${distanceKm.toStringAsFixed(1)} km',
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF0F5C6E), fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
                       ],
                     ),
@@ -1494,7 +1511,7 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   Widget _buildAvatar(Member member) {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
     if (selfieUrl.isEmpty) {
       return CircleAvatar(
@@ -1510,6 +1527,7 @@ class _MembersScreenState extends State<MembersScreen> {
         width: 44,
         height: 44,
         fit: BoxFit.cover,
+        headers: supabaseImageHeaders(),
         errorBuilder: (_, __, ___) => CircleAvatar(
           radius: 22,
           backgroundColor: const Color(0xFFE8F0F5),

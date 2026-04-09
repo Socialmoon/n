@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/time_utils.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 
 class MemberDetailsScreen extends StatefulWidget {
@@ -199,39 +200,43 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
   }
 
   Widget _buildProfileHeader() {
-    final selfieUrl = _displayMember.selfiePath?.trim() ?? '';
+    final selfieUrl = _displayMember.selfieUrl;
     final initial = _displayMember.name.isEmpty ? '?' : _displayMember.name[0].toUpperCase();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: <Widget>[
-            if (selfieUrl.isEmpty)
-              CircleAvatar(
+    final avatarWidget = selfieUrl.isEmpty
+        ? CircleAvatar(
+            radius: 32,
+            backgroundColor: const Color(0xFFE8F0F5),
+            child: Text(
+              initial,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            ),
+          )
+        : ClipOval(
+            child: Image.network(
+              _displayMember.selfieUrl,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+              headers: supabaseImageHeaders(),
+              errorBuilder: (_, __, ___) => CircleAvatar(
                 radius: 32,
                 backgroundColor: const Color(0xFFE8F0F5),
                 child: Text(
                   initial,
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                 ),
-              )
-            else
-              ClipOval(
-                child: Image.network(
-                  selfieUrl,
-                  width: 64,
-                  height: 64,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => CircleAvatar(
-                    radius: 32,
-                    backgroundColor: const Color(0xFFE8F0F5),
-                    child: Text(
-                      initial,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
               ),
+            ),
+          );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: <Widget>[
+            GestureDetector(
+              onTap: selfieUrl.isEmpty ? null : () => _showFullPhoto(selfieUrl),
+              child: avatarWidget,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -262,6 +267,27 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
           SizedBox(width: 150, child: Text(label, style: const TextStyle(color: Color(0xFF5A6B74)))),
           Expanded(child: Text((value == null || value.trim().isEmpty) ? '-' : value)),
         ],
+      ),
+    );
+  }
+
+  void _showFullPhoto(String url) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              headers: supabaseImageHeaders(),
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        ),
       ),
     );
   }

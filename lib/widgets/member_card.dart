@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 
 class MemberCard extends StatelessWidget {
@@ -103,7 +104,7 @@ class MemberCard extends StatelessWidget {
   }
 
   Widget _buildAvatar(Member member) {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
 
     if (selfieUrl.isEmpty) {
@@ -116,6 +117,7 @@ class MemberCard extends StatelessWidget {
         width: 52,
         height: 52,
         fit: BoxFit.cover,
+        headers: supabaseImageHeaders(),
         errorBuilder: (_, __, ___) => _buildInitialAvatar(initial),
       ),
     );

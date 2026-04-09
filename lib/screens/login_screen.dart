@@ -170,7 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
                     return SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
                           24, keyboardOpen ? 8 : 16, 24, 24),
-                      child: ConstrainedBox(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 480),
                         child: Column(
                           children: <Widget>[
@@ -193,6 +195,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ],
                         ),
+                      ),
                       ),
                     );
                   },

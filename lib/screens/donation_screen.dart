@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/brand.dart';
 import '../core/time_utils.dart';
 import '../models/donation_entry.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 
@@ -244,6 +245,7 @@ class _DonationScreenState extends State<DonationScreen> {
                               width: 210,
                               height: 210,
                               fit: BoxFit.cover,
+                              headers: supabaseImageHeaders(),
                               errorBuilder: (_, __, ___) => QrImageView(
                                 data: _upiUri,
                                 size: 210,
@@ -600,6 +602,7 @@ class _DonationScreenState extends State<DonationScreen> {
                         height: 180,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        headers: supabaseImageHeaders(),
                         errorBuilder: (_, __, ___) => const SizedBox(
                           height: 60,
                           child: Center(child: Text('Current QR preview unavailable.')),

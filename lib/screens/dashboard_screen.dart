@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/time_utils.dart';
 import '../models/emergency_alert.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/donation_service.dart';
@@ -481,7 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHeaderAvatar(Member member) {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
     if (selfieUrl.isEmpty) {
       return CircleAvatar(
@@ -503,6 +504,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         width: 48,
         height: 48,
         fit: BoxFit.cover,
+        headers: supabaseImageHeaders(),
         errorBuilder: (_, __, ___) => CircleAvatar(
           radius: 24,
           backgroundColor: const Color(0x33FFFFFF),

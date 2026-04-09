@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 
@@ -132,6 +133,7 @@ class _AdminUpiSettingsScreenState extends State<AdminUpiSettingsScreen> {
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          headers: supabaseImageHeaders(),
                           errorBuilder: (_, __, ___) => const SizedBox(
                             height: 60,
                             child: Center(

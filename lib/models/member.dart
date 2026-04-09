@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../core/supabase_config.dart';
 import '../core/time_utils.dart';
 
 class Member {
@@ -108,6 +109,36 @@ class Member {
   final DateTime? deletedAt;
   final String? pendingUpdatePayload;
   final String? previousPublicProfileSnapshot;
+
+  String get selfieUrl => _normalizeMediaUrl(selfiePath);
+  String get idCardPhotoUrl => _normalizeMediaUrl(idCardPhotoPath);
+
+  String _normalizeMediaUrl(String? rawUrl) {
+    final value = rawUrl?.trim() ?? '';
+    if (value.isEmpty) {
+      return '';
+    }
+
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return value;
+    }
+
+    final expectedBase = Uri.parse(SupabaseConfig.url);
+    final isSupabaseStoragePublicPath =
+        uri.path.startsWith('/storage/v1/object/public/');
+    if (!isSupabaseStoragePublicPath || uri.host == expectedBase.host) {
+      return value;
+    }
+
+    return uri
+        .replace(
+          scheme: expectedBase.scheme,
+          host: expectedBase.host,
+          port: expectedBase.hasPort ? expectedBase.port : null,
+        )
+        .toString();
+  }
 
   Member copyWith({
     String? id,

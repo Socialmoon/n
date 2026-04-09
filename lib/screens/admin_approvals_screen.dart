@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../core/time_utils.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 
@@ -577,7 +578,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
   }
 
   Widget _header(Member member) {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
     return Card(
       child: Padding(
@@ -593,6 +594,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
+                  headers: supabaseImageHeaders(),
                   errorBuilder: (_, __, ___) => CircleAvatar(radius: 28, child: Text(initial)),
                 ),
               ),
@@ -818,6 +820,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
           child: Image.network(
             path,
             fit: BoxFit.contain,
+            headers: supabaseImageHeaders(),
             errorBuilder: (_, __, ___) => const Center(child: Text('Preview unavailable')),
           ),
         ),
@@ -877,6 +880,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
               child: Image.network(
                 path,
                 fit: BoxFit.contain,
+                headers: supabaseImageHeaders(),
                 errorBuilder: (_, __, ___) => const Text(
                   'Preview unavailable',
                   style: TextStyle(color: Colors.white),
@@ -1279,6 +1283,7 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                     ? Image.network(
                         normalized,
                         fit: BoxFit.cover,
+                        headers: supabaseImageHeaders(),
                         errorBuilder: (_, __, ___) => const Center(child: Text('Preview unavailable')),
                       )
                     : FutureBuilder<Uint8List>(

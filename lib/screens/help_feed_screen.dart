@@ -5,9 +5,11 @@ import '../core/brand.dart';
 import '../core/time_utils.dart';
 import '../models/help_comment.dart';
 import '../models/help_post.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
 import '../services/member_repository.dart';
+import 'member_details_screen.dart';
 import 'post_new_request_screen.dart';
 
 class HelpFeedScreen extends StatefulWidget {
@@ -129,7 +131,11 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  profileUrl.isEmpty
+                  GestureDetector(
+                    onTap: member == null
+                        ? null
+                        : () => _openMemberProfile(member),
+                    child: profileUrl.isEmpty
                       ? CircleAvatar(
                           radius: 16,
                           backgroundColor: const Color(0xFFE8F0F5),
@@ -144,6 +150,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                             width: 32,
                             height: 32,
                             fit: BoxFit.cover,
+                            headers: supabaseImageHeaders(),
                             errorBuilder: (_, __, ___) => CircleAvatar(
                               radius: 16,
                               backgroundColor: const Color(0xFFE8F0F5),
@@ -154,6 +161,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                             ),
                           ),
                         ),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -202,6 +210,8 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                 ),
                 child: Text(
                   post.message,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 14, height: 1.3),
                 ),
               ),
@@ -274,7 +284,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
   }
 
   String _resolveProfileUrl(HelpPost post, Member? member) {
-    final local = member?.selfiePath?.trim() ?? '';
+    final local = member?.selfieUrl ?? '';
     if (local.isNotEmpty) {
       return local;
     }
@@ -300,7 +310,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
       if (!mounted) {
         return;
       }
-      final selfieUrl = member?.selfiePath?.trim() ?? '';
+      final selfieUrl = member?.selfieUrl ?? '';
       if (selfieUrl.isNotEmpty) {
         setState(() {
           _avatarUrlByMobile[normalized] = selfieUrl;
@@ -378,6 +388,7 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
           post: post,
           currentUser: widget.currentUser,
           helpFeedService: widget.helpFeedService,
+          repository: widget.repository,
         ),
       ),
     );
@@ -386,6 +397,17 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
     }
     setState(() {});
   }
+
+  void _openMemberProfile(Member member) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => MemberDetailsScreen(
+          currentUser: widget.currentUser,
+          member: member,
+        ),
+      ),
+    );
+  }
 }
 
 class _HelpPostDetailScreen extends StatefulWidget {
@@ -393,11 +415,13 @@ class _HelpPostDetailScreen extends StatefulWidget {
     required this.post,
     required this.currentUser,
     required this.helpFeedService,
+    required this.repository,
   });
 
   final HelpPost post;
   final Member currentUser;
   final HelpFeedService helpFeedService;
+  final MemberRepository repository;
 
   @override
   State<_HelpPostDetailScreen> createState() => _HelpPostDetailScreenState();
@@ -578,11 +602,55 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
 
       final canDeleteComment = widget.currentUser.isAdmin ||
           widget.currentUser.id == comment.memberId;
+      final commentMember = widget.repository.findById(comment.memberId);
+      final commentSelfie = commentMember?.selfieUrl ?? '';
+      final commentInitial = comment.memberName.isEmpty
+          ? '?'
+          : comment.memberName[0].toUpperCase();
       widgets.add(
         Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
-            leading: const Icon(Icons.person_outline),
+            leading: GestureDetector(
+              onTap: commentMember == null
+                  ? null
+                  : () {
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (context) => MemberDetailsScreen(
+                            currentUser: widget.currentUser,
+                            member: commentMember,
+                          ),
+                        ),
+                      );
+                    },
+              child: commentSelfie.isEmpty
+                  ? CircleAvatar(
+                      radius: 16,
+                      backgroundColor: const Color(0xFFE8F0F5),
+                      child: Text(
+                        commentInitial,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    )
+                  : ClipOval(
+                      child: Image.network(
+                        commentSelfie,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
+                        headers: supabaseImageHeaders(),
+                        errorBuilder: (_, __, ___) => CircleAvatar(
+                          radius: 16,
+                          backgroundColor: const Color(0xFFE8F0F5),
+                          child: Text(
+                            commentInitial,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
             title: Text(comment.memberName),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

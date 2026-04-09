@@ -3,8 +3,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../core/time_utils.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
+import 'member_details_screen.dart';
 
 class AdminAllMembersScreen extends StatefulWidget {
   const AdminAllMembersScreen({
@@ -134,7 +136,10 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: _avatar(member),
+        leading: GestureDetector(
+          onTap: () => _openMemberProfile(member),
+          child: _avatar(member),
+        ),
         title: Text(
           member.name,
           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -151,7 +156,7 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
   }
 
   Widget _avatar(Member member) {
-    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
 
     if (selfieUrl.isEmpty) {
@@ -168,6 +173,7 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
         width: 40,
         height: 40,
         fit: BoxFit.cover,
+        headers: supabaseImageHeaders(),
         errorBuilder: (_, __, ___) => CircleAvatar(
           radius: 20,
           backgroundColor: const Color(0xFFE8F0F5),
@@ -180,7 +186,21 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
   Future<void> _openMemberDetails(Member member) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => _AdminMemberDetailsScreen(member: member),
+        builder: (context) => _AdminMemberDetailsScreen(
+          member: member,
+          currentUser: widget.currentUser,
+        ),
+      ),
+    );
+  }
+
+  void _openMemberProfile(Member member) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => MemberDetailsScreen(
+          currentUser: widget.currentUser,
+          member: member,
+        ),
       ),
     );
   }
@@ -200,9 +220,13 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
 }
 
 class _AdminMemberDetailsScreen extends StatelessWidget {
-  const _AdminMemberDetailsScreen({required this.member});
+  const _AdminMemberDetailsScreen({
+    required this.member,
+    required this.currentUser,
+  });
 
   final Member member;
+  final Member currentUser;
 
   @override
   Widget build(BuildContext context) {
@@ -223,9 +247,22 @@ class _AdminMemberDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(member.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text('${member.postingLocation}, ${member.postingDistrict}'),
+                  Row(
+                    children: <Widget>[
+                      _buildProfileAvatar(member),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(member.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 4),
+                            Text('${member.postingLocation}, ${member.postingDistrict}'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -348,6 +385,34 @@ class _AdminMemberDetailsScreen extends StatelessWidget {
       label: Text('$label: ${enabled ? 'Yes' : 'No'}'),
       backgroundColor: enabled ? const Color(0xFFE8F5EA) : const Color(0xFFF2F4F7),
       visualDensity: VisualDensity.compact,
+    );
+  }
+
+  static Widget _buildProfileAvatar(Member member) {
+    final selfieUrl = member.selfieUrl;
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+
+    if (selfieUrl.isEmpty) {
+      return CircleAvatar(
+        radius: 30,
+        backgroundColor: const Color(0xFFE8F0F5),
+        child: Text(initial, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+      );
+    }
+
+    return ClipOval(
+      child: Image.network(
+        selfieUrl,
+        width: 60,
+        height: 60,
+        fit: BoxFit.cover,
+        headers: supabaseImageHeaders(),
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          radius: 30,
+          backgroundColor: const Color(0xFFE8F0F5),
+          child: Text(initial, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        ),
+      ),
     );
   }
 

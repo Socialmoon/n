@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
 import '../core/time_utils.dart';
+import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/donation_service.dart';
@@ -114,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homePostOfficeController = TextEditingController(text: widget.currentUser.homePostOffice ?? '');
     _homePoliceStationController = TextEditingController(text: widget.currentUser.homePoliceStation ?? '');
     _homeTehsilController = TextEditingController(text: widget.currentUser.homeTehsil ?? '');
-    _selfiePath = widget.currentUser.selfiePath;
+    _selfiePath = widget.currentUser.selfieUrl;
     
     // Auto-fill official name from name if empty
     if ((widget.currentUser.officialName ?? '').trim().isEmpty && widget.currentUser.name.trim().isNotEmpty) {
@@ -189,7 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       // Preserve unsaved local preview if user is editing right now.
       if (_selfiePreviewBytes == null) {
-        _selfiePath = widget.currentUser.selfiePath;
+        _selfiePath = widget.currentUser.selfieUrl;
       }
     }
   }
@@ -1416,7 +1417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return null;
     }
     if (path.startsWith('http://') || path.startsWith('https://')) {
-      return NetworkImage(path);
+      return NetworkImage(path, headers: supabaseImageHeaders());
     }
     return null;
   }
@@ -1749,7 +1750,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   ];
   static const List<String> _rankOptions = <String>[
     'Constable',
-    'HC',
+    'Head Constable',
     'Computer Operator',
     'ASI',
     'SI',
@@ -1762,25 +1763,49 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
     'Married',
     'Divorced',
     'Widowed',
+    'Other',
   ];
   static const List<String> _postingCategories = <String>[
     'Reserve Police Line',
-    'Circle Police Office',
+    'LIU',
     'Police Station',
-    'Fire Station',
-    'District Police Office/Branch',
-    'Other Police Office/Branch',
-    'Battalion',
+    'Fire station',
+    'District Police Office Branch',
+    'Other Branch/Unit office',
+    'Battalion Force',
     'Range Police Office',
     'Zone Police Office',
-    'Police Head Quarter Office',
+    'Police Head Quarter office',
     'District Jail',
+    'Adt. CP office',
+    'Commissionerate Police office',
+    'Joint CP office',
+    'SP/SSP/DCP office',
+    'Adt. SP/ASP/Adt. CP Office',
+    'CO/ACP office',
+    'DSP office',
+    'RI office',
+    'DCR Office',
+    'CCR Office',
+    'PTC',
+    'PTS',
+    'Police Acadmy MBD',
+    'ATC',
+    'Court Security',
+    'PSO',
+    'Other',
   ];
   static const List<String> _postingWorkOptions = <String>[
     'Field Work',
     'Office Work',
     'Court Work',
-    'Others',
+    'Gunner/PSO',
+    'IC/OP',
+    'SHO/SO',
+    'Branch Incharge',
+    'Cell Incharge',
+    'Driver',
+    'Other',
   ];
 
   @override
