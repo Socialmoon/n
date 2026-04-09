@@ -301,6 +301,8 @@ class RadiusMembersMapScreen extends StatelessWidget {
   Widget _memberPin(Member member) {
     final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+    const inRangeAccent = Color(0xFF198754);
+    const inRangeBackground = Color(0xFFEAF7EF);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -309,9 +311,9 @@ class RadiusMembersMapScreen extends StatelessWidget {
           width: 54,
           height: 54,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F0F5),
+            color: inRangeBackground,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: inRangeAccent, width: 2),
             boxShadow: const <BoxShadow>[
               BoxShadow(
                 color: Color(0x33000000),
@@ -323,7 +325,7 @@ class RadiusMembersMapScreen extends StatelessWidget {
           child: ClipOval(
             child: selfieUrl.isEmpty
                 ? CircleAvatar(
-                    backgroundColor: const Color(0xFFE8F0F5),
+                    backgroundColor: inRangeBackground,
                     child: Text(
                       initial,
                       style: const TextStyle(fontWeight: FontWeight.w700),
@@ -336,7 +338,7 @@ class RadiusMembersMapScreen extends StatelessWidget {
                     fit: BoxFit.cover,
                     headers: supabaseImageHeaders(),
                     errorBuilder: (_, __, ___) => CircleAvatar(
-                      backgroundColor: const Color(0xFFE8F0F5),
+                      backgroundColor: inRangeBackground,
                       child: Text(
                         initial,
                         style: const TextStyle(fontWeight: FontWeight.w700),
@@ -349,11 +351,11 @@ class RadiusMembersMapScreen extends StatelessWidget {
           width: 0,
           height: 0,
           margin: const EdgeInsets.only(top: 2),
-          decoration: const BoxDecoration(
-            border: Border(
+          decoration: BoxDecoration(
+            border: const Border(
               left: BorderSide(color: Colors.transparent, width: 6),
               right: BorderSide(color: Colors.transparent, width: 6),
-              top: BorderSide(color: Color(0xFF1E88E5), width: 10),
+              top: BorderSide(color: inRangeAccent, width: 10),
             ),
           ),
         ),

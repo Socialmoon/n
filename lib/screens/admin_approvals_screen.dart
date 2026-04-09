@@ -661,6 +661,9 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
 
   Widget _updateApprovalActions(Member member) {
     final pending = _decodePayloadMap(member.pendingUpdatePayload);
+    final whatsapp = (member.whatsappNumber ?? '').trim().isEmpty
+      ? member.mobileNumber
+      : member.whatsappNumber!.trim();
     final hasPostingUpdate =
         (pending['postingLocation'] ?? '').toString().trim().isNotEmpty ||
         (pending['postingPlaceLocation'] ?? '').toString().trim().isNotEmpty;
@@ -680,6 +683,11 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
                   onPressed: () => _openPhone(member.mobileNumber),
                   icon: const Icon(Icons.call_outlined),
                   label: const Text('Call Member'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: () => _openWhatsApp(whatsapp),
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('WhatsApp'),
                 ),
                 if (hasPostingUpdate)
                   FilledButton.tonalIcon(
