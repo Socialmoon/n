@@ -225,19 +225,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(20),
           children: <Widget>[
             _buildProfileHeroCard(user),
-            const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: user.isBlocked
+                    ? const Color(0xFFFFE9E9)
+                    : const Color(0xFFEAF7EE),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: user.isBlocked
+                      ? const Color(0xFFE8B4B4)
+                      : const Color(0xFFB7DDBF),
+                ),
+              ),
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.verified_user_outlined, size: 24),
+                  Icon(
+                    user.isBlocked
+                        ? Icons.block_outlined
+                        : Icons.verified_user_outlined,
+                    size: 22,
+                    color: user.isBlocked
+                        ? const Color(0xFFB3261E)
+                        : const Color(0xFF1F7A3A),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       user.isBlocked
                           ? 'Your profile is currently blocked. Contact admin support.'
                           : 'Profile active. Keep details updated for faster coordination.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: user.isBlocked
+                            ? const Color(0xFFB3261E)
+                            : const Color(0xFF1F7A3A),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   if (widget.onOpenSettings != null)
@@ -248,76 +273,183 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-          ),
-          if (!hasEmail) ...<Widget>[
-            const SizedBox(height: 12),
-            Card(
-              color: const Color(0xFFFFE9E9),
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFB3261E)),
-                title: const Text(
-                  'Urgent: Add your email',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: const Text(
-                  'Your account has no email. Add and verify it now to enable OTP on new-device login.',
-                ),
-                trailing: FilledButton.tonal(
-                  onPressed: _openEmailVerificationSheet,
-                  child: const Text('Add Email'),
-                ),
+            if (!hasEmail) ...<Widget>[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE9E9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE8B4B4)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB3261E).withAlpha(25),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFB3261E), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text(
+                          'Urgent: Add your email',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Add and verify email now to enable OTP on new-device login.',
+                          style: TextStyle(fontSize: 12.5, color: Color(0xFF5A6B74)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonal(
+                    onPressed: _openEmailVerificationSheet,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB3261E),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Add Email'),
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: Icon(
-                biometricEnabled ? Icons.fingerprint_rounded : Icons.fingerprint_outlined,
-              ),
-              title: const Text('Fingerprint Login'),
-              subtitle: Text(
-                biometricEnabled
-                    ? 'Fingerprint is enabled for this account. You can update it any time.'
-                    : 'Enable fingerprint for this account to use biometric login.',
-              ),
-              trailing: FilledButton.tonal(
-                onPressed: _updatingBiometric ? null : _registerOrUpdateFingerprint,
-                child: Text(
-                  _updatingBiometric
-                      ? 'Please wait...'
-                      : (biometricEnabled ? 'Update' : 'Enable'),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+              ],
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    biometricEnabled ? Icons.fingerprint_rounded : Icons.fingerprint_outlined,
+                    color: const Color(0xFF7C3AED),
+                    size: 20,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text('Fingerprint Login', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Text(
+                        biometricEnabled
+                            ? 'Fingerprint is enabled. You can update it any time.'
+                            : 'Enable fingerprint for biometric login.',
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF5A6B74)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonal(
+                  onPressed: _updatingBiometric ? null : _registerOrUpdateFingerprint,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFF3E8FF),
+                    foregroundColor: const Color(0xFF7C3AED),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    _updatingBiometric
+                        ? 'Please wait...'
+                        : (biometricEnabled ? 'Update' : 'Enable'),
+                  ),
+                ),
+              ],
             ),
           ),
           if (needsPostingLocationUpdate) ...<Widget>[
-            const SizedBox(height: 12),
-            Card(
-              color: const Color(0xFFFFF3CD),
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_rounded),
-                title: const Text('Posting location not uploaded'),
-                subtitle: const Text(
-                  'Your posting place location is missing or marked as upload later. '
-                  'Please update it so members can locate you accurately.',
-                ),
-                trailing: FilledButton.tonal(
-                  onPressed: _openUpdateInfoPage,
-                  child: const Text('Update'),
-                ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3CD),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE5D4A1)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706).withAlpha(25),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text('Posting location not uploaded', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Your posting place location is missing. Please update it so members can locate you.',
+                          style: TextStyle(fontSize: 12.5, color: Color(0xFF5A6B74)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonal(
+                    onPressed: _openUpdateInfoPage,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFD97706),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Update'),
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _sectionHeader(
             title: 'Profile Actions',
             subtitle: 'Manage your basic details and requests.',
           ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+              ],
+            ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -409,26 +541,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.edit_note_outlined),
-                    title: const Text('Update full profile information'),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withAlpha(25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.edit_note_outlined, color: Color(0xFF2563EB), size: 20),
+                    ),
+                    title: const Text('Update full profile information', style: TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text(
-                      'Open a separate page to submit full profile update request for admin approval.',
+                      'Submit full profile update request for admin approval.',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF5A6B74)),
                     ),
                     trailing: FilledButton.tonal(
                       onPressed: _openUpdateInfoPage,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        foregroundColor: const Color(0xFF2563EB),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                       child: const Text('Open'),
                     ),
                   ),
                   const SizedBox(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.pin_drop_outlined),
-                    title: const Text('Update posting details'),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1F7A3A).withAlpha(25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.pin_drop_outlined, color: Color(0xFF1F7A3A), size: 20),
+                    ),
+                    title: const Text('Update posting details', style: TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text(
-                      'Open separate page to refresh posting location and posting GPS.',
+                      'Refresh posting location and posting GPS.',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF5A6B74)),
                     ),
                     trailing: FilledButton.tonal(
                       onPressed: _openPostingDetailsUpdatePage,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFEAF7EE),
+                        foregroundColor: const Color(0xFF1F7A3A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                       child: const Text('Open'),
                     ),
                   ),
@@ -439,21 +597,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: _saving ? null : _save,
                       icon: const Icon(Icons.save_outlined),
                       label: Text(_saving ? 'Saving...' : 'Save Basic Changes'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F3A4A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          _sectionHeader(
-            title: 'Verified Information',
+            const SizedBox(height: 20),
+            _sectionHeader(
+              title: 'Verified Information',
             subtitle: 'These details are maintained by admin verification.',
           ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+              ],
+            ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -503,17 +673,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-          ),
-          if (user.isAdmin) ...<Widget>[
-            const SizedBox(height: 18),
+            if (user.isAdmin) ...<Widget>[
+            const SizedBox(height: 20),
             _sectionHeader(
               title: 'Admin Controls',
               subtitle: 'Open moderation and donation management pages.',
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+                ],
+              ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -558,7 +734,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-            ),
           ],
           ],
         ),
@@ -689,17 +864,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _sectionHeader({required String title, required String subtitle}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: <Widget>[
-        Text(
-          title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: const Color(0xFFD4994A),
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFF5A6B74)),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2638)),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              subtitle,
+              style: const TextStyle(color: Color(0xFF5A6B74), fontSize: 12.5),
+            ),
+          ],
         ),
       ],
     );
@@ -1980,21 +2168,37 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   Widget _sectionCard(String title, List<Widget> children) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFDCCFB3)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          Row(
+            children: <Widget>[
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4994A),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F2638)),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           ...children,
         ],
       ),
@@ -2070,6 +2274,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(title: const Text('Update Information')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -2078,32 +2283,58 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
           children: <Widget>[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFF6F0E3),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFDCCFB3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Text(
-                    'Previously entered info',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD4994A).withAlpha(30),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.history_outlined, size: 18, color: Color(0xFFD4994A)),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Previously entered info',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   ...widget.previousValues.entries.map(
                     (entry) => _infoRow(entry.key, entry.value),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Edit and submit updated details',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            const SizedBox(height: 16),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Edit and submit updated details',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF0F2638)),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _sectionCard('Identity and Service Details', <Widget>[
               _buildTextField(widget.nameController, 'Full Name', fieldId: 'Full Name'),
               const SizedBox(height: 8),
@@ -2321,10 +2552,19 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
               ),
             ]),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: widget.saving ? null : _submitUpdate,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(widget.saving ? 'Saving...' : 'Submit Update Request'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: widget.saving ? null : _submitUpdate,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(widget.saving ? 'Saving...' : 'Submit Update Request'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F3A4A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
             ),
           ],
         ),

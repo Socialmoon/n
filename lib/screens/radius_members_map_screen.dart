@@ -49,7 +49,7 @@ class RadiusMembersMapScreen extends StatelessWidget {
                   height: 84,
                   point: LatLng(item.latitude, item.longitude),
                   child: GestureDetector(
-                    onTap: () => _openRouteToMember(item),
+                    onTap: () => _showMemberActions(context, item),
                     child: _memberPin(item.member),
                   ),
                 );
@@ -66,8 +66,8 @@ class RadiusMembersMapScreen extends StatelessWidget {
         ),
         child: Text(
           isHindi
-              ? 'पिन पर टैप करें, उसी सदस्य का रूट खुलेगा।'
-              : 'Tap any pin to open route only for that member.',
+              ? 'पिन पर टैप करें — कॉल, व्हाट्सएप या रूट का विकल्प मिलेगा।'
+              : 'Tap any pin for Call, WhatsApp, or Direction options.',
           style: const TextStyle(fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
@@ -106,6 +106,169 @@ class RadiusMembersMapScreen extends StatelessWidget {
     final uri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${point.latitude},${point.longitude}&travelmode=driving',
     );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _showMemberActions(BuildContext context, RadiusMapPoint point) {
+    final member = point.member;
+    final isHindi = Localizations.localeOf(context).languageCode == 'hi';
+    final selfieUrl = member.selfiePath?.trim() ?? '';
+    final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
+
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: <Widget>[
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: const Color(0xFFE8F0F5),
+                      backgroundImage: selfieUrl.isNotEmpty
+                          ? NetworkImage(selfieUrl)
+                          : null,
+                      child: selfieUrl.isEmpty
+                          ? Text(initial, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            member.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            member.postingLocation,
+                            style: const TextStyle(color: Color(0xFF5A6B74), fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _actionButton(
+                        icon: Icons.call_outlined,
+                        label: isHindi ? 'कॉल' : 'Call',
+                        color: const Color(0xFF1F7A3A),
+                        bgColor: const Color(0xFFEAF7EE),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _openPhone(member.mobileNumber);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _actionButton(
+                        icon: Icons.chat_outlined,
+                        label: isHindi ? 'व्हाट्सएप' : 'WhatsApp',
+                        color: const Color(0xFF25D366),
+                        bgColor: const Color(0xFFE7FBF0),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _openWhatsApp(member.whatsappNumber ?? member.mobileNumber);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _actionButton(
+                        icon: Icons.directions_outlined,
+                        label: isHindi ? 'रूट' : 'Direction',
+                        color: const Color(0xFF2563EB),
+                        bgColor: const Color(0xFFEFF6FF),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _openRouteToMember(point);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, color: color, size: 26),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPhone(String mobile) async {
+    final uri = Uri.parse('tel:$mobile');
+    await launchUrl(uri);
+  }
+
+  Future<void> _openWhatsApp(String mobile) async {
+    final digits = mobile.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return;
+    }
+    final normalized = digits.length > 10 ? digits : '91$digits';
+    final uri = Uri.parse('https://wa.me/$normalized');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 

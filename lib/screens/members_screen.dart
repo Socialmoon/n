@@ -359,22 +359,58 @@ class _MembersScreenState extends State<MembersScreen> {
     final appliedFilters = _appliedFilterChips(isHindi);
     final isRadiusSelected = _filterMode == _MemberFilterMode.currentLocation;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              isHindi ? 'सदस्य फ़िल्टर' : 'Member Filters',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4994A),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isHindi ? 'सदस्य फ़िल्टर' : 'Member Filters',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2638)),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              isHindi
-                  ? 'कम से कम एक फ़िल्टर लगाने के बाद ही सदस्य दिखेंगे।'
-                  : 'Members are visible only after applying one filter.',
-              style: const TextStyle(color: Color(0xFF5A6B74)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.info_outline, size: 16, color: Color(0xFF5A6B74)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isHindi
+                          ? 'कम से कम एक फ़िल्टर लगाने के बाद ही सदस्य दिखेंगे।'
+                          : 'Members are visible only after applying one filter.',
+                      style: const TextStyle(color: Color(0xFF5A6B74), fontSize: 12.5),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -505,31 +541,48 @@ class _MembersScreenState extends State<MembersScreen> {
                 children: appliedFilters,
               ),
             ],
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    isHindi ? 'अतिरिक्त वैकल्पिक फ़िल्टर' : 'Additional optional filters',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      isHindi ? 'अतिरिक्त वैकल्पिक फ़िल्टर' : 'Additional optional filters',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F2638)),
+                    ),
                   ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: _filterMode == null
-                      ? null
-                      : () {
-                          setState(() {
-                            _showOptionalFilters = !_showOptionalFilters;
-                          });
-                        },
-                  icon: Icon(_showOptionalFilters
-                      ? Icons.tune_outlined
-                      : Icons.tune),
-                  label: Text(_showOptionalFilters
-                      ? (isHindi ? 'छुपाएं' : 'Hide')
-                      : (isHindi ? 'दिखाएं' : 'Show')),
-                ),
-              ],
+                  FilledButton.tonalIcon(
+                    onPressed: _filterMode == null
+                        ? null
+                        : () {
+                            setState(() {
+                              _showOptionalFilters = !_showOptionalFilters;
+                            });
+                          },
+                    icon: Icon(
+                      _showOptionalFilters
+                          ? Icons.expand_less_rounded
+                          : Icons.tune_outlined,
+                      size: 18,
+                    ),
+                    label: Text(_showOptionalFilters
+                        ? (isHindi ? 'छुपाएं' : 'Hide')
+                        : (isHindi ? 'दिखाएं' : 'Show')),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      foregroundColor: const Color(0xFF2563EB),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             if (_filterMode == null)
@@ -688,13 +741,21 @@ class _MembersScreenState extends State<MembersScreen> {
         ? 'Never'
         : _formatDateTime(member.lastLoginAt!);
 
-    final card = Card(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+        ],
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => _openMemberDetails(member),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[

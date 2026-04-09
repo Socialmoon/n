@@ -18,6 +18,7 @@ import 'admin_approvals_screen.dart';
 import 'admin_all_members_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'user_guide_screen.dart';
 
 const int _membersTabIndex = 1;
 const int _helpTabIndex = 2;
@@ -306,6 +307,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             subtitle: 'Emergency response',
             onTap: _triggerAlert,
           ),
+        _buildQuickActionTile(
+          icon: Icons.menu_book_rounded,
+          title: 'User Guide',
+          subtitle: 'Learn app features',
+          onTap: _openUserGuide,
+        ),
       ],
     );
   }
@@ -530,6 +537,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       widget.onCurrentUserUpdated(updated);
     }
     setState(() {});
+  }
+
+  void _openUserGuide() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const UserGuideScreen(),
+      ),
+    );
   }
 
   Future<void> _openMembers() async {

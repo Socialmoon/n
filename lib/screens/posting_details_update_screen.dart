@@ -51,6 +51,7 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
     return PopScope(
       canPop: !widget.forceUpdate,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
           automaticallyImplyLeading: !widget.forceUpdate,
           title: const Text('Update Posting Details'),
@@ -59,50 +60,126 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: <Widget>[
-              Card(
-                color: const Color(0xFFFFF3CD),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text(
-                    widget.forceUpdate
-                        ? 'For security and member coordination, posting details must be refreshed every 6 months. Update now to continue using the app.'
-                        : 'Keep your posting details accurate so nearby members can find and contact you quickly.',
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.forceUpdate
+                      ? const Color(0xFFFFF3CD)
+                      : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: widget.forceUpdate
+                        ? const Color(0xFFE5D4A1)
+                        : const Color(0xFFBFDBFE),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _postingLocationController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Posting Location',
-                  prefixIcon: Icon(Icons.location_city_outlined),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      widget.forceUpdate
+                          ? Icons.warning_amber_rounded
+                          : Icons.info_outline_rounded,
+                      color: widget.forceUpdate
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF2563EB),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.forceUpdate
+                            ? 'For security and member coordination, posting details must be refreshed every 6 months. Update now to continue using the app.'
+                            : 'Keep your posting details accurate so nearby members can find and contact you quickly.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: widget.forceUpdate
+                              ? const Color(0xFF7A5900)
+                              : const Color(0xFF1E40AF),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _postingPlaceLocationController,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Posting Place Location (GPS)',
-                  prefixIcon: Icon(Icons.pin_drop_outlined),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4)),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: _fetchingLocation ? null : _fetchCurrentLocation,
-                  icon: const Icon(Icons.my_location_outlined),
-                  label: Text(
-                    _fetchingLocation
-                        ? 'Fetching current location...'
-                        : 'Tap to share current location',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFACC15),
-                    foregroundColor: const Color(0xFF6B4D00),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4994A),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Posting Location',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F2638)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _postingLocationController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Posting Location',
+                        prefixIcon: const Icon(Icons.location_city_outlined),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _postingPlaceLocationController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Posting Place Location (GPS)',
+                        prefixIcon: const Icon(Icons.pin_drop_outlined),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _fetchingLocation ? null : _fetchCurrentLocation,
+                      icon: const Icon(Icons.my_location_outlined),
+                      label: Text(
+                        _fetchingLocation
+                            ? 'Fetching current location...'
+                            : 'Tap to share current location',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFFACC15),
+                        foregroundColor: const Color(0xFF6B4D00),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -112,6 +189,12 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
                   onPressed: _saving ? null : _save,
                   icon: const Icon(Icons.save_outlined),
                   label: Text(_saving ? 'Saving...' : 'Save Posting Details'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F3A4A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
                 ),
               ),
             ],
