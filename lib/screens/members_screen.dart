@@ -160,6 +160,44 @@ class _MembersScreenState extends State<MembersScreen> {
     return members;
   }
 
+  /// Members after primary filter (district or radius) but before optional filters.
+  List<Member> get _primaryFilteredMembers {
+    final members = _allVisibleMembers.toList();
+
+    if (_filterMode == null) {
+      return const <Member>[];
+    }
+
+    if (_filterMode == _MemberFilterMode.district) {
+      final district = (_selectedDistrict ?? '').trim().toLowerCase();
+      if (district.isEmpty) {
+        return const <Member>[];
+      }
+      return members
+          .where((member) => member.postingDistrict.trim().toLowerCase() == district)
+          .toList();
+    }
+
+    final currentCoords = _distanceOriginCoordinates();
+    if (currentCoords == null) {
+      return const <Member>[];
+    }
+
+    return members.where((member) {
+      final postingCoords = _memberPostingCoordinates(member);
+      if (postingCoords == null) {
+        return false;
+      }
+      final distanceMeters = Geolocator.distanceBetween(
+        currentCoords.latitude,
+        currentCoords.longitude,
+        postingCoords.latitude,
+        postingCoords.longitude,
+      );
+      return distanceMeters <= _radiusKm * 1000;
+    }).toList();
+  }
+
   List<Member> get _filteredMembers {
     final members = _allVisibleMembers.toList();
 
@@ -377,44 +415,55 @@ class _MembersScreenState extends State<MembersScreen> {
         .where((value) => value.isNotEmpty)
         .toList(),
     )..sort();
-    final subDepartments = _uniqueCaseInsensitive(_subDepartmentOptions)..sort();
-    final otherSubDepartments = _uniqueCaseInsensitive(
-      _allVisibleMembers
-        .map((member) => (member.department ?? '').trim())
-        .where((value) => value.isNotEmpty)
-        .where((value) => !_subDepartmentOptions
-            .any((s) => s.toLowerCase() == value.toLowerCase()))
-    )..sort();
-    final categories = _uniqueCaseInsensitive(
-      _postingCategoryOptions
-        .map(_displayValue)
-        .where((value) => value.trim().isNotEmpty)
-        .toList(),
-    )..sort();
-    final otherCategories = _uniqueCaseInsensitive(
-      _allVisibleMembers
-        .map((member) => _displayValue((member.postingCategory ?? '').trim()))
-        .where((value) => value.isNotEmpty)
-        .where((value) => !_postingCategoryOptions
-            .map(_displayValue)
-            .any((s) => s.toLowerCase() == value.toLowerCase()))
-        .toList(),
-    )..sort();
-    final ranks = _uniqueCaseInsensitive(
-      _rankOptions
-        .map(_displayValue)
-        .where((value) => value.trim().isNotEmpty)
-        .toList(),
-    )..sort();
-    final otherRanks = _uniqueCaseInsensitive(
-      _allVisibleMembers
-        .map((member) => _displayValue((member.postRank ?? '').trim()))
-        .where((value) => value.isNotEmpty)
-        .where((value) => !_rankOptions
-            .map(_displayValue)
-            .any((s) => s.toLowerCase() == value.toLowerCase()))
-        .toList(),
-    )..sort();
+
+    // Use primary-filtered members (post district/radius, pre optional) for
+    // dynamic option building.  Then cascade: each subsequent picker uses the
+    // pool narrowed by prior selections.
+    var pool = _primaryFilteredMembers;
+
+    // --- Sub Department options (from primary pool) ---
+    final subDeptCounts = _countValues(
+        pool, (m) => (m.department ?? '').trim());
+    final subDepartments = _filterStandardOptions(
+        _subDepartmentOptions, subDeptCounts);
+    final otherSubDepartments = _filterOtherOptions(
+        _subDepartmentOptions, subDeptCounts);
+
+    // narrow pool if sub department is selected
+    final subDept = (_optionalSubDepartment ?? '').trim().toLowerCase();
+    if (subDept.isNotEmpty) {
+      pool = pool
+          .where((m) =>
+              (m.department ?? '').trim().toLowerCase() == subDept)
+          .toList();
+    }
+
+    // --- Rank options (from narrowed pool) ---
+    final rankCounts = _countValues(
+        pool, (m) => _displayValue((m.postRank ?? '').trim()));
+    final ranks = _filterStandardOptions(
+        _rankOptions.map(_displayValue).toList(), rankCounts);
+    final otherRanks = _filterOtherOptions(
+        _rankOptions.map(_displayValue).toList(), rankCounts);
+
+    // narrow pool if rank is selected
+    final rank = (_optionalRank ?? '').trim().toLowerCase();
+    if (rank.isNotEmpty) {
+      pool = pool
+          .where((m) =>
+              _displayValue((m.postRank ?? '').trim()).toLowerCase() == rank)
+          .toList();
+    }
+
+    // --- Posting Category options (from narrowed pool) ---
+    final catCounts = _countValues(
+        pool,
+        (m) => _displayValue((m.postingCategory ?? '').trim()));
+    final categories = _filterStandardOptions(
+        _postingCategoryOptions.map(_displayValue).toList(), catCounts);
+    final otherCategories = _filterOtherOptions(
+        _postingCategoryOptions.map(_displayValue).toList(), catCounts);
+
     final appliedFilters = _appliedFilterChips(isHindi);
     final isRadiusSelected = _filterMode == _MemberFilterMode.currentLocation;
 
@@ -1510,6 +1559,59 @@ class _MembersScreenState extends State<MembersScreen> {
     return value;
   }
 
+  /// Count occurrences of each value extracted by [extract] from [members].
+  /// Returns a map of lowercase-key → (originalCaseValue, count).
+  Map<String, (String, int)> _countValues(
+      List<Member> members, String Function(Member) extract) {
+    final counts = <String, (String, int)>{};
+    for (final member in members) {
+      final value = extract(member).trim();
+      if (value.isEmpty) continue;
+      final key = value.toLowerCase();
+      final existing = counts[key];
+      if (existing != null) {
+        counts[key] = (existing.$1, existing.$2 + 1);
+      } else {
+        counts[key] = (value, 1);
+      }
+    }
+    return counts;
+  }
+
+  /// Return standard options that have at least 1 member, with "(count)" suffix.
+  List<String> _filterStandardOptions(
+      List<String> standardOptions, Map<String, (String, int)> counts) {
+    final result = <String>[];
+    final seen = <String>{};
+    for (final option in standardOptions) {
+      final key = option.trim().toLowerCase();
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      final entry = counts[key];
+      if (entry != null && entry.$2 > 0) {
+        result.add('$option (${entry.$2})');
+      }
+    }
+    result.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return result;
+  }
+
+  /// Return non-standard (other) options that have at least 1 member.
+  List<String> _filterOtherOptions(
+      List<String> standardOptions, Map<String, (String, int)> counts) {
+    final standardKeys =
+        standardOptions.map((s) => s.trim().toLowerCase()).toSet();
+    final result = <String>[];
+    for (final entry in counts.entries) {
+      if (standardKeys.contains(entry.key)) {
+        continue;
+      }
+      result.add('${entry.value.$1} (${entry.value.$2})');
+    }
+    result.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return result;
+  }
+
   String? _findCaseInsensitiveOption({
     required Iterable<String> options,
     required String typed,
@@ -1524,10 +1626,13 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 
   String? _normalizeFilterValue(String? value) {
-    final trimmed = (value ?? '').trim();
+    var trimmed = (value ?? '').trim();
     if (trimmed.isEmpty) {
       return null;
     }
+
+    // Strip count suffix like " (12)" added by dynamic filter options.
+    trimmed = trimmed.replaceFirst(RegExp(r'\s*\(\d+\)$'), '');
 
     final normalized = trimmed.toLowerCase();
     const genericAnyValues = <String>{

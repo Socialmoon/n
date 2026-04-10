@@ -319,6 +319,7 @@ class _AdminMemberDetailsScreen extends StatelessWidget {
                   _row('User ID', member.userId),
                   _row('Email', member.email),
                   _row('Role', member.role),
+                  _row('MPIN', member.mpin),
                   _row('Mobile Number', member.mobileNumber),
                   _row('Whatsapp Number', member.whatsappNumber),
                   _row('Calling Contact Number', member.callingContactNumber),
