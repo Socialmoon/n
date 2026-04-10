@@ -143,6 +143,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: BrandedScreenTitle(isHindi ? 'डैशबोर्ड' : 'Dashboard'),
         actions: <Widget>[
@@ -209,40 +210,131 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Quick links',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          _buildQuickActions(),
-          const SizedBox(height: 20),
           const SizedBox(height: 24),
-          Text(
-            isHindi ? 'हाल के आपातकालीन अलर्ट' : 'Recent emergency alerts',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          Row(
+            children: <Widget>[
+              Container(
+                width: 4,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E88E5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Quick links',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F2638)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildQuickActions(),
+          const SizedBox(height: 28),
+          Row(
+            children: <Widget>[
+              Container(
+                width: 4,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE65100),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isHindi ? 'हाल के आपातकालीन अलर्ट' : 'Recent emergency alerts',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F2638)),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           ...widget.emergencyService.alerts.take(5).map(_buildAlertCard),
           if (widget.emergencyService.alerts.isEmpty)
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Text(isHindi
-                  ? 'अभी तक कोई आपातकालीन अलर्ट ट्रिगर नहीं हुआ है।'
-                  : 'No emergency alerts have been triggered yet.'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F7FA),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.check_circle_outline,
+                      color: Color(0xFF66BB6A), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isHindi
+                          ? 'अभी तक कोई आपातकालीन अलर्ट ट्रिगर नहीं हुआ है।'
+                          : 'No emergency alerts have been triggered yet.',
+                      style: const TextStyle(color: Color(0xFF5A6B74)),
+                    ),
+                  ),
+                ],
               ),
             ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
-            icon: const Icon(Icons.forum_outlined),
-            label: Text(isHindi ? 'हेल्प फीड खोलें' : 'Open Help Feed'),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFF7B1FA2), Color(0xFFCE93D8)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33FFFFFF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.forum_outlined,
+                      color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        isHindi ? 'हेल्प फीड' : 'Help Feed',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Post requests, comment, and coordinate support.',
+                        style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF7B1FA2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(isHindi ? 'खोलें' : 'Open'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Open the dedicated Help Feed page to post requests, comment, and coordinate support.',
-          ),
+          const SizedBox(height: 16),
         ],
       ),
 
@@ -256,49 +348,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildQuickActions() {
+    final isAdmin = widget.currentUser.isAdmin;
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
       crossAxisCount: 2,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
+      childAspectRatio: 1.55,
       children: <Widget>[
         _buildQuickActionTile(
           icon: Icons.groups_outlined,
           title: 'Members',
           subtitle: 'Search and connect',
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFF1E88E5), Color(0xFF42A5F5)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          iconBg: const Color(0x33FFFFFF),
           onTap: () => _goToTabOrOpen(_membersTabIndex, _openMembers),
         ),
         _buildQuickActionTile(
           icon: Icons.forum_outlined,
           title: 'Help Feed',
           subtitle: 'Requests and support',
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFF7B1FA2), Color(0xFFAB47BC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          iconBg: const Color(0x33FFFFFF),
           onTap: () => _goToTabOrOpen(_helpTabIndex, _openHelpFeed),
         ),
         _buildQuickActionTile(
           icon: Icons.volunteer_activism_outlined,
           title: 'Donations',
           subtitle: 'Fund and history',
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFFE65100), Color(0xFFFF8A65)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          iconBg: const Color(0x33FFFFFF),
           onTap: () => _goToTabOrOpen(_donationsTabIndex, _openDonations),
         ),
         _buildQuickActionTile(
           icon: Icons.person_outline,
           title: 'Account',
           subtitle: 'Profile and settings',
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFF00897B), Color(0xFF4DB6AC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          iconBg: const Color(0x33FFFFFF),
           onTap: () => _goToTabOrOpen(_accountTabIndex, _openAccountHub),
         ),
-        if (widget.currentUser.isAdmin) ...<Widget>[
+        if (isAdmin) ...<Widget>[
           _buildQuickActionTile(
             icon: Icons.verified_user_outlined,
             title: 'Approvals',
             subtitle: 'Review new members',
+            gradient: const LinearGradient(
+              colors: <Color>[Color(0xFFC62828), Color(0xFFEF5350)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            iconBg: const Color(0x33FFFFFF),
             onTap: _openApprovals,
           ),
           _buildQuickActionTile(
             icon: Icons.badge_outlined,
             title: 'All Members',
             subtitle: 'Full admin details',
+            gradient: const LinearGradient(
+              colors: <Color>[Color(0xFF283593), Color(0xFF5C6BC0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            iconBg: const Color(0x33FFFFFF),
             onTap: _openAdminAllMembers,
           ),
         ] else
@@ -306,12 +435,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icons.health_and_safety_outlined,
             title: 'Safety',
             subtitle: 'Emergency response',
+            gradient: const LinearGradient(
+              colors: <Color>[Color(0xFFD32F2F), Color(0xFFFF5252)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            iconBg: const Color(0x33FFFFFF),
             onTap: _triggerAlert,
           ),
         _buildQuickActionTile(
           icon: Icons.menu_book_rounded,
           title: 'User Guide',
           subtitle: 'Learn app features',
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFF546E7A), Color(0xFF90A4AE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          iconBg: const Color(0x33FFFFFF),
           onTap: _openUserGuide,
         ),
       ],
@@ -323,33 +464,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    required Gradient gradient,
+    required Color iconBg,
   }) {
-    return InkWell(
+    return Material(
       borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE1E8EE)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(icon, color: const Color(0xFF0F3A4A)),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(color: Color(0xFF61747E), fontSize: 12),
-              ),
-            ],
+      clipBehavior: Clip.antiAlias,
+      elevation: 3,
+      shadowColor: const Color(0x30000000),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: gradient,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xCCFFFFFF),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -358,13 +520,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
   Widget _buildAlertCard(EmergencyAlert alert) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          colors: <Color>[Color(0xFFFFF8E1), Color(0xFFFFF3E0)],
+        ),
+        border: Border.all(color: const Color(0xFFFFCC80)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
       child: ListTile(
-        leading: const Icon(Icons.notifications_active_outlined),
-        title: Text(alert.message),
-        subtitle: Text(
-          '${alert.memberName} • ${alert.location} • ${formatIstDateTime(alert.timestamp)}',
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6D00).withAlpha(25),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.notifications_active_outlined, color: Color(0xFFE65100), size: 22),
+        ),
+        title: Text(alert.message, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '${alert.memberName} • ${alert.location} • ${formatIstDateTime(alert.timestamp)}',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF8D6E63)),
+          ),
         ),
       ),
     );

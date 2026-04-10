@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -746,6 +748,39 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
       _saving = true;
     });
 
+    final candidate = <String, String>{
+      'postingState': _postingStateController.text.trim(),
+      'postingDistrict': _postingDistrictController.text.trim(),
+      'department': _departmentController.text.trim(),
+      'postingCategory': _postingCategoryController.text.trim(),
+      'postingWorkAs': _postingWorkAsController.text.trim(),
+      'postingLocation': _postingLocationController.text.trim(),
+      'postingPlaceLocation': _postingPlaceLocationController.text.trim(),
+    };
+
+    final currentProfile = <String, String>{
+      'postingState': widget.currentUser.postingState ?? '',
+      'postingDistrict': widget.currentUser.postingDistrict,
+      'department': widget.currentUser.department ?? '',
+      'postingCategory': widget.currentUser.postingCategory ?? '',
+      'postingWorkAs': widget.currentUser.postingWorkAs ?? '',
+      'postingLocation': widget.currentUser.postingLocation,
+      'postingPlaceLocation': widget.currentUser.postingPlaceLocation ?? '',
+    };
+
+    final changed = <String, dynamic>{};
+    candidate.forEach((key, value) {
+      final current = (currentProfile[key] ?? '').trim();
+      if (value.toLowerCase() != current.toLowerCase()) {
+        changed[key] = value;
+      }
+    });
+
+    // Merge changed fields into existing pending payload (preserve security keys).
+    final existingPayload = _decodePendingPayload(
+        widget.currentUser.pendingUpdatePayload);
+    final mergedPayload = <String, dynamic>{...existingPayload, ...changed};
+
     final updated = widget.currentUser.copyWith(
       postingState: _postingStateController.text.trim(),
       postingDistrict: _postingDistrictController.text.trim(),
@@ -754,6 +789,8 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
       postingWorkAs: _postingWorkAsController.text.trim(),
       postingLocation: _postingLocationController.text.trim(),
       postingPlaceLocation: _postingPlaceLocationController.text.trim(),
+      pendingUpdatePayload: jsonEncode(mergedPayload),
+      previousPublicProfileSnapshot: jsonEncode(currentProfile),
       lastUpdated: DateTime.now(),
     );
     final saved = await widget.repository.saveMember(updated);
@@ -787,6 +824,24 @@ class _PostingDetailsUpdateScreenState extends State<PostingDetailsUpdateScreen>
         Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 250), alignment: 0.18);
       }
     });
+  }
+
+  Map<String, dynamic> _decodePendingPayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
   }
 
   bool _isAcceptableStationValue(String value) {

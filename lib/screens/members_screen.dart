@@ -377,30 +377,44 @@ class _MembersScreenState extends State<MembersScreen> {
         .where((value) => value.isNotEmpty)
         .toList(),
     )..sort();
-    final subDepartments = _uniqueCaseInsensitive(<String>[
-      ..._subDepartmentOptions,
-      ..._allVisibleMembers
+    final subDepartments = _uniqueCaseInsensitive(_subDepartmentOptions)..sort();
+    final otherSubDepartments = _uniqueCaseInsensitive(
+      _allVisibleMembers
         .map((member) => (member.department ?? '').trim())
         .where((value) => value.isNotEmpty)
-    ])..sort();
-    final categories = _uniqueCaseInsensitive(<String>[
-      ..._postingCategoryOptions,
-      ..._allVisibleMembers
-        .map((member) => (member.postingCategory ?? '').trim())
+        .where((value) => !_subDepartmentOptions
+            .any((s) => s.toLowerCase() == value.toLowerCase()))
+    )..sort();
+    final categories = _uniqueCaseInsensitive(
+      _postingCategoryOptions
+        .map(_displayValue)
+        .where((value) => value.trim().isNotEmpty)
+        .toList(),
+    )..sort();
+    final otherCategories = _uniqueCaseInsensitive(
+      _allVisibleMembers
+        .map((member) => _displayValue((member.postingCategory ?? '').trim()))
         .where((value) => value.isNotEmpty)
-    ]
-      .map(_displayValue)
-      .where((value) => value.trim().isNotEmpty)
-      .toList())..sort();
-    final ranks = _uniqueCaseInsensitive(<String>[
-      ..._rankOptions,
-      ..._allVisibleMembers
-          .map((member) => (member.postRank ?? '').trim())
-          .where((value) => value.isNotEmpty),
-    ]
-      .map(_displayValue)
-      .where((value) => value.trim().isNotEmpty)
-      .toList())..sort();
+        .where((value) => !_postingCategoryOptions
+            .map(_displayValue)
+            .any((s) => s.toLowerCase() == value.toLowerCase()))
+        .toList(),
+    )..sort();
+    final ranks = _uniqueCaseInsensitive(
+      _rankOptions
+        .map(_displayValue)
+        .where((value) => value.trim().isNotEmpty)
+        .toList(),
+    )..sort();
+    final otherRanks = _uniqueCaseInsensitive(
+      _allVisibleMembers
+        .map((member) => _displayValue((member.postRank ?? '').trim()))
+        .where((value) => value.isNotEmpty)
+        .where((value) => !_rankOptions
+            .map(_displayValue)
+            .any((s) => s.toLowerCase() == value.toLowerCase()))
+        .toList(),
+    )..sort();
     final appliedFilters = _appliedFilterChips(isHindi);
     final isRadiusSelected = _filterMode == _MemberFilterMode.currentLocation;
 
@@ -661,6 +675,7 @@ class _MembersScreenState extends State<MembersScreen> {
                     : 'Sub Department (Optional)',
                 value: _optionalSubDepartment,
                 options: subDepartments,
+                otherOptions: otherSubDepartments,
                 accentColor: const Color(0xFFD97706),
                 onChanged: (value) {
                   setState(() {
@@ -676,6 +691,7 @@ class _MembersScreenState extends State<MembersScreen> {
                     : 'Rank (Optional)',
                 value: _optionalRank,
                 options: ranks,
+                otherOptions: otherRanks,
                 accentColor: const Color(0xFF0F766E),
                 onChanged: (value) {
                   setState(() {
@@ -690,7 +706,8 @@ class _MembersScreenState extends State<MembersScreen> {
                     ? 'पोस्टिंग कैटेगरी (वैकल्पिक)'
                     : 'Posting Category (Optional)',
                 value: _optionalCategory,
-                options: categories.map(_displayValue).toList(),
+                options: categories,
+                otherOptions: otherCategories,
                 accentColor: const Color(0xFF7C3AED),
                 onChanged: (value) {
                   setState(() {
@@ -1266,6 +1283,7 @@ class _MembersScreenState extends State<MembersScreen> {
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    List<String> otherOptions = const <String>[],
     Color accentColor = const Color(0xFF0F3A4A),
     String? emptyLabel,
   }) {
@@ -1279,6 +1297,7 @@ class _MembersScreenState extends State<MembersScreen> {
           final picked = await _pickTypedValue(
             title: labelText,
             options: options,
+            otherOptions: otherOptions,
             initialValue: value,
             emptyLabel: emptyLabel,
           );
@@ -1315,6 +1334,7 @@ class _MembersScreenState extends State<MembersScreen> {
     required String title,
     required List<String> options,
     required String? initialValue,
+    List<String> otherOptions = const <String>[],
     String? emptyLabel,
   }) async {
     return showModalBottomSheet<String?>(
@@ -1325,18 +1345,28 @@ class _MembersScreenState extends State<MembersScreen> {
         String query = '';
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final filtered = query.trim().isEmpty
+            final lowerQuery = query.trim().toLowerCase();
+            final filtered = lowerQuery.isEmpty
                 ? options
                 : options
-                    .where((item) => item.toLowerCase().contains(query.toLowerCase()))
+                    .where((item) => item.toLowerCase().contains(lowerQuery))
                     .toList();
+            final filteredOther = lowerQuery.isEmpty
+                ? otherOptions
+                : otherOptions
+                    .where((item) => item.toLowerCase().contains(lowerQuery))
+                    .toList();
+            final totalCount = filtered.length +
+                (filteredOther.isEmpty ? 0 : filteredOther.length + 1);
 
             return Padding(
               padding: EdgeInsets.only(
                 left: 16,
                 right: 16,
                 top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom +
+                    MediaQuery.of(context).viewPadding.bottom +
+                    16,
               ),
               child: SizedBox(
                 height: MediaQuery.of(context).size.height * 0.72,
@@ -1375,12 +1405,53 @@ class _MembersScreenState extends State<MembersScreen> {
                       ),
                     Expanded(
                       child: ListView.builder(
-                        itemCount: filtered.length,
+                        itemCount: totalCount,
                         itemBuilder: (context, index) {
-                          final value = filtered[index];
+                          if (index < filtered.length) {
+                            final value = filtered[index];
+                            return ListTile(
+                              title: Text(value),
+                              onTap: () => Navigator.of(context).pop(value),
+                            );
+                          }
+                          final otherIndex =
+                              index - filtered.length;
+                          if (otherIndex == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: Row(
+                                children: <Widget>[
+                                  const Expanded(
+                                      child: Divider(
+                                          color: Color(0xFFCBD5E1))),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10),
+                                    child: Text(
+                                      'Other (from members)',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                      child: Divider(
+                                          color: Color(0xFFCBD5E1))),
+                                ],
+                              ),
+                            );
+                          }
+                          final value =
+                              filteredOther[otherIndex - 1];
                           return ListTile(
                             title: Text(value),
-                            onTap: () => Navigator.of(context).pop(value),
+                            leading: const Icon(Icons.person_outline,
+                                size: 18, color: Color(0xFF94A3B8)),
+                            onTap: () =>
+                                Navigator.of(context).pop(value),
                           );
                         },
                       ),
@@ -1396,7 +1467,7 @@ class _MembersScreenState extends State<MembersScreen> {
                             return;
                           }
                           final existing = _findCaseInsensitiveOption(
-                            options: options,
+                            options: <String>[...options, ...otherOptions],
                             typed: typed,
                           );
                           Navigator.of(context).pop(existing ?? typed);

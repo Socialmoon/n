@@ -9,6 +9,7 @@ import '../core/time_utils.dart';
 import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
+import 'member_details_screen.dart';
 
 class AdminApprovalsScreen extends StatefulWidget {
   const AdminApprovalsScreen({
@@ -585,19 +586,30 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: <Widget>[
-            if (selfieUrl.isEmpty)
-              CircleAvatar(radius: 28, child: Text(initial))
-            else
-              ClipOval(
-                child: Image.network(
-                  selfieUrl,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  headers: supabaseImageHeaders(),
-                  errorBuilder: (_, __, ___) => CircleAvatar(radius: 28, child: Text(initial)),
-                ),
-              ),
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MemberDetailsScreen(
+                      currentUser: widget.currentUser,
+                      member: member,
+                    ),
+                  ),
+                );
+              },
+              child: selfieUrl.isEmpty
+                  ? CircleAvatar(radius: 28, child: Text(initial))
+                  : ClipOval(
+                      child: Image.network(
+                        selfieUrl,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        headers: supabaseImageHeaders(),
+                        errorBuilder: (_, __, ___) => CircleAvatar(radius: 28, child: Text(initial)),
+                      ),
+                    ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

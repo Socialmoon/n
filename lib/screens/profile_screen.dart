@@ -2618,6 +2618,7 @@ class _ProfileUpdateInfoScreenState extends State<_ProfileUpdateInfoScreen> {
                 ),
               ),
             ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
           ],
         ),
       ),

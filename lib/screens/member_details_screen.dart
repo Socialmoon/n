@@ -117,6 +117,7 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
             _section(
               title: 'Home Details (Admin Only)',
               children: <Widget>[
+                _row('MPIN', _displayMember.mpin),
                 _row('Home District Name', _displayMember.homeDistrict),
                 _row('Home State', _displayMember.homeState),
                 _row('Village / Mohalla', _displayMember.homeVillageMohalla),
