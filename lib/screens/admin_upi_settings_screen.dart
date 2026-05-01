@@ -1,8 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../core/supabase_image_headers.dart';
+import '../core/cdn_config.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 
@@ -128,13 +129,14 @@ class _AdminUpiSettingsScreenState extends State<AdminUpiSettingsScreen> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          widget.donationService.customQrImageUrl!,
+                        child: CachedNetworkImage(
+                          imageUrl: widget.donationService.customQrImageUrl!,
+                          httpHeaders: CdnConfig.headersFor(
+                              widget.donationService.customQrImageUrl!),
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          headers: supabaseImageHeaders(),
-                          errorBuilder: (_, __, ___) => const SizedBox(
+                          errorWidget: (_, __, ___) => const SizedBox(
                             height: 60,
                             child: Center(
                               child: Text('Current QR preview unavailable.'),

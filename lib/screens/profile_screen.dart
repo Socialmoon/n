@@ -9,8 +9,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/donation_service.dart';
@@ -1417,7 +1417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return null;
     }
     if (path.startsWith('http://') || path.startsWith('https://')) {
-      return NetworkImage(path, headers: supabaseImageHeaders());
+      return NetworkImage(path, headers: CdnConfig.headersFor(path));
     }
     return null;
   }

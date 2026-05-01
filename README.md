@@ -185,20 +185,98 @@ Tables and RLS policies are provided in:
 - Donation entries are synced with proof details for admin verification workflows.
 - URL and anon key are expected to be visible in client builds. Security is enforced by RLS policies, not by hiding anon keys.
 
-## APK Deployment Policy
+## Image CDN & Storage Optimisation
 
-- This project does not use GitHub-hosted build/deploy minutes for APK publishing.
-- APK releases are deployed manually using authenticated GitHub CLI.
+The app uses a three-layer strategy to keep Supabase egress well within the 5 GB free-tier limit:
 
-Manual release workflow:
+### Layer 1 — WebP compression on upload
+Every profile photo and donation screenshot is automatically compressed to WebP (quality 82, max 900 px) before being uploaded to Supabase Storage. This reduces file sizes by 50–70 % compared to raw JPEG.
 
-```powershell
-gh auth login
-gh release create "apk-$(Get-Date -Format yyyyMMdd-HHmmss)" "PATH_TO_APK_FILE" --title "APK Manual Release" --generate-notes --latest
+### Layer 2 — Cloudflare CDN (one-time setup)
+
+1. Add your domain to Cloudflare (free plan is fine).
+2. Create a DNS CNAME record:
+   ```
+   img.yourdomain.com  →  iuhecyqizatkiskoznwq.supabase.co
+   ```
+3. In Cloudflare dashboard → **Rules → Cache Rules**, add:
+   - URL pattern: `img.yourdomain.com/*`
+   - Cache: **Cache Everything**
+   - Edge TTL: **1 month**
+   - Browser TTL: **7 days**
+4. Build the app with the CDN base URL:
+   ```bash
+   flutter run \
+     --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
+     --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
+     --dart-define=CDN_BASE_URL=https://img.yourdomain.com
+   ```
+   For release APK:
+   ```bash
+   flutter build apk --release \
+     --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
+     --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
+     --dart-define=CDN_BASE_URL=https://img.yourdomain.com
+   ```
+
+When `CDN_BASE_URL` is set, all Supabase Storage URLs are automatically rewritten to go through Cloudflare. CDN-served images require no `apikey` header, so Cloudflare caches them correctly. If `CDN_BASE_URL` is not set, the app falls back to direct Supabase URLs transparently.
+
+### Layer 3 — Flutter disk cache
+`cached_network_image` caches every image to device disk. Users scrolling through the member list will not re-download the same avatars on subsequent app sessions.
+
+### Combined impact
+| Optimisation | Benefit |
+|---|---|
+| WebP compression | ~50–70 % smaller files stored and transferred |
+| Cloudflare CDN | ~80–95 % fewer Supabase origin hits |
+| Flutter disk cache | Zero repeat downloads within a device session |
+
+
+
+## APK Deployment
+
+APK releases are hosted on **Supabase Storage** (`app-releases` bucket) — no GitHub authentication needed, works with private repos.
+
+### One-time setup
+
+1. Run [supabase/22_app_update_enforcement.sql](supabase/22_app_update_enforcement.sql) in Supabase SQL editor.
+2. Set the download URL (run once — URL stays the same because you always overwrite the same filename):
+
+```sql
+update public.app_settings
+set value = 'https://YOUR_PROJECT_REF.supabase.co/storage/v1/object/public/app-releases/apne-saathi-latest.apk'
+where key = 'app_download_url';
 ```
 
-Example (existing local APK):
+### How to release a new version
 
-```powershell
-gh release create "apk-$(Get-Date -Format yyyyMMdd-HHmmss)" "releases/app-release-20260320.apk" --title "APK Manual Release" --generate-notes --latest
+**Step 1 — Build the APK:**
+```bash
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+**Step 2 — Upload to Supabase Storage (always same filename so URL never changes):**
+
+Option A — Supabase Dashboard:
+- Storage → `app-releases` → Upload → select APK → rename to `apne-saathi-latest.apk`
+
+Option B — Supabase CLI:
+```bash
+npx supabase@latest storage cp ./build/app/outputs/flutter-apk/app-release.apk \
+  ss://app-releases/apne-saathi-latest.apk \
+  --project-ref YOUR_PROJECT_REF
+```
+
+**Step 3 — Force old users to update (set to your new pubspec.yaml version):**
+```sql
+update public.app_settings set value = '0.1.5' where key = 'min_app_version';
+```
+
+Users below that version see a non-dismissible update dialog on next app open. Tapping **Download Update** downloads the APK directly from Supabase Storage and Android prompts to install it.
+
+To disable enforcement (allow all versions):
+```sql
+update public.app_settings set value = '0.0.0' where key = 'min_app_version';
 ```

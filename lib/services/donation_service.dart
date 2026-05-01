@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 
+import '../core/cdn_config.dart';
 import '../models/donation_entry.dart';
 import '../models/member.dart';
 import 'supabase_service.dart';
@@ -55,9 +56,11 @@ class DonationService {
             key: 'donation_admin_mobile',
           ) ??
           defaultAdminMobile;
-      _customQrImageUrl = await _cloudService.fetchAppSetting(
+      final rawQrUrl = await _cloudService.fetchAppSetting(
         key: 'donation_qr_image_url',
       );
+      final rewrittenQrUrl = rawQrUrl == null ? null : CdnConfig.rewrite(rawQrUrl);
+      _customQrImageUrl = (rewrittenQrUrl == null || rewrittenQrUrl.isEmpty) ? null : rewrittenQrUrl;
     } catch (_) {
       return;
     }
@@ -173,9 +176,10 @@ class DonationService {
     _upiId = upiId.trim();
     _upiName = upiName.trim();
     _adminMobile = adminMobile.trim();
-    _customQrImageUrl = customQrImageUrl?.trim().isEmpty == true
-        ? null
-        : customQrImageUrl;
+    // Strip CDN prefix before storing — DB always holds raw Supabase URLs.
+    // In-memory value is CDN-rewritten for display.
+    final rawQrForDb = _stripCdn(customQrImageUrl);
+    _customQrImageUrl = rawQrForDb == null ? null : CdnConfig.rewrite(rawQrForDb);
 
     try {
       final upiSaved =
@@ -188,7 +192,7 @@ class DonationService {
       );
       final qrSaved = await _cloudService.upsertAppSetting(
         key: 'donation_qr_image_url',
-        value: _customQrImageUrl ?? '',
+        value: rawQrForDb ?? '',
       );
 
       final allSaved = upiSaved && nameSaved && adminSaved && qrSaved;
@@ -327,16 +331,35 @@ class DonationService {
       return null;
     }
     final previousCustomQrImageUrl = _customQrImageUrl;
-    _customQrImageUrl = uploaded;
+    // uploaded is a raw Supabase URL — rewrite for in-memory display,
+    // store raw in DB.
+    _customQrImageUrl = CdnConfig.rewrite(uploaded);
     final saved = await _cloudService.upsertAppSetting(
       key: 'donation_qr_image_url',
-      value: uploaded,
+      value: uploaded, // raw Supabase URL stored in DB
     );
     if (!saved) {
       _customQrImageUrl = previousCustomQrImageUrl;
       _lastOperationError = _cloudService.lastWriteError;
       return null;
     }
-    return uploaded;
+    return _customQrImageUrl; // return CDN URL for immediate display
+  }
+
+  /// Strips the CDN prefix from [url] returning the raw Supabase URL,
+  /// or null if [url] is null/empty. Used before writing to DB.
+  String? _stripCdn(String? url) {
+    final v = url?.trim() ?? '';
+    if (v.isEmpty) return null;
+    if (!CdnConfig.hasCdn) return v;
+    final cdnBase = const String.fromEnvironment('CDN_BASE_URL');
+    if (cdnBase.isNotEmpty && v.startsWith(cdnBase)) {
+      // Replace CDN host back with Supabase host.
+      final supabaseBase = _cloudService.supabaseUrl;
+      if (supabaseBase.isNotEmpty) {
+        return v.replaceFirst(cdnBase.endsWith('/') ? cdnBase.substring(0, cdnBase.length - 1) : cdnBase, supabaseBase);
+      }
+    }
+    return v;
   }
 }

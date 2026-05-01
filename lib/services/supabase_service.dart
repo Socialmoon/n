@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/cdn_config.dart';
 import '../core/supabase_config.dart';
 import '../models/donation_entry.dart';
 import '../models/emergency_alert.dart';
@@ -21,6 +23,7 @@ class SupabaseService {
   static final Random _random = Random.secure();
 
   bool get isConfigured => SupabaseConfig.isConfigured;
+  String get supabaseUrl => SupabaseConfig.url;
   String? get lastWriteError => _lastWriteError;
   String? get lastUploadError => _lastUploadError;
 
@@ -817,6 +820,40 @@ class SupabaseService {
     }
   }
 
+  /// Compresses [bytes] to WebP (quality 82, max 900 px on longest side).
+  /// Falls back to original bytes if compression fails or is unavailable.
+  Future<({Uint8List bytes, String contentType, String ext})>
+      _compressToWebP(Uint8List bytes, String originalFileName) async {
+    try {
+      final compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        format: CompressFormat.webp,
+        quality: 82,
+        minWidth: 1,
+        minHeight: 1,
+        keepExif: false,
+      );
+      // Only use compressed result if it is actually smaller.
+      if (compressed.isNotEmpty && compressed.length < bytes.length) {
+        final baseName = originalFileName.contains('.')
+            ? originalFileName.substring(0, originalFileName.lastIndexOf('.'))
+            : originalFileName;
+        return (
+          bytes: Uint8List.fromList(compressed),
+          contentType: 'image/webp',
+          ext: '$baseName.webp',
+        );
+      }
+    } catch (e) {
+      debugPrint('WebP compression failed, using original: $e');
+    }
+    return (
+      bytes: bytes,
+      contentType: _detectImageContentType(bytes),
+      ext: originalFileName,
+    );
+  }
+
   Future<String?> uploadImageBytes({
     required Uint8List bytes,
     required String folder,
@@ -828,24 +865,34 @@ class SupabaseService {
       return null;
     }
 
+    // Compress to WebP before uploading to save Supabase storage + egress.
+    final compressed = await _compressToWebP(bytes, fileName);
+    final uploadBytes = compressed.bytes;
+    final contentType = compressed.contentType;
+    fileName = compressed.ext;
+
     final client = Supabase.instance.client;
 
     var path = '$folder/$fileName';
-    final contentType = _detectImageContentType(bytes);
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         await client.storage
             .from(_mediaBucket)
             .uploadBinary(
               path,
-              bytes,
+              uploadBytes,
               fileOptions: FileOptions(
-                cacheControl: '3600',
+                // 30-day browser cache; Cloudflare CDN will cache at edge.
+                cacheControl: '2592000',
                 upsert: false,
                 contentType: contentType,
               ),
             );
-        return client.storage.from(_mediaBucket).getPublicUrl(path);
+        final publicUrl =
+            client.storage.from(_mediaBucket).getPublicUrl(path);
+        // Return raw Supabase URL — CDN rewriting happens at read time
+        // via _normalizeMediaUrl so the DB always stores canonical URLs.
+        return publicUrl;
       } catch (error) {
         final text = error.toString().toLowerCase();
         final looksLikeConflict =
@@ -875,11 +922,15 @@ class SupabaseService {
             'apikey': SupabaseConfig.anonKey,
             'Authorization': 'Bearer $bearer',
             'Content-Type': contentType,
+            'Cache-Control': '2592000',
           },
-          body: bytes,
+          body: uploadBytes,
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          return client.storage.from(_mediaBucket).getPublicUrl(path);
+          final publicUrl =
+              client.storage.from(_mediaBucket).getPublicUrl(path);
+          // Return raw Supabase URL — CDN rewriting happens at read time.
+          return publicUrl;
         }
 
         final looksLikeConflict = response.statusCode == 409;
@@ -1118,17 +1169,18 @@ class SupabaseService {
       return value;
     }
 
-    if (uri.host == expectedBase.host) {
-      return value;
+    String normalized = value;
+    if (uri.host != expectedBase.host) {
+      normalized = uri
+          .replace(
+            scheme: expectedBase.scheme,
+            host: expectedBase.host,
+            port: expectedBase.hasPort ? expectedBase.port : null,
+          )
+          .toString();
     }
-
-    return uri
-        .replace(
-          scheme: expectedBase.scheme,
-          host: expectedBase.host,
-          port: expectedBase.hasPort ? expectedBase.port : null,
-        )
-        .toString();
+    // Rewrite to CDN host so all image loads go through Cloudflare cache.
+    return CdnConfig.rewrite(normalized);
   }
 
   Member? _tryMemberFromRow(Map<String, dynamic> row) {
@@ -1346,7 +1398,7 @@ class SupabaseService {
       'status': row['status'] as String,
       'transactionRef': row['transaction_ref'] as String?,
       'note': row['note'] as String?,
-      'screenshotPath': row['screenshot_path'] as String?,
+      'screenshotPath': _normalizeMediaUrl(row['screenshot_path'] as String?),
       'reviewedAt': row['reviewed_at'] as String?,
       'reviewedBy': row['reviewed_by'] as String?,
       'rejectionReason': row['rejection_reason'] as String?,

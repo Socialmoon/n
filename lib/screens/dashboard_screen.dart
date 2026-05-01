@@ -1,8 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
 import '../models/emergency_alert.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/donation_service.dart';
@@ -668,39 +669,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeaderAvatar(Member member) {
     final selfieUrl = member.selfieUrl;
     final initial = member.name.isEmpty ? '?' : member.name[0].toUpperCase();
-    if (selfieUrl.isEmpty) {
-      return CircleAvatar(
-        radius: 24,
-        backgroundColor: const Color(0x33FFFFFF),
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
+    final fallback = CircleAvatar(
+      radius: 24,
+      backgroundColor: const Color(0x33FFFFFF),
+      child: Text(
+        initial,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
         ),
-      );
-    }
+      ),
+    );
+    if (selfieUrl.isEmpty) return fallback;
     return ClipOval(
-      child: Image.network(
-        selfieUrl,
+      child: CachedNetworkImage(
+        imageUrl: selfieUrl,
+        httpHeaders: CdnConfig.headersFor(selfieUrl),
         width: 48,
         height: 48,
         fit: BoxFit.cover,
-        headers: supabaseImageHeaders(),
-        errorBuilder: (_, __, ___) => CircleAvatar(
-          radius: 24,
-          backgroundColor: const Color(0x33FFFFFF),
-          child: Text(
-            initial,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-            ),
-          ),
-        ),
+        placeholder: (_, __) => fallback,
+        errorWidget: (_, __, ___) => fallback,
       ),
     );
   }

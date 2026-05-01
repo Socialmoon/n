@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'core/app_strings.dart';
 import 'core/brand.dart';
@@ -11,8 +12,9 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
 import 'screens/posting_details_update_screen.dart';
 import 'screens/splash_screen.dart';
-import 'services/auth_service.dart';
 import 'services/app_language_service.dart';
+import 'services/app_update_service.dart';
+import 'services/auth_service.dart';
 import 'services/donation_service.dart';
 import 'services/emergency_service.dart';
 import 'services/help_feed_service.dart';
@@ -52,6 +54,8 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
   final AppLanguageService _languageService = AppLanguageService();
   final LocalNotificationService _notificationService =
       LocalNotificationService();
+  late final AppUpdateService _updateService =
+      AppUpdateService(cloudService: _supabaseService);
 
   bool _loading = true;
   Member? _currentUser;
@@ -117,6 +121,84 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
       _loading = false;
     });
     _startInactivityTimer();
+    // Check for mandatory app update after UI is ready.
+    _checkForMandatoryUpdate();
+  }
+
+  Future<void> _checkForMandatoryUpdate() async {
+    final result = await _updateService.checkForUpdate();
+    if (!mounted || result == null || !result.isUpdateRequired) return;
+    _showUpdateDialog(result);
+  }
+
+  void _showUpdateDialog(UpdateCheckResult result) {
+    final hasUrl = result.downloadUrl != null && result.downloadUrl!.isNotEmpty;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Row(
+            children: <Widget>[
+              Icon(Icons.system_update_outlined, color: Color(0xFF0F3A4A)),
+              SizedBox(width: 10),
+              Text('Update Required'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'A newer version of Apne Saathi is available. Please update to continue using the app.',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Your version: ${result.currentVersion}\nRequired: ${result.minimumVersion}',
+                style: const TextStyle(color: Color(0xFF5A6B74), fontSize: 13),
+              ),
+              if (!hasUrl) ...<Widget>[
+                const SizedBox(height: 10),
+                const Text(
+                  'Contact your admin to get the latest APK file.',
+                  style: TextStyle(color: Color(0xFF5A6B74), fontSize: 13),
+                ),
+              ],
+            ],
+          ),
+          actions: <Widget>[
+            if (hasUrl)
+              FilledButton.icon(
+                onPressed: () async {
+                  final uri = Uri.tryParse(result.downloadUrl!);
+                  if (uri != null) {
+                    await launchUrl(
+                      uri,
+                      // externalApplication opens the browser/download manager
+                      // so Android prompts to install the APK directly.
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Download Update'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F3A4A),
+                ),
+              )
+            else
+              FilledButton(
+                onPressed: null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F3A4A),
+                ),
+                child: const Text('Contact Admin for Update'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

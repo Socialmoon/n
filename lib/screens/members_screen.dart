@@ -1,12 +1,13 @@
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
@@ -1750,13 +1751,18 @@ class _MembersScreenState extends State<MembersScreen> {
     }
 
     return ClipOval(
-      child: Image.network(
-        selfieUrl,
+      child: CachedNetworkImage(
+        imageUrl: selfieUrl,
+        httpHeaders: CdnConfig.headersFor(selfieUrl),
         width: 44,
         height: 44,
         fit: BoxFit.cover,
-        headers: supabaseImageHeaders(),
-        errorBuilder: (_, __, ___) => CircleAvatar(
+        placeholder: (_, __) => CircleAvatar(
+          radius: 22,
+          backgroundColor: const Color(0xFFE8F0F5),
+          child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        errorWidget: (_, __, ___) => CircleAvatar(
           radius: 22,
           backgroundColor: const Color(0xFFE8F0F5),
           child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),

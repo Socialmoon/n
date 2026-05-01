@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -6,9 +7,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
 import '../models/donation_entry.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/donation_service.dart';
 
@@ -240,13 +241,13 @@ class _DonationScreenState extends State<DonationScreen> {
                     child: hasCustomQr
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              customQrUrl,
+                            child: CachedNetworkImage(
+                              imageUrl: customQrUrl,
+                              httpHeaders: CdnConfig.headersFor(customQrUrl),
                               width: 210,
                               height: 210,
                               fit: BoxFit.cover,
-                              headers: supabaseImageHeaders(),
-                              errorBuilder: (_, __, ___) => QrImageView(
+                              errorWidget: (_, __, ___) => QrImageView(
                                 data: _upiUri,
                                 size: 210,
                                 backgroundColor: Colors.white,
@@ -597,15 +598,17 @@ class _DonationScreenState extends State<DonationScreen> {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        widget.donationService.customQrImageUrl!,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.donationService.customQrImageUrl!,
+                        httpHeaders: CdnConfig.headersFor(
+                            widget.donationService.customQrImageUrl!),
                         height: 180,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        headers: supabaseImageHeaders(),
-                        errorBuilder: (_, __, ___) => const SizedBox(
+                        errorWidget: (_, __, ___) => const SizedBox(
                           height: 60,
-                          child: Center(child: Text('Current QR preview unavailable.')),
+                          child: Center(
+                              child: Text('Current QR preview unavailable.')),
                         ),
                       ),
                     ),

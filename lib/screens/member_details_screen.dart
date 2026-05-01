@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 
 class MemberDetailsScreen extends StatefulWidget {
@@ -213,13 +214,21 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
             ),
           )
         : ClipOval(
-            child: Image.network(
-              _displayMember.selfieUrl,
+            child: CachedNetworkImage(
+              imageUrl: _displayMember.selfieUrl,
+              httpHeaders: CdnConfig.headersFor(_displayMember.selfieUrl),
               width: 64,
               height: 64,
               fit: BoxFit.cover,
-              headers: supabaseImageHeaders(),
-              errorBuilder: (_, __, ___) => CircleAvatar(
+              placeholder: (_, __) => CircleAvatar(
+                radius: 32,
+                backgroundColor: const Color(0xFFE8F0F5),
+                child: Text(
+                  initial,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
+              ),
+              errorWidget: (_, __, ___) => CircleAvatar(
                 radius: 32,
                 backgroundColor: const Color(0xFFE8F0F5),
                 child: Text(
@@ -281,11 +290,11 @@ class _MemberDetailsScreenState extends State<MemberDetailsScreen> {
           onTap: () => Navigator.of(context).pop(),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              url,
+            child: CachedNetworkImage(
+              imageUrl: url,
+              httpHeaders: CdnConfig.headersFor(url),
               fit: BoxFit.contain,
-              headers: supabaseImageHeaders(),
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
         ),

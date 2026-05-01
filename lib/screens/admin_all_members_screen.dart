@@ -1,9 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
@@ -168,13 +169,18 @@ class _AdminAllMembersScreenState extends State<AdminAllMembersScreen> {
     }
 
     return ClipOval(
-      child: Image.network(
-        selfieUrl,
+      child: CachedNetworkImage(
+        imageUrl: selfieUrl,
+        httpHeaders: CdnConfig.headersFor(selfieUrl),
         width: 40,
         height: 40,
         fit: BoxFit.cover,
-        headers: supabaseImageHeaders(),
-        errorBuilder: (_, __, ___) => CircleAvatar(
+        placeholder: (_, __) => CircleAvatar(
+          radius: 20,
+          backgroundColor: const Color(0xFFE8F0F5),
+          child: Text(initial),
+        ),
+        errorWidget: (_, __, ___) => CircleAvatar(
           radius: 20,
           backgroundColor: const Color(0xFFE8F0F5),
           child: Text(initial),
@@ -402,13 +408,18 @@ class _AdminMemberDetailsScreen extends StatelessWidget {
     }
 
     return ClipOval(
-      child: Image.network(
-        selfieUrl,
+      child: CachedNetworkImage(
+        imageUrl: selfieUrl,
+        httpHeaders: CdnConfig.headersFor(selfieUrl),
         width: 60,
         height: 60,
         fit: BoxFit.cover,
-        headers: supabaseImageHeaders(),
-        errorBuilder: (_, __, ___) => CircleAvatar(
+        placeholder: (_, __) => CircleAvatar(
+          radius: 30,
+          backgroundColor: const Color(0xFFE8F0F5),
+          child: Text(initial, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        ),
+        errorWidget: (_, __, ___) => CircleAvatar(
           radius: 30,
           backgroundColor: const Color(0xFFE8F0F5),
           child: Text(initial, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),

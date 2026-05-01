@@ -1,11 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
 import '../models/help_comment.dart';
 import '../models/help_post.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/help_feed_service.dart';
 import '../services/member_repository.dart';
@@ -145,13 +146,21 @@ class _HelpFeedScreenState extends State<HelpFeedScreen> {
                           ),
                         )
                       : ClipOval(
-                          child: Image.network(
-                            profileUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: profileUrl,
+                            httpHeaders: CdnConfig.headersFor(profileUrl),
                             width: 32,
                             height: 32,
                             fit: BoxFit.cover,
-                            headers: supabaseImageHeaders(),
-                            errorBuilder: (_, __, ___) => CircleAvatar(
+                            placeholder: (_, __) => CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFFE8F0F5),
+                              child: Text(
+                                initial,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => CircleAvatar(
                               radius: 16,
                               backgroundColor: const Color(0xFFE8F0F5),
                               child: Text(
@@ -634,13 +643,21 @@ class _HelpPostDetailScreenState extends State<_HelpPostDetailScreen> {
                       ),
                     )
                   : ClipOval(
-                      child: Image.network(
-                        commentSelfie,
+                      child: CachedNetworkImage(
+                        imageUrl: commentSelfie,
+                        httpHeaders: CdnConfig.headersFor(commentSelfie),
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        headers: supabaseImageHeaders(),
-                        errorBuilder: (_, __, ___) => CircleAvatar(
+                        placeholder: (_, __) => CircleAvatar(
+                          radius: 16,
+                          backgroundColor: const Color(0xFFE8F0F5),
+                          child: Text(
+                            commentInitial,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => CircleAvatar(
                           radius: 16,
                           backgroundColor: const Color(0xFFE8F0F5),
                           child: Text(

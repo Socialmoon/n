@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../core/cdn_config.dart';
 import '../core/supabase_config.dart';
 import '../core/time_utils.dart';
 
@@ -127,17 +128,21 @@ class Member {
     final expectedBase = Uri.parse(SupabaseConfig.url);
     final isSupabaseStoragePublicPath =
         uri.path.startsWith('/storage/v1/object/public/');
-    if (!isSupabaseStoragePublicPath || uri.host == expectedBase.host) {
+    if (!isSupabaseStoragePublicPath) {
       return value;
     }
 
-    return uri
-        .replace(
-          scheme: expectedBase.scheme,
-          host: expectedBase.host,
-          port: expectedBase.hasPort ? expectedBase.port : null,
-        )
-        .toString();
+    String normalized = value;
+    if (uri.host != expectedBase.host) {
+      normalized = uri
+          .replace(
+            scheme: expectedBase.scheme,
+            host: expectedBase.host,
+            port: expectedBase.hasPort ? expectedBase.port : null,
+          )
+          .toString();
+    }
+    return CdnConfig.rewrite(normalized);
   }
 
   Member copyWith({

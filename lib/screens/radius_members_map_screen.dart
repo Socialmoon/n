@@ -1,9 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/supabase_image_headers.dart';
+import '../core/cdn_config.dart';
 import '../models/member.dart';
 
 class RadiusMembersMapScreen extends StatelessWidget {
@@ -143,7 +144,10 @@ class RadiusMembersMapScreen extends StatelessWidget {
                       radius: 26,
                       backgroundColor: const Color(0xFFE8F0F5),
                       backgroundImage: selfieUrl.isNotEmpty
-                          ? NetworkImage(selfieUrl, headers: supabaseImageHeaders())
+                          ? CachedNetworkImageProvider(
+                              selfieUrl,
+                              headers: CdnConfig.headersFor(selfieUrl),
+                            )
                           : null,
                       child: selfieUrl.isEmpty
                           ? Text(initial, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))
@@ -331,13 +335,13 @@ class RadiusMembersMapScreen extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   )
-                : Image.network(
-                    selfieUrl,
+                : CachedNetworkImage(
+                    imageUrl: selfieUrl,
+                    httpHeaders: CdnConfig.headersFor(selfieUrl),
                     width: 54,
                     height: 54,
                     fit: BoxFit.cover,
-                    headers: supabaseImageHeaders(),
-                    errorBuilder: (_, __, ___) => CircleAvatar(
+                    errorWidget: (_, __, ___) => CircleAvatar(
                       backgroundColor: inRangeBackground,
                       child: Text(
                         initial,

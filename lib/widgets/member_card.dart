@@ -1,8 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/supabase_image_headers.dart';
+import '../core/cdn_config.dart';
 import '../models/member.dart';
 
 class MemberCard extends StatelessWidget {
@@ -112,13 +113,14 @@ class MemberCard extends StatelessWidget {
     }
 
     return ClipOval(
-      child: Image.network(
-        selfieUrl,
+      child: CachedNetworkImage(
+        imageUrl: selfieUrl,
+        httpHeaders: CdnConfig.headersFor(selfieUrl),
         width: 52,
         height: 52,
         fit: BoxFit.cover,
-        headers: supabaseImageHeaders(),
-        errorBuilder: (_, __, ___) => _buildInitialAvatar(initial),
+        placeholder: (_, __) => _buildInitialAvatar(initial),
+        errorWidget: (_, __, ___) => _buildInitialAvatar(initial),
       ),
     );
   }

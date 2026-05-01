@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -5,8 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
+import '../core/cdn_config.dart';
 import '../core/time_utils.dart';
-import '../core/supabase_image_headers.dart';
 import '../models/member.dart';
 import '../services/member_repository.dart';
 import 'member_details_screen.dart';
@@ -600,13 +601,14 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
               child: selfieUrl.isEmpty
                   ? CircleAvatar(radius: 28, child: Text(initial))
                   : ClipOval(
-                      child: Image.network(
-                        selfieUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: selfieUrl,
+                        httpHeaders: CdnConfig.headersFor(selfieUrl),
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
-                        headers: supabaseImageHeaders(),
-                        errorBuilder: (_, __, ___) => CircleAvatar(radius: 28, child: Text(initial)),
+                        placeholder: (_, __) => CircleAvatar(radius: 28, child: Text(initial)),
+                        errorWidget: (_, __, ___) => CircleAvatar(radius: 28, child: Text(initial)),
                       ),
                     ),
             ),
@@ -837,11 +839,11 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
         label: label,
         child: InkWell(
           onTap: () => _openImagePreview(path, label),
-          child: Image.network(
-            path,
+          child: CachedNetworkImage(
+            imageUrl: path,
+            httpHeaders: CdnConfig.headersFor(path),
             fit: BoxFit.contain,
-            headers: supabaseImageHeaders(),
-            errorBuilder: (_, __, ___) => const Center(child: Text('Preview unavailable')),
+            errorWidget: (_, __, ___) => const Center(child: Text('Preview unavailable')),
           ),
         ),
       );
@@ -897,11 +899,11 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
           backgroundColor: Colors.black,
           body: InteractiveViewer(
             child: Center(
-              child: Image.network(
-                path,
+              child: CachedNetworkImage(
+                imageUrl: path,
+                httpHeaders: CdnConfig.headersFor(path),
                 fit: BoxFit.contain,
-                headers: supabaseImageHeaders(),
-                errorBuilder: (_, __, ___) => const Text(
+                errorWidget: (_, __, ___) => const Text(
                   'Preview unavailable',
                   style: TextStyle(color: Colors.white),
                 ),
@@ -1300,11 +1302,11 @@ class _ApprovalReviewScreenState extends State<_ApprovalReviewScreen> {
             child: normalized.isEmpty
                 ? const Center(child: Text('Not set'))
                 : hasScheme
-                    ? Image.network(
-                        normalized,
+                    ? CachedNetworkImage(
+                        imageUrl: normalized,
+                        httpHeaders: CdnConfig.headersFor(normalized),
                         fit: BoxFit.cover,
-                        headers: supabaseImageHeaders(),
-                        errorBuilder: (_, __, ___) => const Center(child: Text('Preview unavailable')),
+                        errorWidget: (_, __, ___) => const Center(child: Text('Preview unavailable')),
                       )
                     : FutureBuilder<Uint8List>(
                         future: XFile(normalized).readAsBytes(),
