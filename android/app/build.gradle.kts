@@ -55,4 +55,7 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Required by Flutter's deferred components / split-install references
+    // so R8 can resolve Play Core classes during release shrinking.
+    implementation("com.google.android.play:core:1.10.3")
 }
