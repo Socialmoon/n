@@ -177,6 +177,25 @@ Tables and RLS policies are provided in:
 - [supabase/01_schema.sql](supabase/01_schema.sql)
 - [supabase/02_rls_policies.sql](supabase/02_rls_policies.sql)
 
+## Cloudflare / CDN R2
+
+Building an optimized APK via GitHub Actions
+ - A workflow is included at `.github/workflows/build-apk.yml` that builds a release APK (split per-ABI), uploads the APK artifacts, optionally uploads them to Cloudflare R2, and can update Supabase `app_download_fallback_url` when R2 upload is enabled.
+
+Triggering the workflow locally via GitHub CLI:
+
+```bash
+# Start a manual build (optional inputs: apk_version, upload_to_r2=true)
+gh workflow run "Build APK" -f apk_version=0.1.5 -f upload_to_r2=true
+
+# After the workflow finishes, download artifacts:
+gh run download <run-id> --pattern "apks*"
+```
+
+Secrets used when enabling R2 upload / Supabase update:
+- `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE`
+
 ## Notes
 
 - Member records and emergency alerts are synced to Supabase.
