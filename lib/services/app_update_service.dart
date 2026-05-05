@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'supabase_service.dart';
@@ -25,9 +28,17 @@ class AppUpdateService {
       : _cloudService = cloudService;
 
   final SupabaseService _cloudService;
+  static const Duration _urlProbeTimeout = Duration(seconds: 5);
 
-  /// Fetches `min_app_version` (and optionally `app_download_url`) from
-  /// Supabase `app_settings` and compares against the installed build version.
+  /// Fetches `min_app_version` and update URLs from Supabase `app_settings`
+  /// and compares against the installed build version.
+  ///
+  /// URL strategy:
+  /// - Primary key: `app_download_url`
+  /// - Fallback key: `app_download_fallback_url` (optional)
+  ///
+  /// If primary is not reachable (e.g. restricted/unavailable), fallback is
+  /// used when valid and reachable.
   ///
   /// Returns null if the check cannot be completed (no network, not configured).
   Future<UpdateCheckResult?> checkForUpdate() async {
@@ -42,8 +53,16 @@ class AppUpdateService {
       );
       if (minVersion == null || minVersion.trim().isEmpty) return null;
 
-      final downloadUrl = await _cloudService.fetchAppSetting(
+      final primaryDownloadUrl = await _cloudService.fetchAppSetting(
         key: 'app_download_url',
+      );
+      final fallbackDownloadUrl = await _cloudService.fetchAppSetting(
+        key: 'app_download_fallback_url',
+      );
+
+      final downloadUrl = await _pickDownloadUrl(
+        primary: primaryDownloadUrl,
+        fallback: fallbackDownloadUrl,
       );
 
       final required = _isUpdateRequired(current, minVersion.trim());
@@ -51,10 +70,59 @@ class AppUpdateService {
         isUpdateRequired: required,
         currentVersion: current,
         minimumVersion: minVersion.trim(),
-        downloadUrl: downloadUrl?.trim().isEmpty == true ? null : downloadUrl,
+        downloadUrl: downloadUrl,
       );
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<String?> _pickDownloadUrl({
+    required String? primary,
+    required String? fallback,
+  }) async {
+    final primaryUrl = _normalizeUrl(primary);
+    final fallbackUrl = _normalizeUrl(fallback);
+
+    if (primaryUrl == null) return fallbackUrl;
+
+    final primaryOk = await _isUrlReachable(primaryUrl);
+    if (primaryOk) return primaryUrl;
+
+    if (fallbackUrl != null) {
+      final fallbackOk = await _isUrlReachable(fallbackUrl);
+      if (fallbackOk) return fallbackUrl;
+    }
+
+    // Keep a usable URL for admin-controlled/manual recovery, even if probe
+    // fails due to transient connectivity from this device.
+    return fallbackUrl ?? primaryUrl;
+  }
+
+  static String? _normalizeUrl(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    return Uri.tryParse(normalized) == null ? null : normalized;
+  }
+
+  Future<bool> _isUrlReachable(String url) async {
+    final uri = Uri.parse(url);
+
+    try {
+      final response = await http
+          .head(uri)
+          .timeout(_urlProbeTimeout);
+      return response.statusCode >= 200 && response.statusCode < 400;
+    } catch (_) {
+      // Some endpoints do not allow HEAD; fallback to lightweight GET.
+      try {
+        final response = await http
+            .get(uri, headers: const <String, String>{'Range': 'bytes=0-0'})
+            .timeout(_urlProbeTimeout);
+        return response.statusCode >= 200 && response.statusCode < 400;
+      } catch (_) {
+        return false;
+      }
     }
   }
 

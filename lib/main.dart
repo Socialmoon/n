@@ -143,7 +143,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
             children: <Widget>[
               Icon(Icons.system_update_outlined, color: Color(0xFF0F3A4A)),
               SizedBox(width: 10),
-              Text('Update Required'),
+              Text('App Update Available'),
             ],
           ),
           content: Column(
@@ -151,7 +151,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const Text(
-                'A newer version of Apne Saathi is available. Please update to continue using the app.',
+                'A newer version of Apne Saathi is available. Download the APK to continue using the app.',
               ),
               const SizedBox(height: 12),
               Text(
@@ -170,19 +170,9 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
           actions: <Widget>[
             if (hasUrl)
               FilledButton.icon(
-                onPressed: () async {
-                  final uri = Uri.tryParse(result.downloadUrl!);
-                  if (uri != null) {
-                    await launchUrl(
-                      uri,
-                      // externalApplication opens the browser/download manager
-                      // so Android prompts to install the APK directly.
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                },
+                onPressed: () => _openUpdateDownload(result.downloadUrl!),
                 icon: const Icon(Icons.download_outlined),
-                label: const Text('Download Update'),
+                label: const Text('Download APK'),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0F3A4A),
                 ),
@@ -199,6 +189,38 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
         ),
       ),
     );
+  }
+
+  Future<void> _openUpdateDownload(String downloadUrl) async {
+    final uri = Uri.tryParse(downloadUrl.trim());
+    if (uri == null) {
+      _showUpdateSnackBar('The update link is invalid. Please contact your admin.');
+      return;
+    }
+
+    final launched = await launchUrl(
+      uri,
+      // externalApplication opens the browser/download manager so Android
+      // can download or install the APK from the public URL.
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched) {
+      _showUpdateSnackBar('Could not open the update link on this device.');
+      return;
+    }
+
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+
+  void _showUpdateSnackBar(String message) {
+    final messenger = _messengerKey.currentState;
+    if (messenger == null) return;
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

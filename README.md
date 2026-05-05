@@ -195,12 +195,13 @@ Every profile photo and donation screenshot is automatically compressed to WebP 
 ### Layer 2 — Cloudflare CDN (one-time setup)
 
 1. Add your domain to Cloudflare (free plan is fine).
+  If the zone shows as pending, update the domain's nameservers at your registrar to the two Cloudflare nameservers shown in the dashboard.
 2. Create a DNS CNAME record:
    ```
-   img.yourdomain.com  →  iuhecyqizatkiskoznwq.supabase.co
+  img.vaibhavsaini.in  →  iuhecyqizatkiskoznwq.supabase.co
    ```
 3. In Cloudflare dashboard → **Rules → Cache Rules**, add:
-   - URL pattern: `img.yourdomain.com/*`
+  - URL pattern: `img.vaibhavsaini.in/*`
    - Cache: **Cache Everything**
    - Edge TTL: **1 month**
    - Browser TTL: **7 days**
@@ -209,17 +210,49 @@ Every profile photo and donation screenshot is automatically compressed to WebP 
    flutter run \
      --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
      --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
-     --dart-define=CDN_BASE_URL=https://img.yourdomain.com
+  --dart-define=CDN_BASE_URL=https://img.vaibhavsaini.in
    ```
    For release APK:
    ```bash
    flutter build apk --release \
      --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
      --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
-     --dart-define=CDN_BASE_URL=https://img.yourdomain.com
+  --dart-define=CDN_BASE_URL=https://img.vaibhavsaini.in
    ```
 
 When `CDN_BASE_URL` is set, all Supabase Storage URLs are automatically rewritten to go through Cloudflare. CDN-served images require no `apikey` header, so Cloudflare caches them correctly. If `CDN_BASE_URL` is not set, the app falls back to direct Supabase URLs transparently.
+
+### Optional local `.env` values for Cloudflare
+
+If you want to keep Cloudflare settings in the repo's local `.env`, add values like these:
+
+```text
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_ZONE_ID=
+CLOUDFLARE_MEDIA_HOST=img.vaibhavsaini.in
+CLOUDFLARE_R2_BUCKET=app-releases
+CLOUDFLARE_R2_PUBLIC_BASE_URL=
+CLOUDFLARE_CDN_BASE_URL=https://img.vaibhavsaini.in
+```
+
+Use them as follows:
+
+- `CLOUDFLARE_CDN_BASE_URL` maps to the Flutter build flag `CDN_BASE_URL`.
+- `CLOUDFLARE_R2_PUBLIC_BASE_URL` is the public APK download URL you save in Supabase `app_settings.app_download_url`.
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_ZONE_ID` are for terminal scripts or manual Cloudflare API work, not for the Flutter app.
+
+To run Flutter using the `.env` values, use the helper script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/flutter_from_env.ps1 -Mode run
+```
+
+For a release APK:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/flutter_from_env.ps1 -Mode build-apk
+```
 
 ### Layer 3 — Flutter disk cache
 `cached_network_image` caches every image to device disk. Users scrolling through the member list will not re-download the same avatars on subsequent app sessions.

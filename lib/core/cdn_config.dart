@@ -1,21 +1,21 @@
 import 'supabase_config.dart';
 
 /// Rewrites a Supabase Storage public URL to go through the CDN host when one
-/// is configured via --dart-define=CDN_BASE_URL=https://img.yourdomain.com
+/// is configured via --dart-define=CDN_BASE_URL=https://img.vaibhavsaini.in
 ///
 /// If no CDN is configured the original Supabase URL is returned unchanged so
 /// the app works out-of-the-box without any CDN setup.
 ///
 /// Cloudflare setup (one-time, no code changes needed after):
 ///   1. Add your domain to Cloudflare (free plan is fine).
-///   2. Create a CNAME:  img.yourdomain.com  →  <project>.supabase.co
+///   2. Create a CNAME:  img.vaibhavsaini.in  →  <project>.supabase.co
 ///   3. Add a Cache Rule in Cloudflare:
-///        URL pattern : img.yourdomain.com/*
+///        URL pattern : img.vaibhavsaini.in/*
 ///        Cache       : Cache Everything
 ///        Edge TTL    : 1 month
 ///        Browser TTL : 7 days
 ///   4. Build the app with:
-///        --dart-define=CDN_BASE_URL=https://img.yourdomain.com  (no angle brackets needed)
+///        --dart-define=CDN_BASE_URL=https://img.vaibhavsaini.in  (no angle brackets needed)
 ///
 /// Images served through CDN do NOT need the Supabase apikey header because
 /// Cloudflare caches the public-bucket response and serves it directly.

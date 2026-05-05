@@ -40,12 +40,14 @@ to authenticated
 using (bucket_id = 'app-releases' and public.is_app_admin());
 
 -- 4. Seed the app_settings rows.
---    After uploading your APK to Supabase Storage, update app_download_url to:
+--    After uploading your APK to Supabase Storage, Cloudflare R2, or any
+--    other public HTTPS host, update app_download_url to:
 --    https://<project-ref>.supabase.co/storage/v1/object/public/app-releases/apne-saathi-latest.apk
 insert into public.app_settings (key, value)
 values
   ('min_app_version', '0.0.0'),
-  ('app_download_url', '')
+  ('app_download_url', ''),
+  ('app_download_fallback_url', '')
 on conflict (key) do nothing;
 
 -- 5. HOW TO RELEASE A NEW VERSION:
@@ -64,6 +66,12 @@ on conflict (key) do nothing;
 --      update public.app_settings
 --      set value = 'https://YOUR_PROJECT_REF.supabase.co/storage/v1/object/public/app-releases/apne-saathi-latest.apk'
 --      where key = 'app_download_url';
+--
+--      Optional fallback (recommended): set Cloudflare/R2 URL for automatic
+--      failover if primary URL is restricted or unavailable.
+--      update public.app_settings
+--      set value = 'https://YOUR_R2_OR_CLOUDFLARE_PUBLIC_URL/apne-saathi-latest.apk'
+--      where key = 'app_download_fallback_url';
 --
 --    Step 3 — Bump the minimum version to force old users to update:
 --      update public.app_settings set value = '0.1.5' where key = 'min_app_version';
