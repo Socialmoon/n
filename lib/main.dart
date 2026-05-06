@@ -12,6 +12,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
 import 'screens/posting_details_update_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/version_gate_screen.dart';
 import 'services/app_language_service.dart';
 import 'services/app_update_service.dart';
 import 'services/auth_service.dart';
@@ -22,6 +23,7 @@ import 'services/local_notification_service.dart';
 import 'services/member_repository.dart';
 import 'services/supabase_service.dart';
 import 'services/background_tasks.dart';
+import 'services/version_gate_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +62,7 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
   bool _loading = true;
   Member? _currentUser;
   Timer? _inactivityTimer;
+  VersionBlockReason? _versionBlockReason;
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
@@ -80,6 +83,11 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
     Member? sessionUser;
     try {
       await _supabaseService.initialize().timeout(_startupTimeout);
+      
+      // Check app version gate EARLY - before loading any data
+      final versionGate = VersionGateService(supabaseService: _supabaseService);
+      _versionBlockReason = await versionGate.checkVersionGate();
+      
       await _repository.load().timeout(_startupTimeout);
       await _repository.seedAdminIfNeeded().timeout(_startupTimeout);
       await _authService.initialize().timeout(_startupTimeout);
@@ -365,30 +373,30 @@ class _ApneSaathiAppState extends State<ApneSaathiApp> {
                             _startInactivityTimer();
                           },
                         )
-                  : MainShellScreen(
-                      currentUser: _currentUser!,
-                      repository: _repository,
-                      authService: _authService,
-                      donationService: _donationService,
-                      emergencyService: _emergencyService,
-                      helpFeedService: _helpFeedService,
-                      onCurrentUserUpdated: (member) {
-                        setState(() {
-                          _currentUser = member;
-                        });
-                        _startInactivityTimer();
-                      },
-                      onLogout: () async {
-                        await _authService.logout();
-                        if (!mounted) {
-                          return;
-                        }
-                        setState(() {
-                          _currentUser = null;
-                        });
-                        _stopInactivityTimer();
-                      },
-                    ),
+                      : MainShellScreen(
+                          currentUser: _currentUser!,
+                          repository: _repository,
+                          authService: _authService,
+                          donationService: _donationService,
+                          emergencyService: _emergencyService,
+                          helpFeedService: _helpFeedService,
+                          onCurrentUserUpdated: (member) {
+                            setState(() {
+                              _currentUser = member;
+                            });
+                            _startInactivityTimer();
+                          },
+                          onLogout: () async {
+                            await _authService.logout();
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _currentUser = null;
+                            });
+                            _stopInactivityTimer();
+                          },
+                        ),
           builder: (context, child) {
             final media = MediaQuery.of(context);
             final compactScale = media.size.width < 420 ? 0.94 : 1.0;
