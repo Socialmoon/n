@@ -1,13 +1,21 @@
 name: Publish APK Release
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: publish-apk-release
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'avinash5020'
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -38,12 +46,18 @@ jobs:
 
       - name: Prepare release metadata
         id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="apk-$(date +%Y%m%d-%H%M%S)"
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           APP_VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
           SAFE_VERSION="$(echo "$APP_VERSION" | tr '+' '-')"
           RELEASE_APK="apne-saathi-v${SAFE_VERSION}.apk"
+          TAG="v${APP_VERSION}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            TAG="v${APP_VERSION}-build-${GITHUB_RUN_NUMBER}"
+          fi
 
           test -f "$APK_PATH"
           cp "$APK_PATH" "$RELEASE_APK"
