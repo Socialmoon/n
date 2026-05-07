@@ -45,6 +45,6 @@ switch ($Mode) {
     flutter run @defines
   }
   'build-apk' {
-    flutter build apk --release @defines
+    flutter build apk --release --split-per-abi @defines
   }
 }

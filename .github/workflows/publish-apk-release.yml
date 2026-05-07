@@ -38,7 +38,7 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_ANON_KEY"
           test -n "$CDN_BASE_URL"
-          flutter build apk --release \
+          flutter build apk --release --split-per-abi \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --dart-define=CDN_BASE_URL="$CDN_BASE_URL"
@@ -47,7 +47,7 @@ jobs:
         env:
           CDN_BASE_URL: ${{ secrets.CLOUDFLARE_CDN_BASE_URL }}
         run: |
-          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          APK_PATH="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
           CDN_HOST="$(echo "$CDN_BASE_URL" | sed -E 's#^https?://##; s#/.*$##')"
           test -f "$APK_PATH"
           test -n "$CDN_HOST"
@@ -58,10 +58,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          APK_PATH="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
           APP_VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
           SAFE_VERSION="$(echo "$APP_VERSION" | tr '+' '-')"
-          RELEASE_APK="apne-saathi-v${SAFE_VERSION}.apk"
+          RELEASE_APK="apne-saathi-v${SAFE_VERSION}-arm64-v8a.apk"
           TAG="v${APP_VERSION}"
 
           if gh release view "$TAG" >/dev/null 2>&1; then

@@ -8,7 +8,20 @@ const SUPABASE_URL = 'https://iuhecyqizatkiskoznwq.supabase.co';
 const PROJECT_REF = 'iuhecyqizatkiskoznwq';
 // Use service role key - admin has full permissions, bypasses RLS
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const APK_PATH = path.join(__dirname, 'releases/apne-saathi.apk');
+const APK_CANDIDATES = [
+  path.join(__dirname, 'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk'),
+  path.join(__dirname, 'releases/apne-saathi.apk'),
+];
+
+function resolveApkPath() {
+  for (const candidate of APK_CANDIDATES) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return APK_CANDIDATES[0];
+}
 const BUCKET_NAME = 'app-releases';
 const FILE_NAME = 'apne-saathi-latest.apk';
 
@@ -16,6 +29,8 @@ async function uploadAPK() {
   console.log('📤 Uploading APK to Supabase Storage...\n');
 
   // Check if file exists
+  const APK_PATH = resolveApkPath();
+
   if (!fs.existsSync(APK_PATH)) {
     console.error(`❌ APK not found: ${APK_PATH}`);
     process.exit(1);
