@@ -26,8 +26,18 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK (split per ABI)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CDN_BASE_URL: ${{ secrets.CLOUDFLARE_CDN_BASE_URL }}
         run: |
-          flutter build apk --release --split-per-abi
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$CDN_BASE_URL"
+          flutter build apk --release --split-per-abi \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=CDN_BASE_URL="$CDN_BASE_URL"
 
       - name: Collect APK artifacts
         uses: actions/upload-artifact@v4

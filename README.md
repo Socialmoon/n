@@ -45,7 +45,7 @@ flutter run
 Build a release APK:
 
 ```bash
-flutter build apk --release
+.\tools\flutter_from_env.ps1 -Mode build-apk
 ```
 
 Runtime values such as Supabase keys, OTP secrets, CDN settings, and release storage details should stay outside the README and be managed through local environment files, Supabase settings, or private deployment scripts.

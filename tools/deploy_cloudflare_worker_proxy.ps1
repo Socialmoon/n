@@ -26,16 +26,19 @@ $workerCode = @'
 export default {
   async fetch(request, env, ctx) {
     const incomingUrl = new URL(request.url);
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method Not Allowed', { status: 405 });
+    }
+
     const upstreamUrl = `https://iuhecyqizatkiskoznwq.supabase.co${incomingUrl.pathname}${incomingUrl.search}`;
 
     const upstreamReq = new Request(upstreamUrl, {
       method: request.method,
-      headers: request.headers,
-      body: request.body,
       redirect: 'follow',
       cf: {
         cacheEverything: true,
         cacheTtl: 2592000,
+        cacheKey: upstreamUrl,
       },
     });
 
@@ -43,6 +46,8 @@ export default {
     const headers = new Headers(upstreamRes.headers);
 
     // Keep browsers warm for 7 days and Cloudflare edge for 30 days.
+    headers.delete('Set-Cookie');
+    headers.set('X-Apne-Saathi-CDN', 'cloudflare-worker');
     headers.set('Cache-Control', 'public, max-age=604800, s-maxage=2592000');
     headers.set('CDN-Cache-Control', 'public, max-age=2592000');
 
