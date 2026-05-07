@@ -18,6 +18,7 @@ class SupabaseService {
   bool _initialized = false;
   String? _lastWriteError;
   String? _lastUploadError;
+  bool? _mediaIsPrivate;
   static const Duration _initTimeout = Duration(seconds: 20);
   static const String _mediaBucket = 'app-media';
   static final Random _random = Random.secure();
@@ -67,6 +68,74 @@ class SupabaseService {
     }
   }
 
+  Future<bool> _isPrivateMediaEnabled() async {
+    if (_mediaIsPrivate != null) {
+      return _mediaIsPrivate!;
+    }
+    final value = await fetchAppSetting(key: 'app_media_is_private');
+    _mediaIsPrivate = value?.toLowerCase() == 'true';
+    return _mediaIsPrivate!;
+  }
+
+  String? storagePathFromMediaValue(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme) {
+      if (trimmed.startsWith('app-media/')) {
+        return trimmed.substring('app-media/'.length);
+      }
+      return trimmed;
+    }
+
+    final publicPrefix = '/storage/v1/object/public/$_mediaBucket/';
+    final signedPrefix = '/storage/v1/object/sign/$_mediaBucket/';
+    if (uri.path.startsWith(publicPrefix)) {
+      return uri.path.substring(publicPrefix.length);
+    }
+    if (uri.path.startsWith(signedPrefix)) {
+      final path = uri.path.substring(signedPrefix.length);
+      return path.split('?').first;
+    }
+
+    return trimmed;
+  }
+
+  Future<String?> resolveMediaUrl(String? value) async {
+    final storagePath = storagePathFromMediaValue(value);
+    if (storagePath == null || storagePath.isEmpty) {
+      return null;
+    }
+
+    if (await _isPrivateMediaEnabled()) {
+      try {
+        return await Supabase.instance.client.storage
+            .from(_mediaBucket)
+            .createSignedUrl(storagePath, 60 * 60 * 24);
+      } catch (error) {
+        debugPrint('Supabase createSignedUrl failed: $error');
+        return null;
+      }
+    }
+
+    final publicUrl = Supabase.instance.client.storage
+        .from(_mediaBucket)
+        .getPublicUrl(storagePath);
+    return CdnConfig.rewrite(publicUrl);
+  }
+
+  Future<Member> _hydrateMemberMedia(Member member) async {
+    final selfieUrl = await resolveMediaUrl(member.selfiePath);
+    final idCardUrl = await resolveMediaUrl(member.idCardPhotoPath);
+    return member.copyWith(
+      selfiePath: selfieUrl,
+      idCardPhotoPath: idCardUrl,
+    );
+  }
+
   Future<List<Member>> fetchMembers() async {
     if (!isConfigured) {
       return <Member>[];
@@ -86,7 +155,7 @@ class SupabaseService {
       for (final row in rows) {
         final member = _tryMemberFromRow(row as Map<String, dynamic>);
         if (member != null) {
-          members.add(member);
+          members.add(await _hydrateMemberMedia(member));
         }
       }
       return members;
@@ -126,7 +195,7 @@ class SupabaseService {
           if (member != null &&
               (latestMatch == null ||
                   member.lastUpdated.isAfter(latestMatch.lastUpdated))) {
-            latestMatch = member;
+            latestMatch = await _hydrateMemberMedia(member);
           }
         }
         if (latestMatch != null) {
@@ -166,7 +235,7 @@ class SupabaseService {
         if (member != null &&
             (latestMatch == null ||
                 member.lastUpdated.isAfter(latestMatch.lastUpdated))) {
-          latestMatch = member;
+          latestMatch = await _hydrateMemberMedia(member);
         }
       }
       return latestMatch;
@@ -202,7 +271,7 @@ class SupabaseService {
         if (rows.isNotEmpty) {
           final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
           if (member != null) {
-            latestMatch = member;
+            latestMatch = await _hydrateMemberMedia(member);
           }
         }
       } catch (error) {
@@ -236,7 +305,8 @@ class SupabaseService {
       if (rows.isEmpty) {
         return null;
       }
-      return _tryMemberFromRow(rows.first as Map<String, dynamic>);
+      final member = _tryMemberFromRow(rows.first as Map<String, dynamic>);
+      return member == null ? null : await _hydrateMemberMedia(member);
     } catch (error) {
       debugPrint('Supabase REST fallback fetchMemberByEmail failed: $error');
       return null;
@@ -888,11 +958,7 @@ class SupabaseService {
                 contentType: contentType,
               ),
             );
-        final publicUrl =
-            client.storage.from(_mediaBucket).getPublicUrl(path);
-        // Return raw Supabase URL — CDN rewriting happens at read time
-        // via _normalizeMediaUrl so the DB always stores canonical URLs.
-        return publicUrl;
+            return path;
       } catch (error) {
         final text = error.toString().toLowerCase();
         final looksLikeConflict =
@@ -927,10 +993,7 @@ class SupabaseService {
           body: uploadBytes,
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          final publicUrl =
-              client.storage.from(_mediaBucket).getPublicUrl(path);
-          // Return raw Supabase URL — CDN rewriting happens at read time.
-          return publicUrl;
+          return path;
         }
 
         final looksLikeConflict = response.statusCode == 409;
@@ -1041,8 +1104,8 @@ class SupabaseService {
       'mpin': member.mpin,
       'reference_mobile_number': member.referenceMobileNumber,
       'reference_member_name': member.referenceMemberName,
-      'selfie_path': member.selfiePath,
-      'id_card_photo_path': member.idCardPhotoPath,
+      'selfie_path': storagePathFromMediaValue(member.selfiePath),
+      'id_card_photo_path': storagePathFromMediaValue(member.idCardPhotoPath),
       'home_district': member.homeDistrict,
       'home_state': member.homeState,
       'posting_district': member.postingDistrict,

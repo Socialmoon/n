@@ -3204,6 +3204,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         folder: 'member-docs',
         fileName: 'selfie_$baseName.jpg',
       );
+      final resolvedSelfieUrl = selfieUrl == null
+          ? null
+          : await mediaService.resolveMediaUrl(selfieUrl);
       String? idCardUrl;
       if (_idCardPhoto != null) {
         final idCardBytes = await _idCardPhoto!.readAsBytes();
@@ -3213,6 +3216,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           fileName: 'id_card_$baseName.jpg',
         );
       }
+      final resolvedIdCardUrl = idCardUrl == null
+          ? null
+          : await mediaService.resolveMediaUrl(idCardUrl);
 
       if (selfieUrl == null || (_idCardPhoto != null && idCardUrl == null)) {
         final uploadError = mediaService.lastUploadError;
@@ -3260,8 +3266,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         mpin: _mpinController.text.trim(),
         referenceMobileNumber: _referenceController.text.trim(),
         referenceMemberName: _referenceMember?.name,
-        selfiePath: selfieUrl,
-        idCardPhotoPath: idCardUrl,
+        selfiePath: resolvedSelfieUrl ?? selfieUrl,
+        idCardPhotoPath: resolvedIdCardUrl ?? idCardUrl,
         homeDistrict: effectiveHomeDistrict,
         homeState: effectiveHomeState,
         postingDistrict: effectivePostingDistrict,

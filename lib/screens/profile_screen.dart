@@ -1203,7 +1203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _showMessage(message);
         return false;
       }
-      selfiePath = uploaded;
+      selfiePath = await widget.repository.cloudService.resolveMediaUrl(uploaded) ?? uploaded;
     }
 
     Member updated;
